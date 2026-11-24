@@ -311,6 +311,13 @@ final class PainelMasterControllerTest extends JusPrimeWebTestCase
         $todas = json_decode((string) $client->getResponse()->getContent(), true);
         self::assertSame(1, $todas['paginas']);
         self::assertCount($todas['total'], $todas['registros']);
+
+        // Busca (M3): o `q` chega ao UseCase; um termo que nada casa zera o total, e menos de 3 letras não filtra.
+        $client->request('GET', '/master/dados/auditoria?q=' . rawurlencode('termo-que-nenhum-registro-tem-xyz'));
+        self::assertResponseIsSuccessful();
+        self::assertSame(0, json_decode((string) $client->getResponse()->getContent(), true)['total']);
+        $client->request('GET', '/master/dados/auditoria?q=xy');
+        self::assertSame($padrao['total'], json_decode((string) $client->getResponse()->getContent(), true)['total']);
     }
 
     #[TestDox('IBGE fora do ar e sem retrato: 503 com a mensagem do desenho')]

@@ -257,6 +257,35 @@ final class ConsultasDoPainelTest extends KernelTestCase
         self::assertSame([0, 1, 1, []], [$nada['total'], $nada['pagina'], $nada['paginas'], $nada['registros']]);
     }
 
+    #[TestDox('Busca da trilha (M3): procura em conta, ação e detalhe sem acento nem maiúsculas, a partir de 3 letras, junto com os outros filtros e no PDF')]
+    public function testAuditoriaComBusca(): void
+    {
+        $conexao = self::getContainer()->get(Connection::class);
+        $agora = (new \DateTimeImmutable('+1 hour'))->format('Y-m-d H:i:s');
+        $conta = 999999997;
+        for ($i = 0; $i < 4; ++$i) {
+            $conexao->insert('audit_log', ['action' => 'update', 'entity_class' => User::class, 'entity_id' => (string) $i,
+                'changes' => '{"diff":{"changes":{"fullName":{"from":"a","to":"b"}}}}', 'tenant_id' => $conta, 'created_at' => $agora]);
+        }
+        for ($i = 0; $i < 2; ++$i) {
+            $conexao->insert('audit_log', ['action' => 'purge', 'entity_class' => Tenant::class, 'entity_id' => (string) $i,
+                'changes' => '{"nome":"Escritório Ômega Busca","motivo":"quarentena_expirada"}', 'tenant_id' => $conta, 'created_at' => $agora]);
+        }
+        $useCase = self::getContainer()->get(ConsultarAuditoriaUseCase::class);
+
+        $porConta = $useCase->executar(conta: $conta, busca: '  omega busca ');
+        self::assertSame(2, $porConta['total'], 'o nome da conta purgada casa sem acento, sem maiúsculas e sem os espaços das pontas');
+        self::assertSame(['Escritório Ômega Busca'], array_values(array_unique(array_column($porConta['registros'], 'conta'))));
+        self::assertSame(['limites' => 0, 'contas' => 2, 'masters' => 0, 'alertas' => 0], $porConta['resumo'], 'as pílulas contam o resultado da busca');
+        self::assertContains('Usuário alterado', $porConta['tipos'], 'a lista de ações não encolhe com a busca');
+
+        self::assertSame(4, $useCase->executar(conta: $conta, busca: 'USUÁRIO ALTERADO')['total'], 'a ação traduzida também é procurada');
+        self::assertSame(6, $useCase->executar(conta: $conta, busca: 'om')['total'], 'menos de 3 letras não filtra');
+        self::assertSame(0, $useCase->executar(conta: $conta, busca: 'nada parecido')['total']);
+        self::assertSame(0, $useCase->executar(tipo: 'Usuário alterado', conta: $conta, busca: 'ômega')['total'], 'a busca soma com o filtro de ação');
+        self::assertCount(2, $useCase->executar(porPagina: 20, conta: $conta, todas: true, busca: 'omega')['registros'], 'o PDF leva a busca');
+    }
+
     /**
      * @return array<string, mixed>
      */

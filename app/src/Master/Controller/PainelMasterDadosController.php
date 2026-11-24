@@ -126,7 +126,8 @@ final class PainelMasterDadosController extends AbstractController
 
     /**
      * Trilha paginada no servidor: `pagina`, `porPagina` (20, 50 ou 100), `tipo` (rótulo da ação), `conta` (id) e
-     * `todas=1` (o filtro inteiro, para o PDF). Valor inválido cai no padrão do UseCase.
+     * `todas=1` (o filtro inteiro, para o PDF) e `q` (busca em responsável, conta, ação e detalhe, a partir de 3 letras).
+     * Valor inválido cai no padrão do UseCase.
      */
     #[Route('/auditoria', name: 'master_dados_auditoria', methods: ['GET'])]
     public function auditoria(ConsultarAuditoriaUseCase $useCase, Request $request): JsonResponse
@@ -140,6 +141,7 @@ final class PainelMasterDadosController extends AbstractController
             tipo: $q->getString('tipo'),
             conta: $conta > 0 ? $conta : null,
             todas: $q->getBoolean('todas'),
+            busca: $q->getString('q'),
         ));
     }
 }

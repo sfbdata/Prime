@@ -43,7 +43,7 @@
   const agora = () => dataHora(new Date().toISOString());
 
   const S = { aba: 'painel', sec: 'visao', grMet: 'pastas', grVis: 'mes', grMod: 'acum', grAce: false, grSel: null, mapaModo: 'br', mapaQuem: 'esc', mapaUsu: 'geral', mapaInd: 'env',
-    faltamOn: false, faltamCid: false, busca: '', cOrd: 'num', fSit: '', rBusca: '', rOrd: 'cons', menu: null, menuPos: null, audTipo: '', audConta: null, audPag: 1, audPor: 50, aviso: null, fx: null, fxMsg: null };
+    faltamOn: false, faltamCid: false, busca: '', cOrd: 'num', fSit: '', rBusca: '', rOrd: 'cons', menu: null, menuPos: null, audTipo: '', audConta: null, audPag: 1, audPor: 50, audBusca: '', audTermo: '', audSeq: 0, aviso: null, fx: null, fxMsg: null };
   let CONVENIO = {}; // sigla => estado do convênio (do painel Convênio OAB), mais novo que o das contas carregadas
   const D = { visao: null, contas: null, oab: null, audit: null, planos: null };
   const ERRO = {};
@@ -91,6 +91,7 @@
   /* ---------- carga ---------- */
   const carregar = (chave, url) => {
     if (D[chave] || ERRO[chave] === 'carregando') return;
+    if (chave === 'audit') return pedirTrilha();
     ERRO[chave] = 'carregando';
     fetch(url, { credentials: 'same-origin', headers: { Accept: 'application/json' } })
       .then(r => (r.ok ? r.json() : Promise.reject(r.status)))
@@ -102,7 +103,7 @@
   const deps = sec => precisa[sec] || [];
   // A trilha é paginada e filtrada no servidor: a URL leva página, "por página", ação e conta do estado (S.aud*).
   const urlDaTrilha = extra => URLS.auditoria + '?' + new URLSearchParams(Object.assign({ pagina: S.audPag, porPagina: S.audPor },
-    S.audTipo ? { tipo: S.audTipo } : {}, S.audConta !== null ? { conta: S.audConta } : {}, extra || {}));
+    S.audTipo ? { tipo: S.audTipo } : {}, S.audConta !== null ? { conta: S.audConta } : {}, S.audTermo ? { q: S.audTermo } : {}, extra || {}));
   const urlDe = { visao: URLS.visao, contas: URLS.contas, oab: URLS.oab, get audit() { return urlDaTrilha(); }, planos: URLS.planos };
   const aguardando = chave => (ERRO[chave] === 'falhou'
     ? '<div class="mp-card mp-carregando">' + T('master.js.erro_secao') + '</div>'
@@ -1382,18 +1383,50 @@
   // Filtro ou página mudou: a trilha volta do servidor (o selo mantém S.nAud enquanto isso).
   function recarregarTrilha(paginaNova) { S.audPag = paginaNova || 1; D.audit = null; ERRO.audit = null; renderSecao(); }
 
+  // Todo pedido da trilha passa por aqui (a carga da seção, a página, a ação, a conta e a busca) e só a última resposta
+  // vale (audSeq): uma resposta antiga que chegue atrasada é descartada, venha de onde vier. Depois de desenhar, o foco
+  // volta ao campo de busca se estava nele.
+  function pedirTrilha() {
+    const pedido = ++S.audSeq;
+    ERRO.audit = 'carregando';
+    fetch(urlDaTrilha(), { credentials: 'same-origin', headers: { Accept: 'application/json' } })
+      .then(r => (r.ok ? r.json() : Promise.reject(r.status)))
+      .then(j => {
+        if (pedido !== S.audSeq) return;
+        D.audit = j; ERRO.audit = null; renderSecs();
+        if (S.sec !== 'audit') return;
+        const campo = elSecao.querySelector('[data-aud-busca]'), comFoco = campo && document.activeElement === campo;
+        renderSecao();
+        const novo = elSecao.querySelector('[data-aud-busca]');
+        if (comFoco && novo) { novo.focus(); novo.setSelectionRange(novo.value.length, novo.value.length); }
+      })
+      .catch(() => { if (pedido !== S.audSeq) return; ERRO.audit = 'falhou'; if (S.sec === 'audit') renderSecao(); });
+  }
+
+  // Busca da trilha (pedido M3 do Farlei, 24/11): vai ao servidor, que procura em responsável, conta, ação e detalhe
+  // a partir de 3 letras (ConsultarAuditoriaUseCase::BUSCA_MINIMO), nas mesmas últimas 1000 linhas dos outros filtros.
+  // A lista atual fica na tela até a resposta chegar (sem o "carregando", que tiraria o campo no meio da digitação).
+  const BUSCA_MINIMO = 3;
+  const buscarNaTrilha = window.BJBusca.atrasar(() => {
+    const termo = window.BJBusca.termo(S.audBusca, BUSCA_MINIMO);
+    if (termo === S.audTermo) return;
+    S.audTermo = termo; S.audPag = 1;
+    pedirTrilha();
+  }, 300);
+
   function montarAudit() {
     const A = D.audit;
     const resumo = [[T('master.js.audit.resumo.limites'), 'bi-hdd', '#0a6fa0', '#e5f1f7', 'limites'], [T('master.js.audit.resumo.contas'), 'bi-buildings', '#8a5a12', '#fbf1dc', 'contas'], [T('master.js.audit.resumo.masters'), 'bi-stars', '#7a3e8f', '#f3e9f7', 'masters'], [T('master.js.audit.resumo.alertas'), 'bi-exclamation-triangle', '#a3232b', '#fbe7e7', 'alertas']];
     elSecao.innerHTML = '<div class="mp-card mp-audit"><div class="mp-audit-cab"><b>' + T('master.js.audit.titulo') + ' <span>' + T('master.js.audit.contagem', { n: num(A.total), meses: A.meses }) + (A.truncado ? ' · ' + T('master.js.audit.truncado', { n: num(A.limite) }) : '') + '</span></b>'
       + '<select class="mp-select" data-aud-tipo><option value="">' + T('master.js.audit.todas_acoes') + '</option>' + A.tipos.map(t => '<option value="' + esc(t) + '"' + (S.audTipo === t ? ' selected' : '') + '>' + esc(t) + '</option>').join('') + '</select>'
+      + '<label class="mp-busca" title="' + esc(T('master.js.audit.busca_dica')) + '"><i class="bi bi-search"></i><input data-aud-busca value="' + esc(S.audBusca) + '" placeholder="' + esc(T('master.js.audit.busca')) + '" aria-label="' + esc(T('master.js.audit.busca')) + '"></label>'
       + '<button type="button" class="mp-btn-cinza" data-pdf><i class="bi bi-file-earmark-pdf"></i>' + T('master.js.audit.pdf') + '</button>'
       + (S.audConta !== null ? '<button type="button" class="mp-btn-link" data-aud-todas>' + T('master.js.audit.todas_contas') + '</button>' : '') + '</div>'
       + '<div class="mp-audit-resumo">' + resumo.map(([rot, ic, cor, bg, k]) => '<span style="--cor:' + cor + ';--bg:' + bg + '"><i class="bi ' + ic + '"></i>' + rot + ' · ' + (A.resumo[k] || 0) + '</span>').join('') + '</div>'
       // Rolagem própria: altura limitada, cabeçalho da tabela fixo no topo (sticky).
       + '<div class="mp-audit-rolagem" data-aud-rolagem><div class="mp-audit-grade mp-audit-titulos">' + AUD_CAB().map(t => '<span>' + t + '</span>').join('') + '</div>'
       + A.registros.map(linhaDaTrilha).join('')
-      + (A.registros.length ? '' : '<div class="mp-vazio-linha">' + T('master.js.audit.vazio') + '</div>') + '</div>'
+      + (A.registros.length ? '' : '<div class="mp-vazio-linha">' + T(S.audTermo ? 'master.js.audit.vazio_busca' : 'master.js.audit.vazio') + '</div>') + '</div>'
       // Paginação: o componente da lista de artigos do Blog (.bja-pag) com o "por página" à esquerda.
       + '<div class="bja-pag mp-audit-pag"><label class="mp-audit-por">' + T('master.js.audit.por_pagina') + ' <select class="mp-select" data-aud-por>'
       + [20, 50, 100].map(n => '<option value="' + n + '"' + (A.porPagina === n ? ' selected' : '') + '>' + n + '</option>').join('') + '</select></label>'
@@ -1421,7 +1454,7 @@
     w.document.write('<!doctype html><html><head><meta charset="utf-8"><title>' + T('master.js.pdf.titulo_janela') + '</title><style>body{font-family:Arial,sans-serif;color:#12242f;margin:0}header{background:#0a6fa0;color:#fff;padding:18px 28px;display:flex;align-items:center;gap:14px}header img{height:30px}h1{font-size:20px;margin:0}main{padding:22px 28px}p{color:#4a6373;font-size:12px;margin:0 0 14px}table{width:100%;border-collapse:collapse;font-size:12px}th{text-align:left;background:#f5f8fa;border-bottom:2px solid #d6e0e7;padding:8px;font-size:10.5px;letter-spacing:1px}td{border-bottom:1px solid #e6edf2;padding:8px;vertical-align:top}td span{color:#5b7383}footer{margin-top:18px;font-size:10.5px;color:#7d909d}@page{size:A4;margin:12mm}@media print{header{-webkit-print-color-adjust:exact;print-color-adjust:exact}}</style></head><body>'
       + '<header><img src="' + esc(new URL(URLS.logo, location.href).href) + '" alt="BlueJus"><h1>' + T('master.js.pdf.titulo') + '</h1></header><main><p>'
       + T('master.js.pdf.gerado', { quando: esc(agora()), quem: esc(QUEM), papel: T('termos.master'), n: audF.length })
-      + (S.audTipo ? ' · ' + T('master.js.pdf.filtro', { filtro: esc(S.audTipo) }) : '') + (contaNome ? ' · ' + T('master.js.pdf.conta', { conta: esc(contaNome) }) : '') + '</p><table><thead><tr>' + AUD_CAB().map(t => '<th>' + t + '</th>').join('') + '</tr></thead><tbody>' + linhas
+      + (S.audTipo ? ' · ' + T('master.js.pdf.filtro', { filtro: esc(S.audTipo) }) : '') + (S.audTermo ? ' · ' + T('master.js.pdf.busca', { termo: esc(S.audTermo) }) : '') + (contaNome ? ' · ' + T('master.js.pdf.conta', { conta: esc(contaNome) }) : '') + '</p><table><thead><tr>' + AUD_CAB().map(t => '<th>' + t + '</th>').join('') + '</tr></thead><tbody>' + linhas
       + '</tbody></table><footer>' + T('master.js.pdf.rodape', { papel: T('termos.master') }) + '</footer></main></body></html>');
     w.document.close(); setTimeout(() => w.print(), 400);
   }
@@ -1452,7 +1485,7 @@
       if (op.dataset.op === 'estat') return irPara('arm');
       if (op.dataset.op === 'limArm' || op.dataset.op === 'limUsu') return abrirLimite(op.dataset.op === 'limArm' ? 'arm' : 'usu', +op.dataset.contaId);
       if (CONF_CONTA[op.dataset.op]) return pedirAcaoNaConta(op.dataset.op, +op.dataset.contaId);
-      S.audConta = +op.dataset.contaId; S.audTipo = ''; S.audPag = 1; D.audit = null; ERRO.audit = null; return irPara('audit');
+      S.audConta = +op.dataset.contaId; S.audTipo = ''; S.audBusca = ''; S.audTermo = ''; S.audPag = 1; D.audit = null; ERRO.audit = null; return irPara('audit');
     }
     const limArm = t.closest('[data-lim-arm]'); if (limArm) return abrirLimite('arm', +limArm.dataset.limArm);
     const plano = t.closest('[data-plano-editar]'); if (plano) return abrirPlano(plano.dataset.planoEditar);
@@ -1480,6 +1513,7 @@
   elSecao.addEventListener('input', e => {
     if (e.target.matches('[data-busca]')) { S.busca = e.target.value; fecharMenuDaConta(); renderContasLista(); }
     if (e.target.matches('[data-r-busca]')) { S.rBusca = e.target.value; renderRanking(); }
+    if (e.target.matches('[data-aud-busca]')) { S.audBusca = e.target.value; buscarNaTrilha(); }
     if (e.target.matches('[data-faixa]')) { S.fx[e.target.dataset.faixa] = +e.target.value || 0; S.fxMsg = null; atualizarFaixas(); }
   });
   // Fecha o menu: clique fora, Esc, rolagem da página OU da tabela (captura: o scroll não borbulha) e janela redimensionada.
