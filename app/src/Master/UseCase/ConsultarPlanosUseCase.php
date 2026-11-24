@@ -7,6 +7,7 @@ namespace App\Master\UseCase;
 use App\Contribua\DTO\PlanoDoCatalogo;
 use App\Contribua\Repository\ConfiguracaoDoEspacoRepository;
 use App\Contribua\Service\CatalogoDePlanos;
+use App\Master\Service\ChaveDoConvenio;
 
 /**
  * "Planos e limites" e as "Faixas de alerta de consumo" de "Armazenamento" no Painel do Master
@@ -16,17 +17,19 @@ use App\Contribua\Service\CatalogoDePlanos;
  * Os planos vêm de `CatalogoDePlanos::todos()` (contrato com a Contribua), com quantas contas usam cada
  * um. As faixas e a chave do bloqueio vêm da leitura `ConfiguracaoDoEspacoRepository::atual()`, que
  * nunca grava (o contrato da f6 não tem leitura própria das faixas; ver o relatório da frente).
+ * A chave geral do Convênio OAB (M2.1) vem da {@see ChaveDoConvenio}: desligada, o painel esconde a faixa e a tag do Free.
  */
 final class ConsultarPlanosUseCase
 {
     public function __construct(
         private readonly CatalogoDePlanos $catalogo,
         private readonly ConfiguracaoDoEspacoRepository $configuracoes,
+        private readonly ChaveDoConvenio $convenio,
     ) {
     }
 
     /**
-     * @return array{planos: list<array{codigo: string, nome: string, cotaGb: int, precoCentavos: int, limiteUsuarios: ?int, descricao: string, ativo: bool, escritorios: int}>, faixas: array{atencao: int, alerta: int, critico: int, bloqueio: int}, bloqueioAtivo: bool}
+     * @return array{planos: list<array{codigo: string, nome: string, cotaGb: int, precoCentavos: int, limiteUsuarios: ?int, descricao: string, ativo: bool, escritorios: int}>, faixas: array{atencao: int, alerta: int, critico: int, bloqueio: int}, bloqueioAtivo: bool, convenioAtivo: bool}
      */
     public function executar(): array
     {
@@ -50,6 +53,7 @@ final class ConsultarPlanosUseCase
                 'bloqueio' => $configuracao->getFaixaBloqueio(),
             ],
             'bloqueioAtivo' => $configuracao->isBloqueioAtivo(),
+            'convenioAtivo' => $this->convenio->ativo(),
         ];
     }
 }

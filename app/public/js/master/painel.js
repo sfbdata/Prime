@@ -1154,14 +1154,22 @@
   const nomeDoPlano = p => (p.codigo === 'free' ? T('master.js.planos.plano_free', { nome: p.nome }) : p.nome);
   const TAG_PLANO = { free: 'master.js.planos.tag_free', profissional: 'master.js.planos.tag_escolhido' };
 
+  // Chave geral do Convênio OAB (pedido do Farlei M2.1, 24/11/2026): discreta, em lilás porque é só do Master, com o
+  // atalho para o painel "Convênio OAB por estado" (seção Contas). Desligada, somem a faixa, a tag do Free e a menção na nota; a cobrança não muda.
+  const convenioAtivo = () => D.planos.convenioAtivo !== false;
+  const chaveDoConvenio = on => '<div class="mp-convenio-chave"><button type="button" class="mp-convenio-alternar' + (on ? ' on' : '') + '" role="switch" aria-checked="' + on + '" data-convenio-alternar'
+    + (S.convenioEnviando ? ' disabled' : '') + '><span class="mp-convenio-trilho"><span></span></span>' + T('master.js.planos.convenio_chave') + '</button>'
+    + '<span class="mp-convenio-estado">' + T(on ? 'master.js.planos.convenio_ligado' : 'master.js.planos.convenio_desligado') + '</span>'
+    + '<button type="button" class="mp-convenio-link" data-ir="contas">' + T('master.js.planos.convenio_por_estado') + ' <i class="bi bi-arrow-right"></i></button></div>';
+
   function montarPlanos() {
-    const ativas = D.contas.contas.filter(c => c.situacao !== QUARENTENA);
-    elSecao.innerHTML = '<div id="mp-planos-aviso"></div>'
-      + '<div class="mp-convenio-faixa"><img src="' + esc(URLS.logoOab) + '" alt="OAB"><div><b>' + T('master.js.planos.faixa_titulo') + '</b><span>' + T('master.js.planos.faixa_texto') + '</span></div></div>'
+    const ativas = D.contas.contas.filter(c => c.situacao !== QUARENTENA), convenio = convenioAtivo();
+    elSecao.innerHTML = '<div id="mp-planos-aviso"></div>' + chaveDoConvenio(convenio)
+      + (convenio ? '<div class="mp-convenio-faixa"><img src="' + esc(URLS.logoOab) + '" alt="OAB"><div><b>' + T('master.js.planos.faixa_titulo') + '</b><span>' + T('master.js.planos.faixa_texto') + '</span></div></div>' : '')
       + '<div class="mp-planos-rotulo">' + T('master.js.planos.rotulo') + '</div><div class="mp-planos">' + D.planos.planos.map(p => {
       const acima = ativas.filter(c => c.espaco.planoCodigo === p.codigo && pertoDaFranquia(c)).length;
       return '<div class="mp-card mp-plano" style="--cor:' + (COR_PLANO[p.codigo] || '#4a6373') + '"><div class="mp-plano-topo"><b>' + esc(nomeDoPlano(p)) + '</b>'
-        + (TAG_PLANO[p.codigo] ? '<span class="mp-plano-tag">' + T(TAG_PLANO[p.codigo]) + '</span>' : '')
+        + (TAG_PLANO[p.codigo] && (p.codigo !== 'free' || convenio) ? '<span class="mp-plano-tag">' + T(TAG_PLANO[p.codigo]) + '</span>' : '')
         + (p.ativo ? '' : '<span class="mp-plano-inativo">' + T('master.js.planos.inativo') + '</span>')
         + '<button type="button" class="mp-rank-btn mp-plano-editar" data-plano-editar="' + esc(p.codigo) + '" title="' + esc(T('master.js.planos.ajustar_dica')) + '"><i class="bi bi-pencil"></i> ' + T('master.js.planos.ajustar') + '</button></div>'
         + '<span class="mp-plano-preco">' + esc(reais(p.precoCentavos)) + '<span> ' + T('master.js.planos.por_mes') + '</span></span>'
@@ -1169,8 +1177,28 @@
         + '<span class="mp-plano-recursos"><i class="bi bi-check2"></i> ' + T('master.js.planos.recursos') + '</span>'
         + '<span class="mp-plano-contas">' + T('master.js.planos.contas', { n: num(p.escritorios), acima: num(acima) }) + '</span></div>';
     }).join('') + '</div>'
-      + '<span class="mp-nota">' + T('master.js.planos.nota') + '</span>';
+      + '<span class="mp-nota">' + T(convenio ? 'master.js.planos.nota' : 'master.js.planos.nota_sem_convenio') + '</span>';
     document.getElementById('mp-planos-aviso').innerHTML = avisoHtml();
+  }
+
+  function alternarConvenio() {
+    if (S.convenioEnviando || !D.planos) return;
+    const corpo = new FormData();
+    corpo.append('_token', D.planos.tokenConvenio || '');
+    corpo.append('ativo', convenioAtivo() ? '0' : '1');
+    S.convenioEnviando = true; renderSecao();
+    postar(URLS.convenioAlterar, corpo, j => {
+      S.convenioEnviando = false;
+      D.planos.convenioAtivo = j.convenioAtivo === true;
+      // A troca entra na Trilha: o selo e a trilha não podem ficar velhos.
+      recarregarVisaoETrilha();
+      S.aviso = { ok: true, msg: j.mensagem };
+      renderSecs(); renderSecao();
+    }, erro => {
+      S.convenioEnviando = false;
+      S.aviso = { ok: false, msg: erro || T('master.js.erro_acao') };
+      renderSecao();
+    });
   }
 
   /* ---------- modal (limite e plano), no host #mp-modal do template ---------- */
@@ -1428,6 +1456,7 @@
     }
     const limArm = t.closest('[data-lim-arm]'); if (limArm) return abrirLimite('arm', +limArm.dataset.limArm);
     const plano = t.closest('[data-plano-editar]'); if (plano) return abrirPlano(plano.dataset.planoEditar);
+    if (t.closest('[data-convenio-alternar]')) return alternarConvenio();
     if (t.closest('[data-faixas-salvar]')) return salvarFaixas();
     if (t.closest('[data-pdf]')) return gerarPdf();
     if (t.closest('[data-aud-todas]')) { S.audConta = null; return recarregarTrilha(); }

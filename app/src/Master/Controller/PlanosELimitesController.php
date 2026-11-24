@@ -11,6 +11,7 @@ use App\Entity\Auth\User;
 use App\Master\DTO\EspacoDaContaOutput;
 use App\Master\DTO\LimiteDaContaInput;
 use App\Master\Exception\ContaNaoEncontrada;
+use App\Master\UseCase\AlterarConvenioAtivoUseCase;
 use App\Master\UseCase\DefinirLimiteDaContaUseCase;
 use App\Shared\Audit\EscopoDeAuditoriaDePlataforma;
 use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
@@ -32,8 +33,8 @@ use Symfony\Contracts\Translation\TranslatorInterface;
  * escopo de plataforma (sem escritório).
  *
  * CSRF: o limite usa o token da conta (`master_conta_<id>`, o mesmo de suspender e reativar, que vem em
- * /master/dados/contas); o plano, `master_plano_<código>`; as faixas, `master_faixas` (os dois vêm em
- * /master/dados/planos).
+ * /master/dados/contas); o plano, `master_plano_<código>`; as faixas, `master_faixas`; a chave geral do Convênio
+ * OAB, `master_convenio` (os três vêm em /master/dados/planos).
  *
  * Idioma (spec idioma-do-sistema, P2b): a resposta e as recusas do próprio controller saem do catálogo
  * (master.planos.*; a sessão expirada é master.contas.sessao_expirada) no idioma da requisição. A recusa da Contribua
@@ -44,6 +45,7 @@ final class PlanosELimitesController extends AbstractController
 {
     public const PREFIXO_CSRF_PLANO = 'master_plano_';
     public const CSRF_FAIXAS = 'master_faixas';
+    public const CSRF_CONVENIO = 'master_convenio';
 
     public function __construct(
         private readonly EscopoDeAuditoriaDePlataforma $escopoDePlataforma,
@@ -102,6 +104,28 @@ final class PlanosELimitesController extends AbstractController
         $ligado = $request->request->getBoolean('bloqueioAtivo');
 
         return $this->naPlataforma(static fn () => $configurar->executar($atencao, $alerta, $critico, $bloqueio, $ligado), $this->tradutor->trans('master.planos.faixas_atualizadas'));
+    }
+
+    /**
+     * Chave geral do Convênio OAB (pedido do Farlei M2.1, 24/11/2026): `ativo` = 1 liga, 0 desliga; outro valor ou nenhum, 400. Desligada, somem a
+     * faixa e a tag do Free do painel e os selos do Contribua; a cobrança não muda. A troca entra na Trilha.
+     */
+    #[Route('/master/convenio', name: 'master_convenio_alterar', methods: ['POST'])]
+    public function alterarConvenio(Request $request, AlterarConvenioAtivoUseCase $alterar): JsonResponse
+    {
+        if (!$this->isCsrfTokenValid(self::CSRF_CONVENIO, $request->request->getString('_token'))) {
+            return $this->sessaoExpirada();
+        }
+        // Sem o campo, nada muda: getBoolean leria "falta" como desligar o convênio da plataforma inteira.
+        if (!\in_array($request->request->getString('ativo'), ['0', '1'], true)) {
+            return $this->json(['erro' => $this->tradutor->trans('master.planos.convenio_informe')], Response::HTTP_BAD_REQUEST);
+        }
+        $ativo = $alterar->executar($request->request->getString('ativo') === '1', $this->ator());
+
+        return $this->json([
+            'mensagem' => $this->tradutor->trans($ativo ? 'master.planos.convenio_ligado' : 'master.planos.convenio_desligado'),
+            'convenioAtivo' => $ativo,
+        ]);
     }
 
     private function definirLimite(int $id, Request $request, string $tipo, DefinirLimiteDaContaUseCase $definir): JsonResponse

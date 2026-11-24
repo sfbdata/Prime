@@ -113,6 +113,9 @@ master:
         informe_espaco_e_preco: Enter the space in GB and the price in reais.
         plano_atualizado: 'Plan "{nome}" updated.'
         faixas_atualizadas: Alert thresholds updated.
+        convenio_ligado: OAB agreement turned on. The banner and badges are back.
+        convenio_desligado: 'OAB agreement turned off. The banner and badges were removed from the screens; billing does not change.'
+        convenio_informe: Say whether the OAB agreement stays on or off.
         limite_arm_atualizado: Storage limit updated.
         limite_usu_atualizado: User limit updated.
     faixa_etaria:
@@ -848,7 +851,13 @@ master:
             rotulo: STORAGE PLANS
             faixa_titulo: OAB agreement · BlueJus free for attorneys
             faixa_texto: All system features are enabled on every account, with no user limit. Billing exists only for those who want more storage space, as a monthly credit card subscription that can be canceled at any time.
+            # Global OAB agreement switch (M2.1): Master only, in lilac; the link opens the per-state panel in Accounts.
+            convenio_chave: OAB agreement
+            convenio_ligado: on across the system
+            convenio_desligado: 'off: banner, Free tag and Contribua badges hidden'
+            convenio_por_estado: OAB agreement by state
             nota: Every new account joins the Free Plan (10 GB) through the OAB agreement. From 90% usage, the primary user receives a notice in the system and by email suggesting more space; at 100%, new uploads are paused, but viewing and downloading files stays available and nothing is deleted. The storage subscription is monthly on a credit card, with no lock-in. Plan changes are recorded in the audit trail.
+            nota_sem_convenio: Every new account joins the Free Plan (10 GB). From 90% usage, the primary user receives a notice in the system and by email suggesting more space; at 100%, new uploads are paused, but viewing and downloading files stays available and nothing is deleted. The storage subscription is monthly on a credit card, with no lock-in. Plan changes are recorded in the audit trail.
         limite:
             em_uso: IN USE
             limite_atual: CURRENT LIMIT
