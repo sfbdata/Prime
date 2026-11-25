@@ -166,7 +166,7 @@
 .pf-page .pf-linha:hover *:not(.pf-avatar):not(.pf-perm-barra) { color: #fff !important; border-color: rgba(255,255,255,.45) !important; }
 /* M6: na linha azul o fundo claro do hover do botão apagava o ícone branco. */
 .pf-page .pf-linha:hover .pf-col-acoes :is(.pf-acao-editar, .pf-acao-excluir):hover { background: rgba(255,255,255,.2); }
-.pf-page .pf-linha:hover .pf-chip, .pf-page .pf-linha:hover .pf-rs-chip, .pf-page .pf-linha:hover .pf-selo, .pf-page .pf-linha:hover .pf-tag { background: rgba(255,255,255,.2) !important; color: #fff !important; }
+.pf-page .pf-linha:hover .pf-chip, .pf-page .pf-linha:hover .pf-rs-chip, .pf-page .pf-linha:hover .pf-selo, .pf-page .pf-linha:hover .pf-tag, .pf-page .pf-linha:hover .pf-fixo { background: rgba(255,255,255,.2) !important; color: #fff !important; }
 .pf-page .pf-linha.is-oculta { display: none; }
 
 .pf-page .pf-col-perfil { padding: 13px 20px; min-width: 0; display: block; }
