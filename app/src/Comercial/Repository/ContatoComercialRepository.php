@@ -112,6 +112,15 @@ class ContatoComercialRepository extends ServiceEntityRepository
         ], $linhas);
     }
 
+    /** Classe da trava advisory dos convites (primeiro argumento de `pg_advisory_xact_lock`; o segundo é sempre 0). */
+    public const TRAVA_DOS_CONVITES = 4741;
+
+    /** Trava de transação: solta no COMMIT ou no ROLLBACK. Chamar só dentro de uma transação (ver PublicosDaCampanha::travarConvites). */
+    public function travarConvites(): void
+    {
+        $this->getEntityManager()->getConnection()->executeStatement('SELECT pg_advisory_xact_lock(?, ?)', [self::TRAVA_DOS_CONVITES, 0]);
+    }
+
     /** Quantos contatos há na base (o número do público na grade). */
     public function contar(): int
     {

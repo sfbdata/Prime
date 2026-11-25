@@ -78,7 +78,9 @@ final class PublicosDaCampanha
         // dc 21.10 L665: "Y repetido(s) removido(s) · Z inválido(s) ignorado(s)".
         $invalidos = \count(array_filter($fonte, static fn (DestinatarioDaCampanha $d): bool => !$d->valido()));
         $repetidos = \count($fonte) - $invalidos - \count($unicos);
-        $liberados = array_values(array_filter($unicos, fn (DestinatarioDaCampanha $d): bool => !$this->descadastrado($d, $modelo)));
+        $liberados = $publico === self::CONTATOS_SALVOS
+            ? $this->semDescadastradosEmLote($unicos, $modelo)
+            : array_values(array_filter($unicos, fn (DestinatarioDaCampanha $d): bool => !$this->descadastrado($d, $modelo)));
         $foraDoIntervalo = $this->foraDoIntervalo($liberados, $linhasDosContatos, $hoje ?? $this->relogio->now());
         $liberados = array_values(array_filter($liberados, static fn (DestinatarioDaCampanha $d): bool => !isset($foraDoIntervalo[$d->email])));
         $puladosPeloIntervalo = \count($foraDoIntervalo);
@@ -213,6 +215,40 @@ final class PublicosDaCampanha
     private static function validos(array $lista): int
     {
         return \count(array_filter($lista, static fn (DestinatarioDaCampanha $d): bool => $d->valido()));
+    }
+
+    /**
+     * Os contatos salvos podem ser milhares: o descadastro vem em lote (uma consulta por lista do modelo, em fatias de 1.000),
+     * com o mesmo critério do {@see self::descadastrado()} (inclusive o descadastro de `todos`).
+     *
+     * @param list<DestinatarioDaCampanha> $lista
+     *
+     * @return list<DestinatarioDaCampanha>
+     */
+    private function semDescadastradosEmLote(array $lista, string $modelo): array
+    {
+        $emails = array_map(static fn (DestinatarioDaCampanha $d): string => $d->email, $lista);
+        $fora = [];
+        foreach (self::listasDoModelo($modelo) as $nomeDaLista) {
+            foreach ($this->descadastro->filtrarDescadastrados(null, $emails, $nomeDaLista) as $email) {
+                $fora[mb_strtolower(trim($email))] = true;
+            }
+        }
+
+        return array_values(array_filter($lista, static fn (DestinatarioDaCampanha $d): bool => !isset($fora[$d->email])));
+    }
+
+    /**
+     * Antes de resolver o público `contatos` numa execução, segura a trava advisory de TRANSAÇÃO `(4741, 0)`: duas campanhas
+     * materializadas ao mesmo tempo (mais de um worker) não leem `ultimo_convite_em` juntas, e a segunda só lê depois
+     * do COMMIT da primeira, já com os convites gravados. A trava solta no COMMIT (ou no ROLLBACK) da transação de quem a
+     * pegou, então só vale chamada dentro de uma. Os outros públicos não pegam a trava.
+     */
+    public function travarConvites(string $publico): void
+    {
+        if ($publico === self::CONTATOS_SALVOS) {
+            $this->contatos->travarConvites();
+        }
     }
 
     /** No modelo `vagas`, o descadastro de qualquer uma das duas listas tira o destinatário (§11). */

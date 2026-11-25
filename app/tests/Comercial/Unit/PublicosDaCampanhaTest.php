@@ -39,6 +39,9 @@ final class PublicosDaCampanhaTest extends TestCase
     /** @var list<array{0: ?object, 1: string, 2: string}> */
     private array $consultas = [];
 
+    /** @var list<string> os e-mails perguntados em lote */
+    private array $emLote = [];
+
     #[TestDox('Primários: repetidos e descadastrados saem; a consulta é da plataforma na lista comercial_campanhas; sem B1')]
     public function testPrimariosSemRepetidosNemDescadastrados(): void
     {
@@ -199,6 +202,36 @@ final class PublicosDaCampanhaTest extends TestCase
         self::assertSame(1, $resolvido->descadastrados, 'o descadastrado conta como descadastrado, não como pulado');
     }
 
+    #[TestDox('A trava dos convites só é pega no público contatos (uma vez por pedido)')]
+    public function testTravaDosConvites(): void
+    {
+        $contatos = $this->createMock(ContatoComercialRepository::class);
+        $contatos->expects(self::once())->method('travarConvites');
+        $publicos = $this->publicos(repositorioDeContatos: $contatos);
+
+        $publicos->travarConvites('prim');
+        $publicos->travarConvites('leads');
+        $publicos->travarConvites('csv');
+        $publicos->travarConvites('contatos');
+    }
+
+    #[TestDox('Contatos salvos: o descadastro vem em lote (uma consulta por lista), sem consulta por endereço')]
+    public function testDescadastroEmLote(): void
+    {
+        $this->descadastrados = ['saiu@exemplo.com'];
+        $publicos = $this->publicos(contatos: [
+            ['email' => 'saiu@exemplo.com', 'nome' => '', 'ultimoConviteEm' => null],
+            ['email' => 'fica@exemplo.com', 'nome' => '', 'ultimoConviteEm' => null],
+        ]);
+
+        $resolvido = $publicos->resolver('contatos');
+
+        self::assertSame(['fica@exemplo.com'], self::emails($resolvido->destinatarios));
+        self::assertSame(1, $resolvido->descadastrados);
+        self::assertSame([], $this->consultas, 'nenhuma consulta por endereço');
+        self::assertEqualsCanonicalizing(['saiu@exemplo.com', 'fica@exemplo.com'], $this->emLote);
+    }
+
     #[TestDox('O intervalo vem do painel quando válido; fora da faixa ou sem valor, vale o padrão de 7 dias')]
     public function testIntervaloPadraoEFaixa(): void
     {
@@ -221,9 +254,9 @@ final class PublicosDaCampanhaTest extends TestCase
      * @param list<string>                             $vagas       os confirmados de `vagas_alerta`
      * @param list<array{email: string, nome: string, ultimoConviteEm: ?\DateTimeImmutable}> $contatos os contatos salvos
      */
-    private function publicos(array $primarios = [], array $secundarios = [], array $confirmados = [], array $ativos = [], array $vagas = [], array $contatos = [], int $intervalo = 7): PublicosDaCampanha
+    private function publicos(array $primarios = [], array $secundarios = [], array $confirmados = [], array $ativos = [], array $vagas = [], array $contatos = [], int $intervalo = 7, ?ContatoComercialRepository $repositorioDeContatos = null): PublicosDaCampanha
     {
-        $repositorioDeContatos = $this->createStub(ContatoComercialRepository::class);
+        $repositorioDeContatos ??= $this->createStub(ContatoComercialRepository::class);
         $repositorioDeContatos->method('paraConvite')->willReturn($contatos);
         $repositorioDeContatos->method('contar')->willReturn(\count($contatos));
         $configuracoes = $this->createStub(ConfiguracaoGlobalRepository::class);
@@ -239,6 +272,12 @@ final class PublicosDaCampanhaTest extends TestCase
             $this->consultas[] = [$escopo, $email, $lista];
 
             return \in_array($email, $this->descadastrados, true) || \in_array($email, $this->descadastradosDaLista[$lista] ?? [], true);
+        });
+
+        $descadastro->method('filtrarDescadastrados')->willReturnCallback(function (?object $escopo, array $emails, string $lista): array {
+            $this->emLote = [...$this->emLote, ...$emails];
+
+            return array_values(array_filter($emails, fn (string $e): bool => \in_array($e, $this->descadastrados, true) || \in_array($e, $this->descadastradosDaLista[$lista] ?? [], true)));
         });
 
         // Sem filtro, os atributos nunca são lidos: o SituacaoDoEspaco (final) entra sem construtor.
