@@ -4,6 +4,8 @@ comercial:
         titulo: Central de envios · nova campanha
         descadastrados: Descadastrados
         descadastrados_dica: E-mails que pediram para não receber
+        base: 'Base de contatos'
+        base_dica: 'Contatos salvos: incluir, importar e exportar'
         sub: convites, ofertas, agradecimentos e novidades · individual ou em grande escala
         passo_modelo: 1 · MODELO
         novo_modelo: Novo modelo
@@ -158,6 +160,29 @@ comercial:
         csv: CSV
         fechar: Fechar
         vazio: Ninguém se descadastrou ainda.
+    base:
+        titulo: 'Base de contatos'
+        sub: 'contatos salvos do Comercial; quem se descadastrou aparece como Descadastrado e não recebe'
+        buscar: 'Buscar e-mail ou nome'
+        incluir: 'Incluir contato'
+        importar: 'Importar CSV'
+        exportar: 'Exportar CSV'
+        excluir: 'Excluir'
+        fechar: 'Fechar'
+        novo_email: 'E-mail do contato'
+        novo_nome: 'Nome (opcional)'
+        salvar: 'Salvar'
+        cancelar: 'Cancelar'
+        vazio: 'Nenhum contato na base ainda. Inclua um contato ou importe um CSV (colunas: email, nome).'
+        marcar_todos: 'Marcar todos desta página'
+        col_email: 'E-mail'
+        col_nome: 'Nome'
+        col_origem: 'Origem'
+        col_situacao: 'Situação'
+        col_convite: 'Último convite'
+        col_criado: 'Criado em'
+        anterior: 'Anterior'
+        proxima: 'Próxima'
     teste:
         titulo: Enviar e-mail de teste
         fechar: Fechar
@@ -338,6 +363,34 @@ comercial:
         dsc_excluir_de: 'Excluir {email}'
         dsc_ok_excluido: '{email} saiu da lista de descadastrados.'
         dsc_ok_registrado: 'Pedido de {email} registrado.'
+        # comercial-base.js
+        base_erro: 'Não foi possível concluir. Tente de novo.'
+        base_origem_importacao: 'Importação'
+        base_origem_manual: 'Manual'
+        base_situacao_ativo: 'Ativo'
+        base_situacao_descadastrado: 'Descadastrado'
+        base_sem_convite: 'Nunca'
+        base_editar: 'Editar'
+        base_salvar: 'Salvar'
+        base_editar_de: 'Editar o nome de {email}'
+        base_nome_de: 'Nome de {email}'
+        base_marcar_de: 'Marcar {email}'
+        base_excluir: 'Excluir'
+        base_excluir_de: 'Excluir {email}'
+        base_excluir_n: 'Excluir ({n})'
+        base_titulo_excluir: 'Excluir da base de contatos?'
+        base_titulo_excluir_n: 'Excluir os contatos marcados?'
+        base_confirmar_excluir: 'Excluir {email} da base de contatos? O pedido de descadastro dele, se houver, continua valendo.'
+        base_confirmar_excluir_n: 'Excluir {n} contatos da base? Os pedidos de descadastro, se houver, continuam valendo.'
+        base_ok_incluido: '{email} entrou na base de contatos.'
+        base_ok_nome: 'Nome atualizado.'
+        base_ok_excluido: 'Contato excluído.'
+        base_ok_excluidos: '{n} contatos excluídos.'
+        base_ok_importado: '{novos} novos, {atualizados} atualizados, {existiam} já existiam, {invalidos} inválidos'
+        base_importando: 'Importando…'
+        base_arquivo_grande: 'O arquivo passa de 1 MB.'
+        base_vazio_busca: 'Nenhum contato encontrado para esta busca.'
+        base_pagina: 'Página {pagina} de {total} · {n} contatos'
         envio_salvando: Salvando…
         teste_enviando: Enviando…
         imagem_enviando: Enviando a imagem…

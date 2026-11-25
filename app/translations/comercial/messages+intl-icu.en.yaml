@@ -3,6 +3,8 @@ comercial:
         titulo: Mailing Center · new campaign
         descadastrados: Unsubscribed
         descadastrados_dica: Emails that asked not to receive
+        base: 'Contact base'
+        base_dica: 'Saved contacts: add, import and export'
         sub: invitations, offers, thank-yous, and news · individual or large scale
         passo_modelo: 1 · TEMPLATE
         novo_modelo: New template
@@ -157,6 +159,29 @@ comercial:
         csv: CSV
         fechar: Close
         vazio: Nobody has unsubscribed yet.
+    base:
+        titulo: 'Contact base'
+        sub: 'saved Commercial contacts; people who unsubscribed show as Unsubscribed and receive nothing'
+        buscar: 'Search e-mail or name'
+        incluir: 'Add contact'
+        importar: 'Import CSV'
+        exportar: 'Export CSV'
+        excluir: 'Delete'
+        fechar: 'Close'
+        novo_email: 'Contact e-mail'
+        novo_nome: 'Name (optional)'
+        salvar: 'Save'
+        cancelar: 'Cancel'
+        vazio: 'No contacts in the base yet. Add a contact or import a CSV (columns: email, name).'
+        marcar_todos: 'Select all on this page'
+        col_email: 'E-mail'
+        col_nome: 'Name'
+        col_origem: 'Source'
+        col_situacao: 'Status'
+        col_convite: 'Last invitation'
+        col_criado: 'Created on'
+        anterior: 'Previous'
+        proxima: 'Next'
     teste:
         titulo: Send test email
         fechar: Close
@@ -331,6 +356,34 @@ comercial:
         dsc_excluir_de: 'Delete {email}'
         dsc_ok_excluido: '{email} was removed from the unsubscribed list.'
         dsc_ok_registrado: 'Request from {email} registered.'
+        # comercial-base.js
+        base_erro: 'Could not complete. Try again.'
+        base_origem_importacao: 'Import'
+        base_origem_manual: 'Manual'
+        base_situacao_ativo: 'Active'
+        base_situacao_descadastrado: 'Unsubscribed'
+        base_sem_convite: 'Never'
+        base_editar: 'Edit'
+        base_salvar: 'Save'
+        base_editar_de: 'Edit the name of {email}'
+        base_nome_de: 'Name of {email}'
+        base_marcar_de: 'Select {email}'
+        base_excluir: 'Delete'
+        base_excluir_de: 'Delete {email}'
+        base_excluir_n: 'Delete ({n})'
+        base_titulo_excluir: 'Delete from the contact base?'
+        base_titulo_excluir_n: 'Delete the selected contacts?'
+        base_confirmar_excluir: 'Delete {email} from the contact base? Their unsubscribe request, if any, stays in force.'
+        base_confirmar_excluir_n: 'Delete {n} contacts from the base? Unsubscribe requests, if any, stay in force.'
+        base_ok_incluido: '{email} was added to the contact base.'
+        base_ok_nome: 'Name updated.'
+        base_ok_excluido: 'Contact deleted.'
+        base_ok_excluidos: '{n} contacts deleted.'
+        base_ok_importado: '{novos} new, {atualizados} updated, {existiam} already existed, {invalidos} invalid'
+        base_importando: 'Importing…'
+        base_arquivo_grande: 'The file is over 1 MB.'
+        base_vazio_busca: 'No contacts found for this search.'
+        base_pagina: 'Page {pagina} of {total} · {n} contacts'
         envio_salvando: Saving…
         teste_enviando: Sending…
         imagem_enviando: Uploading the image…

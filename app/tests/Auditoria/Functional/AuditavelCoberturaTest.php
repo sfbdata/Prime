@@ -154,6 +154,10 @@ final class AuditavelCoberturaTest extends KernelTestCase
         \App\Comercial\Entity\ConfirmacaoDeEndereco::class,
         \App\Comercial\Entity\CicloDaConta::class,
         \App\Comercial\Entity\VarreduraComercial::class,
+        // Base de contatos do Master (pedido do Farlei 25/11): as ações do Master (incluir, editar, excluir, importar,
+        // exportar) já gravam no audit_log pela AuditoriaDaBaseDeContatos, com contagens e sem os e-mails; o
+        // subscriber duplicaria o endereço de cada contato no log.
+        \App\Comercial\Entity\ContatoComercial::class,
         // A vez dos avisos de espaço (comercial-e-emails.md §4): só um marcador de deduplicação, gravado por SQL no
         // ouvinte, sem sessão (não há autor) e nunca editado.
         \App\Comercial\Entity\AvisoDeEspaco::class,
