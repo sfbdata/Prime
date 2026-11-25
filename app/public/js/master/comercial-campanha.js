@@ -131,7 +131,13 @@
       esperaDoRascunho = setTimeout(gravarRascunho, 800);
     }
     // Antes de qualquer troca que descarta a edição (outro modelo, "Ver mensagem", "Novo modelo"): pergunta.
-    const podeDescartar = () => !ed || !sujo || window.confirm(BJ_T.t('comercial.js.rascunho_confirmar_troca'));
+    // Janela de confirmação do painel do Master (masters.js): devolve Promise<boolean>; Cancelar e Esc resolvem false.
+    const perguntar = op => window.BJMasterConf.perguntar(op);
+    const PERIGO = '#a3232b';
+    const podeDescartar = () => (!ed || !sujo ? Promise.resolve(true) : perguntar({
+      titulo: BJ_T.t('comercial.js.rascunho_titulo'), icone: 'bi-exclamation-triangle', cor: PERIGO,
+      texto: BJ_T.t('comercial.js.rascunho_confirmar_troca'), botao: BJ_T.t('comercial.js.rascunho_botao'),
+    }));
 
     const esc = t => String(t == null ? '' : t).replace(/[&<>"']/g, m => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[m]));
     const base = () => modelos.find(m => m.chave === mk) || modelos[0] || null;
@@ -413,28 +419,33 @@
           : BJ_T.t('comercial.js.confirmar_envio_agora', { assunto: m.assunto || '', n: contagem.destinatarios });
         // Chave desligada: não bloqueia, só avisa que a campanha fica esperando.
         const aviso = envioLigado === false ? BJ_T.t('comercial.js.envio_campanha_esperando') + '\n\n' : '';
-        if (!window.confirm(aviso + pergunta)) return;
-        if (!chave) chave = novaChave();
-        const botao = el('[data-mc-cp-enviar]');
-        botao.disabled = true;
-        avisar(BJ_T.t('comercial.js.enviando'));
-        // O que outras partes da Central acrescentam ao envio (ex.: a confirmação de leitura da F3g, do 0d): os ganchos
-        // globais, só na instância `com` (F3h), e os desta instância, pendurados na raiz (`raiz.mcExtrasDoEnvio`).
-        const globais = (M.ganchos && window.McCampanha && window.McCampanha.extrasDoEnvio) || [];
-        const extras = [...globais, ...(raiz.mcExtrasDoEnvio || [])].map(f => { try { return f() || {}; } catch (x) { return {}; } });
-        postar(ROTAS.urlCampanha, Object.assign(pedidoDoPublico(), ...extras, { chave, modelo: pedido(), frequencia, agendar: agenda }))
-          .then(r => {
-            chave = '';
-            el('[data-mc-cp-agenda]').value = '';
-            desenharFrequencia();
-            avisar(r.mensagem, 'ok');
-            // A mensagem já saiu (ou está programada): nada a perder, e o rascunho dela não volta ao recarregar.
-            sujo = false;
-            gravarRascunho();
-            document.dispatchEvent(new CustomEvent('mc:campanha-confirmada'));
-          })
-          .catch(e => avisar(e.message, 'erro'))
-          .finally(() => { botao.disabled = false; });
+        return perguntar({
+          titulo: BJ_T.t(agenda ? 'comercial.js.enviar_titulo_agendar' : 'comercial.js.enviar_titulo'), icone: 'bi-send',
+          texto: aviso + pergunta, botao: BJ_T.t(agenda ? 'comercial.js.enviar_botao_agendar' : 'comercial.js.enviar_botao'),
+        }).then(confirmou => {
+          if (!confirmou) return;
+          if (!chave) chave = novaChave();
+          const botao = el('[data-mc-cp-enviar]');
+          botao.disabled = true;
+          avisar(BJ_T.t('comercial.js.enviando'));
+          // O que outras partes da Central acrescentam ao envio (ex.: a confirmação de leitura da F3g, do 0d): os ganchos
+          // globais, só na instância `com` (F3h), e os desta instância, pendurados na raiz (`raiz.mcExtrasDoEnvio`).
+          const globais = (M.ganchos && window.McCampanha && window.McCampanha.extrasDoEnvio) || [];
+          const extras = [...globais, ...(raiz.mcExtrasDoEnvio || [])].map(f => { try { return f() || {}; } catch (x) { return {}; } });
+          postar(ROTAS.urlCampanha, Object.assign(pedidoDoPublico(), ...extras, { chave, modelo: pedido(), frequencia, agendar: agenda }))
+            .then(r => {
+              chave = '';
+              el('[data-mc-cp-agenda]').value = '';
+              desenharFrequencia();
+              avisar(r.mensagem, 'ok');
+              // A mensagem já saiu (ou está programada): nada a perder, e o rascunho dela não volta ao recarregar.
+              sujo = false;
+              gravarRascunho();
+              document.dispatchEvent(new CustomEvent('mc:campanha-confirmada'));
+            })
+            .catch(e => avisar(e.message, 'erro'))
+            .finally(() => { botao.disabled = false; });
+        });
       });
     }
 
@@ -514,9 +525,12 @@
 
     function cancelarEdicao() {
       if (!edicao) return;
-      if (sujo && !window.confirm(BJ_T.t('comercial.js.edicao_confirmar_sair'))) return;
-      sairDaEdicao();
-      avisar(BJ_T.t('comercial.js.edicao_cancelada'));
+      const sair = () => { sairDaEdicao(); avisar(BJ_T.t('comercial.js.edicao_cancelada')); };
+      if (!sujo) { sair(); return; }
+      perguntar({
+        titulo: BJ_T.t('comercial.js.edicao_titulo_sair'), icone: 'bi-exclamation-triangle', cor: PERIGO,
+        texto: BJ_T.t('comercial.js.edicao_confirmar_sair'), botao: BJ_T.t('comercial.js.edicao_botao_sair'),
+      }).then(ok => { if (ok) sair(); });
     }
 
     function lerCsv(arquivo) {
@@ -648,18 +662,30 @@
     // M5.8: apaga a versão do Master de um modelo padrão (com confirmação); o texto do sistema volta.
     function voltarAoPadrao() {
       const m = atual();
-      if (m.proprio || !m.editado || !window.confirm(BJ_T.t('comercial.js.confirmar_voltar_padrao', { nome: m.nome }))) return;
-      avisar(BJ_T.t('comercial.js.salvando'));
-      postar(ROTAS.urlPadrao.replace('xchavex', encodeURIComponent(m.chave)))
-        .then(() => { ed = null; avisar(BJ_T.t('comercial.js.modelo_voltou_padrao', { nome: m.nome }), 'ok'); return carregar(m.chave); })
-        .catch(e => avisar(e.message, 'erro'));
+      if (m.proprio || !m.editado) return;
+      perguntar({
+        titulo: BJ_T.t('comercial.js.voltar_padrao_titulo'), icone: 'bi-arrow-counterclockwise', cor: PERIGO,
+        texto: BJ_T.t('comercial.js.confirmar_voltar_padrao', { nome: m.nome }), botao: BJ_T.t('comercial.js.voltar_padrao_botao'),
+      }).then(ok => {
+        if (!ok) return;
+        avisar(BJ_T.t('comercial.js.salvando'));
+        postar(ROTAS.urlPadrao.replace('xchavex', encodeURIComponent(m.chave)))
+          .then(() => { ed = null; avisar(BJ_T.t('comercial.js.modelo_voltou_padrao', { nome: m.nome }), 'ok'); return carregar(m.chave); })
+          .catch(e => avisar(e.message, 'erro'));
+      });
     }
 
     function excluir() {
       const m = atual();
-      if (!m.proprio || !window.confirm(BJ_T.t('comercial.js.confirmar_excluir_modelo', { nome: m.nome }))) return;
-      avisar(BJ_T.t('comercial.js.salvando'));
-      postar(ROTAS.urlExcluir.replace('xidx', encodeURIComponent(m.id))).then(() => { avisar(BJ_T.t('comercial.js.modelo_excluido', { nome: m.nome }), 'ok'); return carregar('convite'); }).catch(e => avisar(e.message, 'erro'));
+      if (!m.proprio) return;
+      perguntar({
+        titulo: BJ_T.t('comercial.js.excluir_modelo_titulo'), icone: 'bi-trash3', cor: PERIGO,
+        texto: BJ_T.t('comercial.js.confirmar_excluir_modelo', { nome: m.nome }), botao: BJ_T.t('comercial.js.botao_excluir'),
+      }).then(ok => {
+        if (!ok) return;
+        avisar(BJ_T.t('comercial.js.salvando'));
+        postar(ROTAS.urlExcluir.replace('xidx', encodeURIComponent(m.id))).then(() => { avisar(BJ_T.t('comercial.js.modelo_excluido', { nome: m.nome }), 'ok'); return carregar('convite'); }).catch(e => avisar(e.message, 'erro'));
+      });
     }
 
     function importar(arquivo) {
@@ -692,8 +718,8 @@
       const modelo = e.target.closest('[data-mc-cp-modelo]');
       // dc L.542: trocar de modelo não limpa a mensagem.
       if (modelo) {
-        if (!podeDescartar()) return;
-        mk = modelo.dataset.mcCpModelo; ed = null; desenhar(); contar(); return;
+        podeDescartar().then(ok => { if (ok) { mk = modelo.dataset.mcCpModelo; ed = null; desenhar(); contar(); } });
+        return;
       }
       const botaoDoPublico = e.target.closest('[data-mc-cp-publico]');
       if (botaoDoPublico) { publico = botaoDoPublico.dataset.mcCpPublico; desenharPublicos(); contar(); return; }
@@ -730,7 +756,7 @@
       if (e.target.closest('[data-mc-cp-remover]') && i >= 0) { trocarBlocos(blocos().filter((_, j) => j !== i)); return; }
       const novo = e.target.closest('[data-mc-cp-novo-bloco]');
       if (novo) { trocarBlocos(blocos().concat({ t: novo.dataset.mcCpNovoBloco, a: '', b: '' })); return; }
-      if (e.target.closest('[data-mc-cp-novo]')) { if (!podeDescartar()) return; postar(ROTAS.urlCriar, { acao: 'novo' }).then(aposSalvar).catch(err => avisar(err.message, 'erro')); return; }
+      if (e.target.closest('[data-mc-cp-novo]')) { podeDescartar().then(ok => { if (ok) postar(ROTAS.urlCriar, { acao: 'novo' }).then(aposSalvar).catch(err => avisar(err.message, 'erro')); }); return; }
       if (e.target.closest('[data-mc-cp-duplicar]')) { postar(ROTAS.urlCriar, { acao: 'duplicar', modelo: pedido() }).then(aposSalvar).catch(err => avisar(err.message, 'erro')); return; }
       if (e.target.closest('[data-mc-cp-salvar]')) { salvar(); return; }
       if (e.target.closest('[data-mc-cp-voltar-padrao]')) { voltarAoPadrao(); return; }
@@ -785,9 +811,9 @@
       if (!entrada || !entrada.files || !entrada.files[0]) return;
       if (edicao) { avisar(BJ_T.t('comercial.js.edicao_bloqueio'), 'erro'); entrada.value = ''; return; }
       // Importar abre o modelo novo no editor: com edição a perder, pergunta antes (M5.15).
-      if (!podeDescartar()) { entrada.value = ''; return; }
-      importar(entrada.files[0]);
+      const arquivo = entrada.files[0];
       entrada.value = '';
+      podeDescartar().then(ok => { if (ok) importar(arquivo); });
     });
 
     /* O N do botão "Descadastrados (N)" vem do resumo da F3c (0d). */
@@ -825,13 +851,15 @@
         const abrir = () => {
           if (!modelos.some(m => m.chave === d.chave)) return;
           if (edicao) { avisar(BJ_T.t('comercial.js.edicao_bloqueio'), 'erro'); return; }
-          if (!podeDescartar()) { avisar(BJ_T.t('comercial.js.rascunho_mantido')); return; }
-          mk = d.chave;
-          ed = null;
-          desenhar();
-          contar();
-          avisar(String(d.aviso || ''));
-          raiz.scrollIntoView({ behavior: 'smooth', block: 'start' });
+          podeDescartar().then(ok => {
+            if (!ok) { avisar(BJ_T.t('comercial.js.rascunho_mantido')); return; }
+            mk = d.chave;
+            ed = null;
+            desenhar();
+            contar();
+            avisar(String(d.aviso || ''));
+            raiz.scrollIntoView({ behavior: 'smooth', block: 'start' });
+          });
         };
         // Antes da grade carregar, carrega primeiro (o rascunho volta) e só então pergunta e abre.
         if (carregado) abrir(); else carregarPrimeira().then(abrir);
@@ -844,11 +872,13 @@
         const id = e.detail ? Number(e.detail.id) : 0;
         if (!Number.isInteger(id) || id <= 0) return;
         const abrir = () => {
-          if (!podeDescartar()) { avisar(BJ_T.t('comercial.js.rascunho_mantido')); return; }
-          fetch(ROTAS.urlEdicao.replace(MARCADOR_DO_ID, String(id)), { headers: { Accept: 'application/json' }, credentials: 'same-origin' })
-            .then(r => r.json().catch(() => ({})).then(j => (r.ok ? j : Promise.reject(new Error(j.erro || BJ_T.t('comercial.js.erro_concluir'))))))
-            .then(d => entrarNaEdicao(id, d))
-            .catch(err => { avisar(err.message, 'erro'); raiz.scrollIntoView({ behavior: 'smooth', block: 'start' }); });
+          podeDescartar().then(ok => {
+            if (!ok) { avisar(BJ_T.t('comercial.js.rascunho_mantido')); return; }
+            fetch(ROTAS.urlEdicao.replace(MARCADOR_DO_ID, String(id)), { headers: { Accept: 'application/json' }, credentials: 'same-origin' })
+              .then(r => r.json().catch(() => ({})).then(j => (r.ok ? j : Promise.reject(new Error(j.erro || BJ_T.t('comercial.js.erro_concluir'))))))
+              .then(d => entrarNaEdicao(id, d))
+              .catch(err => { avisar(err.message, 'erro'); raiz.scrollIntoView({ behavior: 'smooth', block: 'start' }); });
+          });
         };
         if (carregado) abrir(); else carregarPrimeira().then(abrir);
       });

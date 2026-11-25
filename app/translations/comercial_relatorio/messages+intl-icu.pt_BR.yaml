@@ -76,6 +76,12 @@ comercial_relatorio:
         confirmar_remover: 'Remover {n} campanha(s) do relatório?'
         confirmar_excluir_ativa: 'Excluir esta campanha? O envio será cancelado (o que ainda está na fila não sai) e ela sai do relatório. A trilha de auditoria é mantida.'
         confirmar_excluir_encerrada: 'Excluir esta campanha do relatório? Ela já foi enviada ou cancelada: só deixa de aparecer na lista.'
+        cancelar_titulo: Cancelar o envio da campanha?
+        cancelar_botao: Cancelar o envio
+        remover_titulo: Remover campanhas do relatório?
+        remover_botao: Remover
+        excluir_titulo: Excluir a campanha?
+        excluir_botao: Excluir
         editar_motivo: Só antes de começar a sair.
         reenvio_menu_rastreada: Reenvio disponível assim que as leituras forem registradas.
         reenvio_menu_sem_rastreio: Esta campanha não rastreou leitura.

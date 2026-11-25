@@ -246,6 +246,14 @@ comercial:
         confirmar_voltar_padrao: 'Voltar o modelo "{nome}" ao texto padrão do sistema? A sua versão será apagada.'
         modelo_voltou_padrao: 'O modelo "{nome}" voltou ao padrão.'
         confirmar_excluir_modelo: 'Excluir o modelo "{nome}"?'
+        excluir_modelo_titulo: Excluir o modelo?
+        botao_excluir: Excluir
+        voltar_padrao_titulo: Voltar ao texto padrão?
+        voltar_padrao_botao: Voltar ao padrão
+        enviar_titulo: Enviar a campanha?
+        enviar_botao: Enviar agora
+        enviar_titulo_agendar: Agendar a campanha?
+        enviar_botao_agendar: Agendar envio
         bloco_subir: Subir
         bloco_descer: Descer
         bloco_remover: Remover
@@ -288,6 +296,10 @@ comercial:
         envio_confirmar_ligar: 'Ligar o envio de campanhas? As {n} campanhas esperando começam a sair em até 1 minuto.'
         envio_confirmar_ligar_zero: 'Ligar o envio de campanhas? Nenhuma campanha está esperando agora.'
         envio_confirmar_desligar: 'Desligar o envio de campanhas? Nenhuma campanha sai até ele ser ligado de novo; as agendadas ficam esperando.'
+        envio_titulo_ligar: Ligar o envio de campanhas?
+        envio_botao_ligar: Ligar o envio
+        envio_titulo_desligar: Desligar o envio de campanhas?
+        envio_botao_desligar: Desligar o envio
         envio_ok_ligado: 'Envio de campanhas ligado.'
         envio_ok_desligado: 'Envio de campanhas desligado.'
         envio_erro_carregar: 'Não foi possível carregar o estado do envio. Recarregue a página.'
@@ -307,6 +319,7 @@ comercial:
         dsc_erro: Não foi possível concluir. Tente de novo.
         dsc_excluir: Excluir
         dsc_confirmar_excluir: 'Excluir {email} da lista de descadastrados? Ele volta a poder receber e-mails. Faça isso só se o próprio contato pediu (LGPD).'
+        dsc_titulo_excluir: Excluir da lista de descadastrados?
         dsc_registrar_pergunta: 'E-mail que pediu para não receber (por telefone, WhatsApp etc.):'
         # M5.13 e M5.14: retorno fixo das ações e rótulos com o nome do item
         salvando: Salvando…
@@ -332,10 +345,14 @@ comercial:
         modelo_salvo: Modelo salvo.
         rascunho_recuperado: 'Rascunho recuperado (salvo em {quando}). Para começar do zero, escolha um modelo.'
         rascunho_confirmar_troca: 'A mensagem em edição ainda não foi enviada nem salva como modelo. Trocar descarta o texto. Continuar?'
+        rascunho_titulo: Descartar a mensagem em edição?
+        rascunho_botao: Descartar
         rascunho_mantido: 'A mensagem em edição foi mantida.'
         edicao_faixa: 'Editando a campanha "{nome}"'
         edicao_salvar: Salvar alterações
         edicao_confirmar_sair: 'As alterações desta campanha ainda não foram salvas. Sair da edição descarta o que foi mudado. Continuar?'
+        edicao_titulo_sair: Sair da edição?
+        edicao_botao_sair: Sair sem salvar
         edicao_bloqueio: Saia da edição para trocar de modelo ou mexer nos modelos.
         edicao_cancelada: Edição cancelada. Nada foi alterado na campanha.
         edicao_aberta: 'Edite o conteúdo, a data ou a frequência e clique em Salvar alterações.'

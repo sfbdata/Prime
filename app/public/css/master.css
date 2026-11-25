@@ -454,7 +454,7 @@
 .mp .mp-conf-fundo[hidden] { display: none !important; }
 .mp-conf { width: 100%; max-width: 440px; background: #fff; border-radius: 4px; box-shadow: 0 20px 50px -12px rgba(13,27,42,.45); overflow: hidden; }
 .mp-conf-cab { background: var(--cor, #0a6fa0); color: #fff; padding: 14px 20px; display: flex; align-items: center; gap: 10px; font-weight: bold; font-size: 16px; line-height: normal; }
-.mp-conf-texto { padding: 18px 20px; font-size: 13.5px; line-height: 1.55; color: #34505f; }
+.mp-conf-texto { white-space: pre-line; padding: 18px 20px; font-size: 13.5px; line-height: 1.55; color: #34505f; }
 .mp-conf-rodape { display: flex; justify-content: flex-end; gap: 8px; padding: 12px 20px; background: #f5f8fa; }
 .mp .mp-conf-cancelar { height: 34px; border: none; background: transparent; font-size: 13.5px; padding: 0 14px; cursor: pointer; border-radius: 4px; color: #12242f; }
 .mp .mp-conf-cancelar:hover { background: #e2e9ee; }

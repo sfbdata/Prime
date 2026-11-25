@@ -109,9 +109,14 @@
   }
 
   function reativar(item) {
-    if (!window.confirm(BJ_T.t('comercial.js.dsc_confirmar_excluir', { email: item.email }))) return;
-    avisar(BJ_T.t('comercial.js.salvando'), 'info');
-    postar(bloco.dataset.urlReativar, { email: item.email, assunto: item.assunto }).then(() => { avisar(BJ_T.t('comercial.js.dsc_ok_excluido', { email: item.email }), 'ok'); recarregar(); }).catch(err => avisar(err.message, 'erro'));
+    window.BJMasterConf.perguntar({
+      titulo: BJ_T.t('comercial.js.dsc_titulo_excluir'), icone: 'bi-trash3', cor: '#a3232b',
+      texto: BJ_T.t('comercial.js.dsc_confirmar_excluir', { email: item.email }), botao: BJ_T.t('comercial.js.botao_excluir'),
+    }).then(ok => {
+      if (!ok) return;
+      avisar(BJ_T.t('comercial.js.salvando'), 'info');
+      postar(bloco.dataset.urlReativar, { email: item.email, assunto: item.assunto }).then(() => { avisar(BJ_T.t('comercial.js.dsc_ok_excluido', { email: item.email }), 'ok'); recarregar(); }).catch(err => avisar(err.message, 'erro'));
+    });
   }
 
   function registrar() {

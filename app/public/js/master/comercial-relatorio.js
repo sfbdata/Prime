@@ -244,10 +244,15 @@
       const pergunta = c.estado === 'agendada' || c.estado === 'recorrente'
         ? BJ_T.t('comercial_relatorio.js.confirmar_cancelar')
         : BJ_T.t('comercial_relatorio.js.confirmar_cancelar_fila');
-      if (!window.confirm(pergunta)) return;
-      pedir(url(raiz.dataset.urlCancelar, c.id), Object.assign(POST(), { body: '{}' }))
-        .then(r => { fechar(); avisar(r.mensagem || BJ_T.t('comercial_relatorio.js.cancelar_ok'), 'ok'); carregar(); recarregarOutras(instancia); })
-        .catch(err => { fechar(); avisar(err.message, 'erro'); });
+      perguntar({
+        titulo: BJ_T.t('comercial_relatorio.js.cancelar_titulo'), icone: 'bi-x-octagon', cor: PERIGO,
+        texto: pergunta, botao: BJ_T.t('comercial_relatorio.js.cancelar_botao'),
+      }).then(ok => {
+        if (!ok) return;
+        pedir(url(raiz.dataset.urlCancelar, c.id), Object.assign(POST(), { body: '{}' }))
+          .then(r => { fechar(); avisar(r.mensagem || BJ_T.t('comercial_relatorio.js.cancelar_ok'), 'ok'); carregar(); recarregarOutras(instancia); })
+          .catch(err => { fechar(); avisar(err.message, 'erro'); });
+      });
     }
 
     // ---- Encaminhar (M5.17): a campanha sai como teste para até 5 endereços (o servidor valida e aplica o teto) ----
@@ -274,10 +279,16 @@
     function marcarSelecao(acao) {
       const ids = estado.ids.filter(i => estado.sel[i]);
       if (!ids.length) return;
-      if (acao === 'remover' && !window.confirm(BJ_T.t('comercial_relatorio.js.confirmar_remover', { n: ids.length }))) return;
-      if (acao === 'arquivar' && estado.aba === 'arq') acao = 'desarquivar';
-      estado.sel = {};
-      marcar(ids, acao);
+      const seguir = () => {
+        if (acao === 'arquivar' && estado.aba === 'arq') acao = 'desarquivar';
+        estado.sel = {};
+        marcar(ids, acao);
+      };
+      if (acao !== 'remover') { seguir(); return; }
+      perguntar({
+        titulo: BJ_T.t('comercial_relatorio.js.remover_titulo'), icone: 'bi-trash3', cor: PERIGO,
+        texto: BJ_T.t('comercial_relatorio.js.confirmar_remover', { n: ids.length }), botao: BJ_T.t('comercial_relatorio.js.remover_botao'),
+      }).then(ok => { if (ok) seguir(); });
     }
 
     function alternarEstrela(id) {
@@ -324,10 +335,16 @@
     const ATIVAS = ['na_fila', 'agendada', 'enviando', 'recorrente'];
     function excluirCampanha(c) {
       const ativa = ATIVAS.includes(c.estado) || (c.estado === 'enviada' && ((c.metricas || {}).naFila || 0) > 0);
-      if (!window.confirm(ativa ? BJ_T.t('comercial_relatorio.js.confirmar_excluir_ativa') : BJ_T.t('comercial_relatorio.js.confirmar_excluir_encerrada'))) return;
-      pedir(url(raiz.dataset.urlExcluir, c.id), Object.assign(POST(), { body: '{}' }))
-        .then(r => { avisar(r.mensagem || BJ_T.t('comercial_relatorio.js.marca_ok_remover'), 'ok'); carregar(); recarregarOutras(instancia); })
-        .catch(err => { avisar(err.message, 'erro'); carregar(); recarregarOutras(instancia); });
+      perguntar({
+        titulo: BJ_T.t('comercial_relatorio.js.excluir_titulo'), icone: 'bi-trash3', cor: PERIGO,
+        texto: ativa ? BJ_T.t('comercial_relatorio.js.confirmar_excluir_ativa') : BJ_T.t('comercial_relatorio.js.confirmar_excluir_encerrada'),
+        botao: BJ_T.t('comercial_relatorio.js.excluir_botao'),
+      }).then(ok => {
+        if (!ok) return;
+        pedir(url(raiz.dataset.urlExcluir, c.id), Object.assign(POST(), { body: '{}' }))
+          .then(r => { avisar(r.mensagem || BJ_T.t('comercial_relatorio.js.marca_ok_remover'), 'ok'); carregar(); recarregarOutras(instancia); })
+          .catch(err => { avisar(err.message, 'erro'); carregar(); recarregarOutras(instancia); });
+      });
     }
 
     // ---- Menu do botão direito (dc L504 e L704) ----
