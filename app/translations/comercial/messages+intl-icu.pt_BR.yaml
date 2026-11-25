@@ -4,8 +4,8 @@ comercial:
         titulo: Central de envios · nova campanha
         descadastrados: Descadastrados
         descadastrados_dica: E-mails que pediram para não receber
-        base: 'Base de contatos'
-        base_dica: 'Contatos salvos: incluir, importar e exportar'
+        base: 'Contatos salvos'
+        base_dica: 'Incluir, importar e exportar os contatos salvos'
         sub: convites, ofertas, agradecimentos e novidades · individual ou em grande escala
         passo_modelo: 1 · MODELO
         novo_modelo: Novo modelo
@@ -21,6 +21,8 @@ comercial:
         publico:
             leads: Base de contatos
             leads_desc: Contatos que autorizaram campanhas
+            contatos: Contatos salvos
+            contatos_desc: Base do Master, com intervalo entre convites
             leads_venda: Novos contatos (base)
             leads_venda_desc: Interessados ainda sem conta
             prim: Usuários primários
@@ -161,8 +163,8 @@ comercial:
         fechar: Fechar
         vazio: Ninguém se descadastrou ainda.
     base:
-        titulo: 'Base de contatos'
-        sub: 'contatos salvos do Comercial; quem se descadastrou aparece como Descadastrado e não recebe'
+        titulo: 'Contatos salvos'
+        sub: 'base de contatos do Comercial; quem se descadastrou aparece como Descadastrado e não recebe'
         buscar: 'Buscar e-mail ou nome'
         incluir: 'Incluir contato'
         importar: 'Importar CSV'
@@ -203,6 +205,10 @@ comercial:
         chave_desligada: 'O envio de campanhas está desligado: nenhuma data comemorativa sai até ele ser ligado no topo da Central de envios.'
     envio:
         rotulo: Envio de campanhas
+        intervalo_rotulo: Intervalo entre convites
+        intervalo_dias: dias
+        intervalo_salvar: Salvar
+        intervalo_dica: 'Cada contato salvo recebe no máximo 1 convite a cada N dias (de 1 a 365; o padrão é 7). Vale para o público Contatos salvos.'
     leitura:
         ligada: Confirmação de leitura
         desligada: Sem confirmação de leitura
@@ -245,6 +251,11 @@ comercial:
         dest_repetidos: '{n} repetido(s) removido(s)'
         dest_invalidos: '{n} inválido(s) ignorado(s)'
         dest_sem_autorizacao: '{n} sem autorização retirado(s)'
+        dest_pulados_intervalo: '{n} pulado(s) pelo intervalo'
+        intervalo_salvando: Salvando…
+        intervalo_ok: 'Intervalo salvo: {n} dia(s).'
+        intervalo_erro_carregar: 'Não foi possível carregar o intervalo entre convites. Recarregue a página.'
+        intervalo_erro_salvar: 'Não foi possível salvar o intervalo entre convites.'
         dest_total: '{n} destinatário(s)'
         dest_lista_limpa: lista limpa
         csv_lido: '{nome} · {n} e-mail(s)'

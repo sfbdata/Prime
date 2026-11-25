@@ -15,5 +15,18 @@
     </div>
     <div class="mc-msg mc-envio-aviso" role="status" data-mc-envio-aviso hidden><i class="bi bi-pause-circle" aria-hidden="true"></i> <span data-mc-envio-aviso-texto></span></div>
     <div class="mc-envio-retorno" role="status" data-mc-envio-retorno hidden></div>
+    {% if not venda %}
+    {# Intervalo entre convites aos contatos salvos (decisão de 25/11/2026): GET/POST JSON em master_comercial_convite_intervalo(_alterar). #}
+    <div class="mc-envio-intervalo" data-mc-intervalo
+         data-url-estado="{{ path('master_comercial_convite_intervalo') }}"
+         data-url-alterar="{{ path('master_comercial_convite_intervalo_alterar') }}">
+        <label class="mc-envio-rotulo" for="{{ ids }}-intervalo-dias">{{ 'comercial.envio.intervalo_rotulo'|trans }}</label>
+        <input type="number" class="mc-envio-intervalo-campo" id="{{ ids }}-intervalo-dias" name="{{ ids }}-intervalo-dias" min="1" max="365" step="1" inputmode="numeric" disabled data-mc-intervalo-dias aria-describedby="{{ ids }}-intervalo-dica">
+        <span class="mc-envio-estado">{{ 'comercial.envio.intervalo_dias'|trans }}</span>
+        <button type="button" class="mc-dsc-botao" id="{{ ids }}-intervalo-salvar" name="{{ ids }}-intervalo-salvar" disabled data-mc-intervalo-salvar>{{ 'comercial.envio.intervalo_salvar'|trans }}</button>
+        <span class="mc-envio-intervalo-dica" id="{{ ids }}-intervalo-dica">{{ 'comercial.envio.intervalo_dica'|trans }}</span>
+        <div class="mc-envio-retorno" role="status" data-mc-intervalo-retorno hidden></div>
+    </div>
+    {% endif %}
 </div>
 <script src="{{ asset('js/master/comercial-envio.js') }}"></script>

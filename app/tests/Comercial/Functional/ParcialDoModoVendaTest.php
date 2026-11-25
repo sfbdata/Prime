@@ -151,7 +151,7 @@ final class ParcialDoModoVendaTest extends KernelTestCase
     {
         $editor = '[data-sec-externa="com"] > .mc[data-modo="com"] > section.mc-cp > .mc-cp-grade > .mc-cp-editor';
         self::assertSame(['1 · MODELO', '2 · PARA QUEM', '3 · MENSAGEM'], $this->textos($editor . ' > .mc-cp-passo'));
-        self::assertCount(6, $this->doc->filter($editor . ' > .mc-cp-publicos:not(.mc-cp-publicos-3) > button'));
+        self::assertCount(7, $this->doc->filter($editor . ' > .mc-cp-publicos:not(.mc-cp-publicos-3) > button'));
         self::assertCount(7, $this->doc->filter($editor . ' > .mc-cf > .mc-cf-painel > .mc-cf-atalhos > button'));
         self::assertCount(8, $this->doc->filter($editor . ' > .mc-cf > .mc-cf-painel > .mc-cf-selects > select'));
         self::assertCount(1, $this->doc->filter('[data-sec-externa="com"] > .mc > section.mc-cp > .mc-cp-cabeca > button[data-mc-cp-descad]'));

@@ -455,6 +455,50 @@ final class ExpansorDeCampanhasTest extends KernelTestCase
         self::assertSame('List-Unsubscribe=One-Click', $email->getHeaders()->get('List-Unsubscribe-Post')?->getBodyAsString());
     }
 
+    #[TestDox('Contatos salvos: só os elegíveis (sem descadastrado nem convite recente) viram envio, marcam o convite e levam o descadastro; a segunda campanha dentro do intervalo pula todos')]
+    public function testContatosSalvosRespeitamIntervaloEDescadastro(): void
+    {
+        $agora = new \DateTimeImmutable();
+        $sufixo = uniqid();
+        [$novo, $antigo, $recente, $saiu] = ['novo' . $sufixo . '@exemplo.com', 'antigo' . $sufixo . '@exemplo.com', 'recente' . $sufixo . '@exemplo.com', 'saiu' . $sufixo . '@exemplo.com'];
+        $this->conexao->executeStatement('DELETE FROM comercial_contato');
+        foreach ([[$novo, null], [$antigo, $agora->modify('-10 days')], [$recente, $agora->modify('-2 days')], [$saiu, null]] as [$email, $ultimo]) {
+            $this->conexao->executeStatement(
+                "INSERT INTO comercial_contato (email, nome, origem, criado_em, atualizado_em, ultimo_convite_em) VALUES (?, 'Contato', 'importacao', ?, ?, ?)",
+                [$email, $agora->format('Y-m-d H:i:s'), $agora->format('Y-m-d H:i:s'), $ultimo?->format('Y-m-d H:i:s')],
+            );
+        }
+        static::getContainer()->get(DescadastroDeEmailInterface::class)->descadastrar(null, $saiu, ComposicaoDaCampanha::LISTA, 'teste');
+        $primeira = $this->campanha([], ['publico' => 'contatos', 'parametros' => null, 'total' => 2]);
+        $expansor = $this->expansor();
+
+        $expansor->materializarDevidas($agora);
+
+        self::assertSame([$novo, $antigo], $this->destinosDe($primeira), 'sem o B1 (nunca se cadastraram), mas sem o descadastrado e sem o convite recente');
+        $marcados = $this->conexao->fetchAllKeyValue('SELECT email, ultimo_convite_em IS NOT NULL AND ultimo_convite_em >= ? FROM comercial_contato', [$agora->modify('-1 minute')->format('Y-m-d H:i:s')]);
+        $marcados = array_map('boolval', $marcados);
+        self::assertEqualsCanonicalizing([$novo => true, $antigo => true, $recente => false, $saiu => false], $marcados);
+        self::assertTrue($marcados[$novo] && $marcados[$antigo] && !$marcados[$recente] && !$marcados[$saiu]);
+        self::assertSame($agora->modify('-2 days')->format('Y-m-d'), (new \DateTimeImmutable((string) $this->conexao->fetchOne('SELECT ultimo_convite_em FROM comercial_contato WHERE email = ?', [$recente])))->format('Y-m-d'), 'quem foi pulado não é remarcado');
+
+        self::assertSame(2, $expansor->liberarLote($agora));
+        $despachados = array_map(static fn ($e): int => $e->getMessage()->envioId, $this->despachados(EnviarEmail::class));
+        self::assertCount(2, $despachados);
+        static::getContainer()->set(ChaveDasCampanhas::class, new ChaveDasCampanhas(true));
+        static::getContainer()->get(EnviarEmailHandler::class)(new EnviarEmail($despachados[0]));
+        $email = self::getMailerMessage();
+        self::assertNotNull($email);
+        self::assertSame($novo, $email->getTo()[0]->getAddress());
+        self::assertMatchesRegularExpression('#^<https?://[^>]+>$#', (string) $email->getHeaders()->get('List-Unsubscribe')?->getBodyAsString(), 'o convite a contato salvo leva o descadastro');
+        self::assertSame('List-Unsubscribe=One-Click', $email->getHeaders()->get('List-Unsubscribe-Post')?->getBodyAsString());
+
+        $segunda = $this->campanha([], ['publico' => 'contatos', 'parametros' => null, 'total' => 2]);
+        $expansor->materializarDevidas(new \DateTimeImmutable());
+
+        self::assertSame([], $this->destinosDe($segunda), 'dentro do intervalo, ninguém recebe a segunda campanha');
+        self::assertSame('enviada', $this->estado($segunda, ['estado'])['estado']);
+    }
+
     #[TestDox('Modelo vagas (§11): a recorrente resolve a Base de contatos pelo modelo_chave; cada destino sai pela lista dele (descadastro, List-Unsubscribe e Carteiro)')]
     public function testModeloDeVagasLevaAListaDoDestino(): void
     {

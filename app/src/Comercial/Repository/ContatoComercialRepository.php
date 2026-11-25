@@ -6,6 +6,7 @@ namespace App\Comercial\Repository;
 
 use App\Comercial\Entity\ContatoComercial;
 use Doctrine\Bundle\DoctrineBundle\Repository\ServiceEntityRepository;
+use Doctrine\DBAL\ArrayParameterType;
 use Doctrine\Persistence\ManagerRegistry;
 
 /**
@@ -90,6 +91,52 @@ class ContatoComercialRepository extends ServiceEntityRepository
         );
 
         return ['total' => $total, 'itens' => $itens];
+    }
+
+    /**
+     * Todos os contatos com o dia do último convite, para o público `contatos` das campanhas (ordem de entrada na base).
+     *
+     * @return list<array{email: string, nome: string, ultimoConviteEm: ?\DateTimeImmutable}>
+     */
+    public function paraConvite(): array
+    {
+        /** @var list<array{email: string, nome: ?string, ultimo_convite_em: ?string}> $linhas */
+        $linhas = $this->getEntityManager()->getConnection()->fetchAllAssociative(
+            'SELECT c.email, c.nome, c.ultimo_convite_em FROM comercial_contato c ORDER BY c.id',
+        );
+
+        return array_map(static fn (array $l): array => [
+            'email' => $l['email'],
+            'nome' => (string) $l['nome'],
+            'ultimoConviteEm' => $l['ultimo_convite_em'] === null ? null : new \DateTimeImmutable($l['ultimo_convite_em']),
+        ], $linhas);
+    }
+
+    /** Quantos contatos há na base (o número do público na grade). */
+    public function contar(): int
+    {
+        return (int) $this->getEntityManager()->getConnection()->fetchOne('SELECT COUNT(*) FROM comercial_contato');
+    }
+
+    /**
+     * Grava o convite de agora nos contatos, em lotes (um UPDATE por 1.000 endereços, sem uma consulta por contato).
+     *
+     * @param list<string> $emails
+     *
+     * @return int quantos contatos foram marcados
+     */
+    public function marcarConvite(array $emails, \DateTimeImmutable $agora): int
+    {
+        $marcados = 0;
+        foreach (array_chunk(array_values(array_unique($emails)), 1000) as $lote) {
+            $marcados += (int) $this->getEntityManager()->getConnection()->executeStatement(
+                'UPDATE comercial_contato SET ultimo_convite_em = :agora WHERE email IN (:emails)',
+                ['agora' => $agora->format('Y-m-d H:i:s'), 'emails' => $lote],
+                ['emails' => ArrayParameterType::STRING],
+            );
+        }
+
+        return $marcados;
     }
 
     /**

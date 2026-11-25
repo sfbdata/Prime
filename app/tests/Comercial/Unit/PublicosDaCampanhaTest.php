@@ -5,11 +5,14 @@ declare(strict_types=1);
 namespace App\Tests\Comercial\Unit;
 
 use App\Comercial\Campanha\AtributosDosDestinatarios;
+use App\Comercial\Campanha\IntervaloDosConvites;
 use App\Comercial\Campanha\PoliticaDeDestinatarios;
 use App\Comercial\Campanha\PublicosDaCampanha;
 use App\Comercial\DTO\DestinatarioDaCampanha;
 use App\Comercial\Repository\CadastradosRepository;
 use App\Comercial\Repository\ConfirmacaoDeEnderecoRepository;
+use App\Comercial\Repository\ContatoComercialRepository;
+use App\Master\Repository\ConfiguracaoGlobalRepository;
 use App\Contribua\Service\SituacaoDoEspaco;
 use App\Profile\Repository\UserProfileRepository;
 use App\Shared\Email\Descadastro\DescadastroDeEmailInterface;
@@ -24,6 +27,7 @@ use Symfony\Component\Clock\MockClock;
  */
 #[CoversClass(PublicosDaCampanha::class)]
 #[CoversClass(PoliticaDeDestinatarios::class)]
+#[CoversClass(IntervaloDosConvites::class)]
 final class PublicosDaCampanhaTest extends TestCase
 {
     /** @var list<string> */
@@ -63,7 +67,7 @@ final class PublicosDaCampanhaTest extends TestCase
 
         self::assertSame(['ana@exemplo.com', 'caio@exemplo.com'], self::emails($publicos->resolver('todos')->destinatarios));
         self::assertSame(['lead@exemplo.com'], self::emails($publicos->resolver('leads')->destinatarios));
-        self::assertSame(['leads' => 1, 'prim' => 1, 'sec' => 1, 'todos' => 2, 'csv' => 0, 'indiv' => 0], $publicos->tamanhos('leads', []));
+        self::assertSame(['leads' => 1, 'contatos' => 0, 'prim' => 1, 'sec' => 1, 'todos' => 2, 'csv' => 0, 'indiv' => 0], $publicos->tamanhos('leads', []));
     }
 
     #[TestDox('B1 no Individual e no CSV: só usuário ativo ou confirmado; os outros contam em "sem autorização" e não voltam')]
@@ -78,7 +82,7 @@ final class PublicosDaCampanhaTest extends TestCase
         self::assertSame(['ana@exemplo.com', 'lead@exemplo.com'], self::emails($indiv->destinatarios));
         self::assertSame(1, $indiv->semAutorizacao);
         self::assertSame(['ana@exemplo.com', 'lead@exemplo.com'], self::emails($csv->destinatarios));
-        self::assertSame(['leads' => 1, 'prim' => 0, 'sec' => 0, 'todos' => 0, 'csv' => 3, 'indiv' => 0], $publicos->tamanhos('csv', $informados));
+        self::assertSame(['leads' => 1, 'contatos' => 0, 'prim' => 0, 'sec' => 0, 'todos' => 0, 'csv' => 3, 'indiv' => 0], $publicos->tamanhos('csv', $informados));
     }
 
     #[TestDox('A lista informada não alcança os primários: o CSV só traz o que veio nele')]
@@ -142,15 +146,88 @@ final class PublicosDaCampanhaTest extends TestCase
         self::assertSame([['ana@exemplo.com', 'comercial_campanhas']], array_map(static fn (DestinatarioDaCampanha $d): array => [$d->email, $d->lista], $resolvido->destinatarios));
     }
 
+    #[TestDox('Contatos salvos: sem o B1 (convite profissional liberado), mas descadastrado sai; CSV e Individual seguem barrados')]
+    public function testContatosSalvosForaDoB1(): void
+    {
+        $this->descadastrados = ['saiu@exemplo.com'];
+        $publicos = $this->publicos(contatos: [
+            ['email' => 'estranho@exemplo.com', 'nome' => 'Estranho', 'ultimoConviteEm' => null],
+            ['email' => 'saiu@exemplo.com', 'nome' => 'Saiu', 'ultimoConviteEm' => null],
+        ]);
+        $informados = [new DestinatarioDaCampanha('estranho@exemplo.com')];
+
+        $contatos = $publicos->resolver('contatos');
+
+        self::assertSame(['estranho@exemplo.com'], self::emails($contatos->destinatarios), 'quem nunca se cadastrou nem confirmou recebe');
+        self::assertSame([1, 0, 0], [$contatos->descadastrados, $contatos->semAutorizacao, $contatos->puladosPeloIntervalo]);
+        self::assertSame(['comercial_campanhas'], array_map(static fn (DestinatarioDaCampanha $d): string => $d->lista, $contatos->destinatarios), 'a lista do descadastro e do link');
+        self::assertSame([], $publicos->resolver('csv', $informados)->destinatarios, 'o CSV avulso continua com o B1');
+        self::assertSame([], $publicos->resolver('indiv', $informados)->destinatarios, 'o Individual continua com o B1');
+        self::assertSame(1, $publicos->resolver('indiv', $informados)->semAutorizacao);
+        self::assertSame(2, $publicos->tamanhos('contatos', [])['contatos'], 'a grade conta a base inteira');
+    }
+
+    #[TestDox('Intervalo de 1 dia: convidado hoje sai, ontem entra (nunca o mesmo endereço duas vezes no mesmo dia)')]
+    public function testIntervaloDeUmDia(): void
+    {
+        $publicos = $this->publicos(intervalo: 1, contatos: [
+            ['email' => 'hoje@exemplo.com', 'nome' => '', 'ultimoConviteEm' => new \DateTimeImmutable('2026-11-25 00:00:00')],
+            ['email' => 'ontem@exemplo.com', 'nome' => '', 'ultimoConviteEm' => new \DateTimeImmutable('2026-11-24 23:59:59')],
+            ['email' => 'nunca@exemplo.com', 'nome' => '', 'ultimoConviteEm' => null],
+        ]);
+
+        $resolvido = $publicos->resolver('contatos', hoje: new \DateTimeImmutable('2026-11-25 15:30:00'));
+
+        self::assertSame(['ontem@exemplo.com', 'nunca@exemplo.com'], self::emails($resolvido->destinatarios));
+        self::assertSame(1, $resolvido->puladosPeloIntervalo);
+    }
+
+    #[TestDox('Intervalo de N dias: convidado há N-1 dias ainda sai; há N dias volta (conta por dia do calendário)')]
+    public function testIntervaloDeNDias(): void
+    {
+        $publicos = $this->publicos(intervalo: 7, contatos: [
+            ['email' => 'seis@exemplo.com', 'nome' => '', 'ultimoConviteEm' => new \DateTimeImmutable('2026-11-19 00:00:00')],
+            ['email' => 'sete@exemplo.com', 'nome' => '', 'ultimoConviteEm' => new \DateTimeImmutable('2026-11-18 23:59:59')],
+            ['email' => 'saiu@exemplo.com', 'nome' => '', 'ultimoConviteEm' => new \DateTimeImmutable('2026-11-24 10:00:00')],
+        ]);
+        $this->descadastrados = ['saiu@exemplo.com'];
+
+        $resolvido = $publicos->resolver('contatos', hoje: new \DateTimeImmutable('2026-11-25 08:00:00'));
+
+        self::assertSame(['sete@exemplo.com'], self::emails($resolvido->destinatarios));
+        self::assertSame(1, $resolvido->puladosPeloIntervalo);
+        self::assertSame(1, $resolvido->descadastrados, 'o descadastrado conta como descadastrado, não como pulado');
+    }
+
+    #[TestDox('O intervalo vem do painel quando válido; fora da faixa ou sem valor, vale o padrão de 7 dias')]
+    public function testIntervaloPadraoEFaixa(): void
+    {
+        foreach ([[null, 7, 'padrao'], [30, 30, 'painel'], [0, 7, 'padrao'], [366, 7, 'padrao'], [365, 365, 'painel']] as [$gravado, $dias, $origem]) {
+            $configuracoes = $this->createStub(ConfiguracaoGlobalRepository::class);
+            $configuracoes->method('intervaloDeConviteDias')->willReturn($gravado);
+            $intervalo = new IntervaloDosConvites($configuracoes);
+
+            self::assertSame([$dias, $origem], [$intervalo->dias(), $intervalo->origem()], (string) $gravado);
+        }
+        self::assertSame(7, (new IntervaloDosConvites())->dias());
+        self::assertTrue((new PoliticaDeDestinatarios())->dispensarAutorizacaoNosContatosSalvos());
+    }
+
     /**
      * @param list<array{email: string, nome: string}> $primarios
      * @param list<array{email: string, nome: string}> $secundarios
      * @param list<string>                             $confirmados
      * @param list<string>                             $ativos
      * @param list<string>                             $vagas       os confirmados de `vagas_alerta`
+     * @param list<array{email: string, nome: string, ultimoConviteEm: ?\DateTimeImmutable}> $contatos os contatos salvos
      */
-    private function publicos(array $primarios = [], array $secundarios = [], array $confirmados = [], array $ativos = [], array $vagas = []): PublicosDaCampanha
+    private function publicos(array $primarios = [], array $secundarios = [], array $confirmados = [], array $ativos = [], array $vagas = [], array $contatos = [], int $intervalo = 7): PublicosDaCampanha
     {
+        $repositorioDeContatos = $this->createStub(ContatoComercialRepository::class);
+        $repositorioDeContatos->method('paraConvite')->willReturn($contatos);
+        $repositorioDeContatos->method('contar')->willReturn(\count($contatos));
+        $configuracoes = $this->createStub(ConfiguracaoGlobalRepository::class);
+        $configuracoes->method('intervaloDeConviteDias')->willReturn($intervalo);
         $cadastrados = $this->createStub(CadastradosRepository::class);
         $cadastrados->method('primarios')->willReturn($primarios);
         $cadastrados->method('secundarios')->willReturn($secundarios);
@@ -171,7 +248,7 @@ final class PublicosDaCampanhaTest extends TestCase
             (new \ReflectionClass(SituacaoDoEspaco::class))->newInstanceWithoutConstructor(),
         );
 
-        return new PublicosDaCampanha($cadastrados, $confirmacoes, $descadastro, new PoliticaDeDestinatarios(), $atributos, new MockClock());
+        return new PublicosDaCampanha($cadastrados, $confirmacoes, $descadastro, new PoliticaDeDestinatarios(), $atributos, new MockClock(), $repositorioDeContatos, new IntervaloDosConvites($configuracoes));
     }
 
     /**

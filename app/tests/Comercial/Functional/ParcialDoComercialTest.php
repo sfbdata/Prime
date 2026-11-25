@@ -190,14 +190,14 @@ final class ParcialDoComercialTest extends KernelTestCase
     public function testPublicos(): void
     {
         $botoes = '.mc-cp-editor > .mc-cp-publicos > button.mc-cp-publico';
-        self::assertSame(['leads', 'prim', 'sec', 'todos', 'csv', 'indiv'], $this->doc->filter($botoes)->each(static fn (Crawler $c): string => (string) $c->attr('data-mc-cp-publico')));
-        self::assertSame(['Base de contatos', 'Usuários primários', 'Usuários secundários', 'Todos os cadastrados', 'Importar lista (CSV)', 'Individual'], $this->textos($botoes . ' > .mc-cp-publico-texto > .mc-cp-publico-rot'));
+        self::assertSame(['leads', 'contatos', 'prim', 'sec', 'todos', 'csv', 'indiv'], $this->doc->filter($botoes)->each(static fn (Crawler $c): string => (string) $c->attr('data-mc-cp-publico')));
+        self::assertSame(['Base de contatos', 'Contatos salvos', 'Usuários primários', 'Usuários secundários', 'Todos os cadastrados', 'Importar lista (CSV)', 'Individual'], $this->textos($botoes . ' > .mc-cp-publico-texto > .mc-cp-publico-rot'));
         self::assertSame([
-            'Contatos que autorizaram campanhas', 'Quem abriu conta, em todas as contas', 'Convidados de todas as contas',
+            'Contatos que autorizaram campanhas', 'Base do Master, com intervalo entre convites', 'Quem abriu conta, em todas as contas', 'Convidados de todas as contas',
             'Primários e secundários', 'Planilha com e-mail e nome', 'Digite um ou mais e-mails',
         ], $this->textos($botoes . ' > .mc-cp-publico-texto > .mc-cp-publico-desc'));
-        self::assertSame(['bi-person-lines-fill', 'bi-person-badge', 'bi-people', 'bi-buildings', 'bi-filetype-csv', 'bi-person'], $this->doc->filter($botoes . ' > i')->each(static fn (Crawler $c): string => trim(str_replace('bi ', '', (string) $c->attr('class')))));
-        self::assertSame(6, $this->doc->filter($botoes . ' > b.mc-cp-publico-n')->count());
+        self::assertSame(['bi-person-lines-fill', 'bi-person-vcard', 'bi-person-badge', 'bi-people', 'bi-buildings', 'bi-filetype-csv', 'bi-person'], $this->doc->filter($botoes . ' > i')->each(static fn (Crawler $c): string => trim(str_replace('bi ', '', (string) $c->attr('class')))));
+        self::assertSame(7, $this->doc->filter($botoes . ' > b.mc-cp-publico-n')->count());
         self::assertSame('true', $this->doc->filter($botoes)->eq(0)->attr('aria-pressed'), 'Base de contatos é o padrão (dc L.530)');
         // A ordem dos filhos da coluna da esquerda: o público vem entre as ações do modelo e 3 · MENSAGEM (L.235-241).
         $ordem = $this->doc->filter('.mc-cp-grade > .mc-cp-editor > *')->each(static fn (Crawler $c): string => (string) $c->attr('class'));

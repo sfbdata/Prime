@@ -25,6 +25,18 @@ final class PoliticaDeDestinatarios
         return true;
     }
 
+    /**
+     * "Contatos salvos" (a base do Master): o B1 acima NÃO se aplica. Decisão do Samuel de 25/11/2026 (opção 1, convite
+     * profissional por legítimo interesse): o contato importado que nunca se cadastrou nem confirmou a lista pode receber
+     * o convite. Em troca: link de descadastro e List-Unsubscribe em todo e-mail, descadastrado nunca mais recebe, intervalo
+     * mínimo entre convites ({@see IntervaloDosConvites}) e a base guarda a origem de cada contato. CSV avulso e Individual
+     * continuam com o B1: para convidar quem não autorizou, o Master importa antes para Contatos salvos.
+     */
+    public function dispensarAutorizacaoNosContatosSalvos(): bool
+    {
+        return true;
+    }
+
     /** O reply-to das campanhas: null = o padrão da plataforma (`MAILER_REPLY_TO`, como na 1a). */
     public function replyToDaCampanha(): ?string
     {

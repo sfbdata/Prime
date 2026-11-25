@@ -109,6 +109,7 @@
                 <div class="mc-cp-publicos{{ venda ? ' mc-cp-publicos-3' }}" data-mc-cp-publicos{% if not venda %} aria-describedby="{{ ids }}-cp-publico-motivo"{% endif %}>
                     {% for p in [
                         ['leads', venda ? 'comercial.campanha.publico.leads_venda'|trans : 'comercial.campanha.publico.leads'|trans, 'bi-person-lines-fill', venda ? 'comercial.campanha.publico.leads_venda_desc'|trans : 'comercial.campanha.publico.leads_desc'|trans],
+                        ['contatos', 'comercial.campanha.publico.contatos'|trans, 'bi-person-vcard', 'comercial.campanha.publico.contatos_desc'|trans],
                         ['prim', 'comercial.campanha.publico.prim'|trans, 'bi-person-badge', 'comercial.campanha.publico.prim_desc'|trans],
                         ['sec', 'comercial.campanha.publico.sec'|trans, 'bi-people', 'comercial.campanha.publico.sec_desc'|trans],
                         ['todos', 'comercial.campanha.publico.todos'|trans, 'bi-buildings', 'comercial.campanha.publico.todos_desc'|trans],

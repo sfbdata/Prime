@@ -37,7 +37,7 @@
      carrega a instância e se ela responde pelos ganchos globais. */
   const MODOS = {
     com: {
-      secao: 'com', modelos: null, publicos: ['leads', 'prim', 'sec', 'todos', 'csv', 'indiv'],
+      secao: 'com', modelos: null, publicos: ['leads', 'contatos', 'prim', 'sec', 'todos', 'csv', 'indiv'],
       filtros: ['q', 'gen', 'id', 'uf', 'papel', 'cargo', 'oab', 'plano', 'aniv'], passos: { para: 2, msg: 3 }, ganchos: true,
     },
     venda: {
@@ -244,6 +244,7 @@
        ignorado(s)", ou " · lista limpa". O B1 (sem autorização) é regra do sistema que o dc não tem: entra no mesmo tom. */
     function linhaDeDestinatarios(c) {
       const partes = [
+        c.puladosPeloIntervalo ? BJ_T.t('comercial.js.dest_pulados_intervalo', { n: c.puladosPeloIntervalo }) : '',
         c.descadastrados ? BJ_T.t('comercial.js.dest_descadastrados', { n: c.descadastrados }) : '',
         c.repetidos ? BJ_T.t('comercial.js.dest_repetidos', { n: c.repetidos }) : '',
         c.invalidos ? BJ_T.t('comercial.js.dest_invalidos', { n: c.invalidos }) : '',

@@ -9,6 +9,7 @@ use App\Comercial\DTO\FiltroDoPublico;
 use App\Comercial\DTO\PublicoResolvido;
 use App\Comercial\Repository\CadastradosRepository;
 use App\Comercial\Repository\ConfirmacaoDeEnderecoRepository;
+use App\Comercial\Repository\ContatoComercialRepository;
 use App\Shared\Email\Descadastro\DescadastroDeEmailInterface;
 use Psr\Clock\ClockInterface;
 
@@ -20,7 +21,10 @@ use Psr\Clock\ClockInterface;
  *     `vagas_alerta` (R1);
  *   - `prim`, `sec`, `todos`: os cadastrados com vínculo ativo, usuário ativo e escritório válido (`todos` = a união,
  *     sem repetidos: quem é primário num escritório e secundário noutro conta uma vez);
- *   - `csv` e `indiv`: a lista informada, e só com autorização (B1, {@see PoliticaDeDestinatarios}).
+ *   - `csv` e `indiv`: a lista informada, e só com autorização (B1, {@see PoliticaDeDestinatarios});
+ *   - `contatos` "Contatos salvos": a base do Master (`comercial_contato`). Sem o B1 (convite profissional liberado em
+ *     25/11/2026, {@see PoliticaDeDestinatarios::dispensarAutorizacaoNosContatosSalvos()}), mas sem os descadastrados e
+ *     sem quem recebeu convite dentro do intervalo ({@see IntervaloDosConvites}); quem sai pelo intervalo é contado à parte.
  * Sempre sem repetidos (e-mail minúsculo, fica o primeiro) e sem os descadastrados de `comercial_campanhas` ou de
  * `todos` (a consulta da 0d, escopo plataforma). No modelo `vagas`, fica de fora também quem saiu de `vagas_alerta`:
  * o "não quero mais" de uma lista não volta pela outra. Cada destinatário leva a lista pela qual entrou
@@ -31,6 +35,7 @@ final class PublicosDaCampanha
     /** As chaves e os rótulos do dc (L.539), na ordem da grade. */
     public const ROTULOS = [
         'leads' => 'Base de contatos',
+        'contatos' => 'Contatos salvos',
         'prim' => 'Usuários primários',
         'sec' => 'Usuários secundários',
         'todos' => 'Todos os cadastrados',
@@ -41,6 +46,8 @@ final class PublicosDaCampanha
     public const MODELO_DE_VAGAS = 'vagas';
     /** A lista do "Receber alertas de vagas" (TrabalhoExterno), que o modelo `vagas` também alcança. */
     public const LISTA_DE_VAGAS = 'vagas_alerta';
+    /** A chave do público "Contatos salvos" (cabe nos 10 caracteres de `comercial_campanha.publico`). */
+    public const CONTATOS_SALVOS = 'contatos';
     private const INFORMADOS = ['csv', 'indiv'];
 
     public function __construct(
@@ -50,6 +57,8 @@ final class PublicosDaCampanha
         private readonly PoliticaDeDestinatarios $politica,
         private readonly AtributosDosDestinatarios $atributos,
         private readonly ClockInterface $relogio,
+        private readonly ContatoComercialRepository $contatos,
+        private readonly IntervaloDosConvites $intervalo,
     ) {
     }
 
@@ -63,20 +72,25 @@ final class PublicosDaCampanha
      */
     public function resolver(string $publico, array $informados = [], ?FiltroDoPublico $filtro = null, ?\DateTimeImmutable $hoje = null, string $modelo = ''): PublicoResolvido
     {
-        $fonte = $this->fonte($publico, $informados, $modelo);
+        $linhasDosContatos = $publico === self::CONTATOS_SALVOS ? $this->contatos->paraConvite() : [];
+        $fonte = $this->fonte($publico, $informados, $modelo, $linhasDosContatos);
         $unicos = self::semRepetidos($fonte);
         // dc 21.10 L665: "Y repetido(s) removido(s) · Z inválido(s) ignorado(s)".
         $invalidos = \count(array_filter($fonte, static fn (DestinatarioDaCampanha $d): bool => !$d->valido()));
         $repetidos = \count($fonte) - $invalidos - \count($unicos);
         $liberados = array_values(array_filter($unicos, fn (DestinatarioDaCampanha $d): bool => !$this->descadastrado($d, $modelo)));
+        $foraDoIntervalo = $this->foraDoIntervalo($liberados, $linhasDosContatos, $hoje ?? $this->relogio->now());
+        $liberados = array_values(array_filter($liberados, static fn (DestinatarioDaCampanha $d): bool => !isset($foraDoIntervalo[$d->email])));
+        $puladosPeloIntervalo = \count($foraDoIntervalo);
+        $descadastrados = \count($unicos) - \count($liberados) - $puladosPeloIntervalo;
         $autorizados = $this->autorizados($publico, $liberados);
         if ($filtro === null || !$filtro->ativo()) {
-            return new PublicoResolvido($autorizados, \count($unicos) - \count($liberados), \count($liberados) - \count($autorizados), repetidos: $repetidos, invalidos: $invalidos);
+            return new PublicoResolvido($autorizados, $descadastrados, \count($liberados) - \count($autorizados), repetidos: $repetidos, invalidos: $invalidos, puladosPeloIntervalo: $puladosPeloIntervalo);
         }
         $atributos = $this->atributos->de(array_map(static fn (DestinatarioDaCampanha $d): string => $d->email, $autorizados));
         [$atendem, $semInformacao] = FiltroDeDestinatarios::aplicar($autorizados, $atributos, $filtro, $hoje ?? $this->relogio->now());
 
-        return new PublicoResolvido($atendem, \count($unicos) - \count($liberados), \count($liberados) - \count($autorizados), \count($autorizados), $semInformacao, $autorizados, $repetidos, $invalidos);
+        return new PublicoResolvido($atendem, $descadastrados, \count($liberados) - \count($autorizados), \count($autorizados), $semInformacao, $autorizados, $repetidos, $invalidos, $puladosPeloIntervalo);
     }
 
     /**
@@ -94,6 +108,7 @@ final class PublicosDaCampanha
 
         return [
             'leads' => \count(array_unique(array_map(static fn (DestinatarioDaCampanha $d): string => $d->email, $this->baseDeContatos($modelo)))),
+            'contatos' => $this->contatos->contar(),
             'prim' => \count($prim), 'sec' => \count($sec), 'todos' => \count(array_unique([...$prim, ...$sec])),
             'csv' => $publico === 'csv' ? self::validos($informados) : 0,
             'indiv' => $publico === 'indiv' ? self::validos($informados) : 0,
@@ -101,14 +116,16 @@ final class PublicosDaCampanha
     }
 
     /**
-     * @param list<DestinatarioDaCampanha> $informados
+     * @param list<DestinatarioDaCampanha>                                                         $informados
+     * @param list<array{email: string, nome: string, ultimoConviteEm: ?\DateTimeImmutable}> $linhasDosContatos
      *
      * @return list<DestinatarioDaCampanha>
      */
-    private function fonte(string $publico, array $informados, string $modelo): array
+    private function fonte(string $publico, array $informados, string $modelo, array $linhasDosContatos): array
     {
         return match ($publico) {
             'leads' => $this->baseDeContatos($modelo),
+            self::CONTATOS_SALVOS => array_map(static fn (array $l): DestinatarioDaCampanha => new DestinatarioDaCampanha($l['email'], $l['nome']), $linhasDosContatos),
             'prim' => self::deLinhas($this->cadastrados->primarios()),
             'sec' => self::deLinhas($this->cadastrados->secundarios()),
             'todos' => self::deLinhas([...$this->cadastrados->primarios(), ...$this->cadastrados->secundarios()]),
@@ -143,13 +160,53 @@ final class PublicosDaCampanha
      */
     private function autorizados(string $publico, array $lista): array
     {
-        if (!\in_array($publico, self::INFORMADOS, true) || !$this->politica->exigirAutorizacaoEmCsvEIndividual()) {
+        $dispensado = $publico === self::CONTATOS_SALVOS && $this->politica->dispensarAutorizacaoNosContatosSalvos();
+        if ($dispensado || !\in_array($publico, [...self::INFORMADOS, self::CONTATOS_SALVOS], true) || !$this->politica->exigirAutorizacaoEmCsvEIndividual()) {
             return $lista;
         }
         $emails = array_map(static fn (DestinatarioDaCampanha $d): string => $d->email, $lista);
         $permitidos = array_flip([...$this->cadastrados->ativosEntre($emails), ...$this->confirmacoes->confirmadosDaLista(ComposicaoDaCampanha::LISTA)]);
 
         return array_values(array_filter($lista, static fn (DestinatarioDaCampanha $d): bool => isset($permitidos[$d->email])));
+    }
+
+    /**
+     * Quem recebeu convite dentro do intervalo (só no público `contatos`): o e-mail de cada um, para sair do público.
+     *
+     * @param list<DestinatarioDaCampanha>                                                         $liberados
+     * @param list<array{email: string, nome: string, ultimoConviteEm: ?\DateTimeImmutable}> $linhasDosContatos
+     *
+     * @return array<string, true>
+     */
+    private function foraDoIntervalo(array $liberados, array $linhasDosContatos, \DateTimeImmutable $agora): array
+    {
+        if ($linhasDosContatos === []) {
+            return [];
+        }
+        $corte = $this->intervalo->corte($agora);
+        $recentes = [];
+        foreach ($linhasDosContatos as $l) {
+            if ($l['ultimoConviteEm'] !== null && $l['ultimoConviteEm'] >= $corte) {
+                $recentes[mb_strtolower(trim($l['email']))] = true;
+            }
+        }
+
+        return array_intersect_key($recentes, array_flip(array_map(static fn (DestinatarioDaCampanha $d): string => $d->email, $liberados)));
+    }
+
+    /**
+     * Grava o convite de agora nos contatos que entraram na execução (um UPDATE por lote). Só o público `contatos` marca;
+     * o teste da campanha não passa por aqui. Chamado pelo expansor, na mesma transação que grava os destinatários.
+     *
+     * @param list<DestinatarioDaCampanha> $destinatarios
+     */
+    public function registrarConvite(string $publico, array $destinatarios, \DateTimeImmutable $agora): int
+    {
+        if ($publico !== self::CONTATOS_SALVOS || $destinatarios === []) {
+            return 0;
+        }
+
+        return $this->contatos->marcarConvite(array_map(static fn (DestinatarioDaCampanha $d): string => $d->email, $destinatarios), $agora);
     }
 
     /** @param list<DestinatarioDaCampanha> $lista */

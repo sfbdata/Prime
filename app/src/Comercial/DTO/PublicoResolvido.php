@@ -27,6 +27,7 @@ final class PublicoResolvido
         private readonly ?array $antesDoFiltro = null,
         public readonly int $repetidos = 0,
         public readonly int $invalidos = 0,
+        public readonly int $puladosPeloIntervalo = 0,
     ) {
     }
 
