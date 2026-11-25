@@ -137,6 +137,20 @@ nano .env.prod
    - troque o usuário (o que vem depois de `://`) por `voto_app`;
    - troque a senha (o que vem depois de `voto_app:` até o `@`) pela senha do passo 4.
 
+   **Perdeu a senha do passo 4?** Não precisa dela: gere outra, troque no banco e grave direto no arquivo,
+   sem que ela apareça na tela (foi assim na subida de 25/11/2026). Rode no lugar do item 1, uma vez só:
+
+   ```bash
+   VP=$(openssl rand -hex 24)
+   printf "ALTER ROLE voto_app PASSWORD '%s';\n" "$VP" | docker exec -i jusprime_db_prod sh -c 'psql -U "$POSTGRES_USER" -d "$POSTGRES_DB"'
+   printf '\n' >> .env.prod
+   grep '^DATABASE_URL=' .env.prod | head -1 | sed -E "s#^DATABASE_URL=(\"?)([a-z0-9]+)://[^:]+:[^@]+@#VOTO_DATABASE_URL=\1\2://voto_app:${VP}@#" >> .env.prod
+   unset VP
+   ```
+
+   **Esperado:** `ALTER ROLE`. Se já existia uma linha `VOTO_DATABASE_URL` no `.env.prod`, apague a antiga no
+   `nano .env.prod` antes (só pode haver uma). Com o Voto já no ar, recrie o container depois (`up -d --no-deps voto`).
+
    O resto (servidor `db`, porta, nome do banco e parâmetros) fica igual.
 
 2. **`COMPOSE_PROFILES`:** acrescente uma linha nova:
@@ -180,10 +194,11 @@ docker compose -f docker-compose.prod.yml --env-file .env.prod config --services
 Confira também que o banco do Voto chegou com o usuário certo (mostra só uma contagem, nunca a senha):
 
 ```bash
-docker compose -f docker-compose.prod.yml --env-file .env.prod config voto | grep -c 'DATABASE_URL: pgsql://voto_app:'
+docker compose -f docker-compose.prod.yml --env-file .env.prod config voto | grep -c '^ *DATABASE_URL: [a-z0-9]*://voto_app:'
 ```
 
-**Esperado:** `1`.
+**Esperado:** `1`. O `^ *` é de propósito: o `config voto` mostra também o `php` e o `db` (dependências do
+Voto), que leem o `.env.prod` inteiro e por isso trazem a linha `VOTO_DATABASE_URL`. Sem ele, a conta dá `3`.
 
 ## 7. Subir o container do Voto
 
@@ -211,9 +226,10 @@ dos sites (`sfbdata/sites-bluejus`, pasta `voto/`, que entra pelo PR #27 de lá;
 `publicar.sh` não conhece o Voto) e é enviada do **seu computador**, não da VPS:
 
 ```bash
+git -C ~/projetos/sites pull --ff-only   # o publicar.sh usado é o da sua cópia: sem atualizar, ele não conhece o Voto
 cd ~/projetos/sites
-scripts/publicar.sh            # simula: confira que aparece sites-publicados/voto/
-scripts/publicar.sh --enviar   # envia de verdade
+NODE_OPTIONS=--max-old-space-size=4096 scripts/publicar.sh            # simula: confira que aparece sites-publicados/voto/
+NODE_OPTIONS=--max-old-space-size=4096 scripts/publicar.sh --enviar   # envia de verdade
 ```
 
 O bloco do nginx entrega do disco só a raiz (`/`) e `/_voto/` (CSS, JS e imagens da página); todo o resto vai
