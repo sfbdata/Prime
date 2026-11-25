@@ -15,7 +15,6 @@ use App\Master\Exception\ConvenioRecusado;
 use App\Master\Repository\ConvenioRepository;
 use App\Master\Repository\ConvenioVinculoRepository;
 use App\Master\Service\ChaveDoConvenio;
-use App\Master\Service\LocalizacaoDaPessoa;
 use App\Repository\UserTenantRepository;
 use App\Shared\Audit\EscopoDeAuditoriaDePlataforma;
 use App\Tenant\Exception\OperacaoDePrimarioRecusada;
@@ -30,8 +29,9 @@ use Psr\Clock\ClockInterface;
  * Quem dispara: um primário do escritório (titular ou sócio, {@see RegraDosPrimarios}) no Meu Perfil, ou o cadastro,
  * que guarda o `?convenio=` e aplica ao criar o escritório (quem cria é o primário).
  * Confere: chave geral ligada; o código existe; convênio por código, ligado, dentro da validade e sem fim marcado;
- * abaixo do limite de usos; no convênio de um estado, o estado do escritório bate (sem estado ainda, aceita: a tarefa
- * diária fecha se o estado vier outro). Toda recusa tem o mesmo texto, sem dizer qual regra falhou.
+ * abaixo do limite de usos; no convênio de um estado, a UF do escritório bate (o estado ou, sem ele, a UF da OAB do
+ * criador, {@see \App\Master\Service\UfDoEscritorio}; sem nenhum dos dois, aceita: a tarefa diária fecha se a UF
+ * vier outra). Toda recusa tem o mesmo texto, sem dizer qual regra falhou.
  * Numa transação, com a trava do escritório (a mesma da sincronização) e a do convênio (o limite de usos). O vínculo
  * grava na Trilha do escritório.
  */
@@ -108,7 +108,8 @@ final class AplicarCodigoDeConvenioUseCase
     private function exigirQueVale(Convenio $convenio, Tenant $tenant, \DateTimeImmutable $agora): void
     {
         $limite = $convenio->getLimiteDeUsos();
-        $estado = LocalizacaoDaPessoa::uf($tenant->getEstado());
+        // A UF da sincronização (UfDoEscritorio): o estado ou, sem ele, a UF da OAB do criador.
+        $estado = ($this->vinculos->escritoriosParaConvenio([(int) $tenant->getId()])[0] ?? null)?->uf;
         $vale = $convenio->getProva() === ProvaDoConvenio::Codigo
             && $convenio->vigenteEm($agora)
             && $convenio->getEncerraEm() === null

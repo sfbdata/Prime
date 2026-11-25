@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Tests\Master\Functional;
 
+use App\Auth\Enum\StatusOab;
 use App\Entity\Audit\AuditLog;
 use App\Entity\Auth\User;
 use App\Entity\Auth\UserTenant;
@@ -124,6 +125,20 @@ final class AplicarCodigoDeConvenioTest extends KernelTestCase
         self::assertCount(1, $this->abertos($semEstado));
     }
 
+    #[TestDox('escritório sem estado: o convênio de um estado confere a UF da OAB do criador; sem OAB, aceita')]
+    public function testSemEstadoConfereAUfDaOab(): void
+    {
+        $doGo = $this->convenio(uf: 'GO');
+        [$comOabSp, $primarioSp] = $this->escritorio(null, 'SP');
+        [$comOabGo, $primarioGo] = $this->escritorio(null, 'GO');
+
+        $this->assertRecusado($primarioSp, $comOabSp, $this->codigo($doGo));
+        $this->aplicar($primarioGo, $comOabGo, $this->codigo($doGo));
+
+        self::assertSame([], $this->abertos($comOabSp));
+        self::assertCount(1, $this->abertos($comOabGo));
+    }
+
     #[TestDox('chave geral do convênio desligada: todo código é recusado')]
     public function testChaveGeralDesligada(): void
     {
@@ -168,14 +183,21 @@ final class AplicarCodigoDeConvenioTest extends KernelTestCase
         return (string) $convenio->getCodigoConvite();
     }
 
-    /** @return array{Tenant, User} */
-    private function escritorio(?string $estado): array
+    /**
+     * @param ?string $ufDaOab UF da OAB do criador (o primário), no espelho do usuário
+     *
+     * @return array{Tenant, User}
+     */
+    private function escritorio(?string $estado, ?string $ufDaOab = null): array
     {
-        $tenant = (new Tenant())->setName('Conta do código ' . uniqid())->setEstado($estado);
+        $primario = $this->usuario();
+        if ($ufDaOab !== null) {
+            $primario->setOabNumero((string) random_int(10000, 99999))->setOabUf($ufDaOab)->setOabStatus(StatusOab::Confirmada);
+        }
+        $tenant = (new Tenant())->setName('Conta do código ' . uniqid())->setEstado($estado)->setCriadoPor($primario);
         $this->em->persist($tenant);
         $papel = (new TenantRole())->setTenant($tenant)->setName('Administrador do Escritório')->setIsSystem(true);
         $this->em->persist($papel);
-        $primario = $this->usuario();
         $this->em->persist((new UserTenant($primario, $tenant))->setTenantRole($papel));
         $this->em->flush();
 

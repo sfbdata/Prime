@@ -13,7 +13,7 @@ use App\Master\Entity\ConvenioDaUf;
 use App\Master\Repository\ConvenioDaUfRepository;
 use App\Master\Repository\PainelMasterRepository;
 use App\Master\Service\ConveniosDoEscritorio;
-use App\Master\Service\LocalizacaoDaPessoa;
+use App\Master\Service\UfDoEscritorio;
 use App\Repository\TenantRepository;
 use App\Tenant\Service\CodigoDaContaDoEscritorio;
 use App\Tenant\Service\NumeroDaConta;
@@ -140,7 +140,8 @@ final class ConsultarContasUseCase
     /**
      * Data prevista da purga: excluidoEm + `tenant_carencia_purga_dias` (a mesma conta do comando de purga).
      * Na quarentena o uso não é medido (sai zerado): vale o plano e o limite, não a faixa. O convênio é o da OAB do
-     * estado da conta (desenho 05 VS 25.10.26); sem estado válido a conta não tem rótulo.
+     * UF da conta (desenho 05 VS 25.10.26; {@see UfDoEscritorio}: o estado ou, sem ele, a UF da OAB do criador); sem
+     * nenhum dos dois a conta não tem rótulo.
      */
     private function purgaEm(?string $excluidoEm): ?string
     {
@@ -151,7 +152,7 @@ final class ConsultarContasUseCase
      * O rótulo de convênio de cada conta, em lote (spec docs/specs/convenios.md, §3.4). Com a chave geral desligada,
      * nem o convênio vigente nem a exceção da UF entram: `convenio` sai nulo.
      *
-     * @param list<array{id: int, estado: ?string}> $escritorios
+     * @param list<array{id: int, estado: ?string, uf_oab?: ?string}> $escritorios
      *
      * @return array<int, array{uf: ?string, convenio: ?array{modo: string, valor: float}}>
      */
@@ -163,14 +164,14 @@ final class ConsultarContasUseCase
 
         $rotulos = [];
         foreach ($escritorios as $e) {
-            $rotulos[$e['id']] = self::convenioDaConta(LocalizacaoDaPessoa::uf($e['estado']), $excecoes, $exibir ? ($vigentes[$e['id']] ?? []) : []);
+            $rotulos[$e['id']] = self::convenioDaConta(UfDoEscritorio::daLinha($e), $excecoes, $exibir ? ($vigentes[$e['id']] ?? []) : []);
         }
 
         return $rotulos;
     }
 
     /**
-     * @param list<array{id: int, estado: ?string}> $escritorios
+     * @param list<array{id: int, estado: ?string, uf_oab?: ?string}> $escritorios
      *
      * @return array<int, ?string>
      */
@@ -178,7 +179,7 @@ final class ConsultarContasUseCase
     {
         $ufs = [];
         foreach ($escritorios as $e) {
-            $ufs[$e['id']] = LocalizacaoDaPessoa::uf($e['estado']);
+            $ufs[$e['id']] = UfDoEscritorio::daLinha($e);
         }
 
         return $ufs;

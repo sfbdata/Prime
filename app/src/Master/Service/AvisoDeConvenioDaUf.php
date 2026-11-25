@@ -34,7 +34,8 @@ final class AvisoDeConvenioDaUf
     }
 
     /**
-     * Quem recebe o aviso: primários ativos dos escritórios ativos da UF.
+     * Quem recebe o aviso: primários ativos dos escritórios ativos da UF ({@see UfDoEscritorio}: o estado ou, sem
+     * ele, a UF da OAB do criador).
      *
      * @return list<array{email: string, nome: string}>
      */
@@ -42,7 +43,7 @@ final class AvisoDeConvenioDaUf
     {
         $escritorios = [];
         foreach ($this->painel->escritorios() as $e) {
-            if ($e['ativo'] && LocalizacaoDaPessoa::uf($e['estado']) === $uf) {
+            if ($e['ativo'] && UfDoEscritorio::daLinha($e) === $uf) {
                 $escritorios[] = $e['id'];
             }
         }

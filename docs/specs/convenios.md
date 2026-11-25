@@ -245,10 +245,15 @@ Regras:
 
 ### 5.1 OAB (`prova = oab`)
 
-- Vínculo **automático** quando: UF do escritório válida (`LocalizacaoDaPessoa::uf`), a UF não está `sem` em
+- Vínculo **automático** quando: UF do escritório válida, a UF não está `sem` em
   `convenio_uf`, e o criador do escritório (`Tenant::getCriadoPor`, como `DonoDoEscritorio::ehDono`,
   src/Backup/Service/DonoDoEscritorio.php:17-24) tem ao menos uma inscrição OAB que **não** está `divergente`.
   Conta do Voto sem OAB (condomínio) não ganha vínculo OAB.
+- **UF do escritório** (25/11, `src/Master/Service/UfDoEscritorio.php`): o estado do escritório (`Tenant.estado`, por
+  `LocalizacaoDaPessoa::uf`); vazio ou inválido, a UF da inscrição OAB válida do criador (a principal não divergente,
+  depois a mais antiga; sem linha em `inscricao_oab`, o espelho `user.oab_*`). Motivo: o escritório nasce sem estado e
+  a volta das 2h10 de 25/11 criou 1 vínculo em 34 escritórios (32 sem estado). Vale em todo lugar onde a UF decide
+  convênio: sincronização, código de um estado (§5.3), rótulo e contagem das contas no painel e aviso da UF.
 - **Quem confere:** o sistema, em `SincronizarVinculosDeConvenioUseCase` (proposta), idempotente, chamado:
   - por uma tarefa diária do agendador (src/Shared/Scheduler/AgendaDeTarefas.php);
   - logo depois de mudar o estado do escritório (SalvarDadosDoEscritorioUseCase.php:99), do cadastro e de cada
@@ -315,7 +320,8 @@ Para o benefício `gratuidade` isso só muda rótulo; o rigor importa quando hou
 **Decisões de implementação do PR 5 (24/11, pela recomendação):**
 
 - **Escritório sem estado aceita o código do convênio de um estado.** O escritório nasce sem estado (o cadastro não
-  pergunta). Recusar travaria todo cadastro pelo link `?convenio=` de uma caixa estadual. O estado é conferido quando
+  pergunta). Desde 25/11, sem estado vale a UF da OAB do criador (§5.1): só o escritório sem estado e sem OAB válida
+  aceita o código de qualquer estado. Recusar travaria todo cadastro pelo link `?convenio=` de uma caixa estadual. O estado é conferido quando
   existe: a tarefa diária fecha o vínculo com `estado_mudou` se o escritório passar a ter outro estado
   (`RegraDosVinculosDeConvenio::motivoDoFim`, que antes só olhava o estado no convênio OAB).
 - **Cadastro:** `GET /cadastro?convenio=` guarda o código na sessão (só se tiver a forma de um: 4 a 16 letras e números,
