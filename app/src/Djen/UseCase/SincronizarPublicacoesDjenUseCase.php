@@ -100,24 +100,7 @@ final class SincronizarPublicacoesDjenUseCase
         $vistosNesteRun = [];
 
         foreach ($this->oabRepository->listarAtivasDoTenant($tenant) as $oab) {
-            $periodoDaOab = $this->periodoDaOab($oab, $periodo);
-
-            try {
-                $itens = $this->consultarTodosItens(true, static fn (int $pagina): ConsultaComunicacoesQuery => new ConsultaComunicacoesQuery(
-                    numeroOab: $oab->getNumero(),
-                    ufOab: $oab->getUf(),
-                    dataDisponibilizacaoInicio: $periodoDaOab->inicio,
-                    dataDisponibilizacaoFim: $periodoDaOab->fim,
-                    pagina: $pagina,
-                    itensPorPagina: self::ITENS_POR_PAGINA,
-                ));
-            } catch (ConsultaDjenException $e) {
-                // Falha de uma OAB não derruba as demais — registra o motivo e segue.
-                $resultado->registrarFalha($oab->getRotulo(), $e->getMotivo());
-
-                continue;
-            }
-
+            $itens = $this->itensDaOab($oab, $this->periodoDaOab($oab, $periodo), $resultado);
             $resultado->registrarRecebidas(\count($itens));
             $this->processarItens($oab, $tenant, $itens, $dryRun, $vistosNesteRun, $resultado);
         }
@@ -148,6 +131,33 @@ final class SincronizarPublicacoesDjenUseCase
      * e o "Sincronizar agora" até D+2 trazem o histórico, então uma falha passageira do DJEN numa delas
      * ainda tem outra chance. A dedupe evita duplicar o que já chegou.
      */
+    /**
+     * Todas as páginas do DJEN de uma OAB. Se uma página do meio falhar, as anteriores não se perdem:
+     * a falha é registrada e os itens já lidos seguem para o processamento (a dedupe por djenId evita
+     * duplicar quando a próxima execução buscar de novo). Falha de uma OAB não derruba as demais.
+     *
+     * @return list<array<string, mixed>>
+     */
+    private function itensDaOab(OabMonitorada $oab, PeriodoConsulta $periodoDaOab, ResultadoSincronizacao $resultado): array
+    {
+        $itens = [];
+
+        try {
+            $this->consultarTodosItens($itens, true, static fn (int $pagina): ConsultaComunicacoesQuery => new ConsultaComunicacoesQuery(
+                numeroOab: $oab->getNumero(),
+                ufOab: $oab->getUf(),
+                dataDisponibilizacaoInicio: $periodoDaOab->inicio,
+                dataDisponibilizacaoFim: $periodoDaOab->fim,
+                pagina: $pagina,
+                itensPorPagina: self::ITENS_POR_PAGINA,
+            ));
+        } catch (ConsultaDjenException $e) {
+            $resultado->registrarFalha($oab->getRotulo(), $e->getMotivo());
+        }
+
+        return $itens;
+    }
+
     private function periodoDaOab(OabMonitorada $oab, PeriodoConsulta $periodo): PeriodoConsulta
     {
         $historico = PeriodoConsulta::ultimosDias(self::DIAS_DE_HISTORICO_DA_OAB_NOVA, $periodo->fim);
@@ -321,7 +331,8 @@ final class SincronizarPublicacoesDjenUseCase
             $numero = $numeros[$indice];
 
             try {
-                $itens = $this->consultarTodosItens(false, static fn (int $pagina): ConsultaComunicacoesQuery => new ConsultaComunicacoesQuery(
+                $itens = [];
+                $this->consultarTodosItens($itens, false, static fn (int $pagina): ConsultaComunicacoesQuery => new ConsultaComunicacoesQuery(
                     dataDisponibilizacaoInicio: $periodo->inicio,
                     dataDisponibilizacaoFim: $periodo->fim,
                     pagina: $pagina,
@@ -436,15 +447,15 @@ final class SincronizarPublicacoesDjenUseCase
     /**
      * Busca todas as páginas de uma consulta (até o teto), acumulando os itens brutos.
      *
+     * Os itens vão para `$todos` (por referência) a cada página: se uma página lançar
+     * `ConsultaDjenException`, quem chamou ainda tem o que veio antes da falha.
+     *
+     * @param list<array<string, mixed>>               $todos                 recebe os itens brutos
      * @param bool                                     $tentarDeNovoSeOcupado repete o 500 "muito ocupado" (só nas OABs)
      * @param \Closure(int): ConsultaComunicacoesQuery $consultaDaPagina      monta a consulta de cada página
-     *
-     * @return list<array<string, mixed>>
      */
-    private function consultarTodosItens(bool $tentarDeNovoSeOcupado, \Closure $consultaDaPagina): array
+    private function consultarTodosItens(array &$todos, bool $tentarDeNovoSeOcupado, \Closure $consultaDaPagina): void
     {
-        $todos = [];
-
         for ($pagina = 1; $pagina <= self::MAX_PAGINAS; $pagina++) {
             $resposta = $tentarDeNovoSeOcupado
                 ? $this->consultarComNovaTentativa($consultaDaPagina($pagina))
@@ -458,8 +469,6 @@ final class SincronizarPublicacoesDjenUseCase
                 break;
             }
         }
-
-        return $todos;
     }
 
     /** Só o 500 "muito ocupado" tenta de novo: o limite (429) e o timeout têm tratamento próprio. */
