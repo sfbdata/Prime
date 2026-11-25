@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Voto\DTO;
 
+use App\Shared\Armazenamento\ChaveDeArquivo;
 use App\Voto\Enum\CenarioDaAssembleia;
 use App\Voto\Enum\EstadoDaAssembleia;
 use App\Voto\Enum\PesoDoVoto;
@@ -39,6 +40,13 @@ final readonly class AssembleiaNoPainel
         public bool $simulacao = false,
         public ?string $rotuloUnidade = null,
         public ?string $rotuloBloco = null,
+        /** O edital em PDF (nome que o gestor enviou, tamanho, sha256 e a chave do arquivo); nulos sem edital. */
+        public ?string $editalNome = null,
+        public ?int $editalTamanho = null,
+        public ?string $editalSha256 = null,
+        public ?ChaveDeArquivo $editalChave = null,
+        /** O edital ainda pode ser anexado, trocado ou removido (nenhum resultado saiu e a votação não está arquivada). */
+        public bool $editalAlteravel = true,
     ) {
     }
 
@@ -66,7 +74,14 @@ final readonly class AssembleiaNoPainel
             $this->podeAlterarPautas, $this->podeAlterarUnidades, $this->unidadesAptas, $this->unidadesInaptas, $this->pesoApto,
             $pautas, $this->arquivadaEm, $this->arquivadaMotivo, $this->arquivadaPorNome, $this->entidade, $this->cnpj, $this->cenario,
             rotuloUnidade: $this->rotuloUnidade, rotuloBloco: $this->rotuloBloco,
+            editalNome: $this->editalNome, editalTamanho: $this->editalTamanho, editalSha256: $this->editalSha256,
+            editalChave: $this->editalChave, editalAlteravel: $this->editalAlteravel,
         );
+    }
+
+    public function temEdital(): bool
+    {
+        return null !== $this->editalChave;
     }
 
     public function publicada(): bool

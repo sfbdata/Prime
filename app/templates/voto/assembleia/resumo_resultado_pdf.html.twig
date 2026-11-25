@@ -64,6 +64,9 @@
                 <span class="cod">{{ resumo.codigoDeConferencia }}</span><br>
                 {{ resumo.link }}<br><br>
                 <span class="hash">SHA-256 {{ resumo.hash }}</span><br><br>
+                {% if resumo.editalNome is not empty %}
+                    <span class="hash">{{ 'voto.assembleia.gestor.edital.no_pdf'|trans({nome: resumo.editalNome, hash: resumo.editalSha256}) }}</span><br><br>
+                {% endif %}
                 {{ 'voto.assembleia.gestor.relatorio.emitido_em'|trans({data: resumo.emitidoEm|date('d/m/Y H:i:s')}) }}
             </td>
         </tr>

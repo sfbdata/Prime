@@ -9,11 +9,12 @@ use App\Shared\Armazenamento\ChaveDeArquivo;
 use App\Shared\Armazenamento\EscopoDeArquivo;
 use App\Shared\Armazenamento\Exception\ChaveDeArquivoInvalida;
 use App\Shared\Armazenamento\NovoArquivo;
+use App\Voto\Entity\Assembleia;
 use App\Voto\Entity\OpcaoDaPauta;
 use App\Voto\Entity\PautaDaAssembleia;
 
 /**
- * As chaves de arquivo do Voto (a foto 3x4 da candidatura). O escopo sai da ENTIDADE (a pauta ou a opção), nunca de um
+ * As chaves de arquivo do Voto (a foto 3x4 da candidatura e o PDF do edital da assembleia). O escopo sai da ENTIDADE (a pauta, a opção ou a assembleia), nunca de um
  * escritório solto: a chave de um escritório não é montada com o id de outro.
  */
 final class ChavesDoVoto
@@ -42,6 +43,27 @@ final class ChavesDoVoto
         return new NovoArquivo(
             self::escopoDe($pauta->getTenant()->getId(), 'foto nova de candidatura'),
             CategoriaDeArquivo::VOTO_FOTO_CANDIDATURA,
+            $extensao,
+        );
+    }
+
+    /** O edital atual da assembleia. Lança se ela não tem edital: quem chama confere antes. */
+    public static function edital(Assembleia $assembleia): ChaveDeArquivo
+    {
+        $nome = $assembleia->getEditalChave();
+        if (null === $nome) {
+            throw new ChaveDeArquivoInvalida('Esta assembleia não possui edital; não há chave a montar.');
+        }
+
+        return new ChaveDeArquivo(self::escopoDe($assembleia->getTenant()->getId(), 'edital'), CategoriaDeArquivo::VOTO_EDITAL, $nome);
+    }
+
+    /** Edital novo: o nome é cunhado pelo storage; o escopo sai da assembleia, que já existe quando o arquivo é gravado. */
+    public static function novoEdital(Assembleia $assembleia, string $extensao): NovoArquivo
+    {
+        return new NovoArquivo(
+            self::escopoDe($assembleia->getTenant()->getId(), 'edital novo'),
+            CategoriaDeArquivo::VOTO_EDITAL,
             $extensao,
         );
     }

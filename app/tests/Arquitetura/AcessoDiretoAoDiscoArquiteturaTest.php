@@ -115,6 +115,7 @@ final class AcessoDiretoAoDiscoArquiteturaTest extends TestCase
         'src/Voto/Service/ArquivoDeUnidades.php' => 'lê XLSX/CSV do upload temporário e gera a planilha modelo direto na resposta, sem persistir o arquivo',
         'src/Voto/Service/CartazDaAssembleia.php' => 'PNG em memória (imagepng sem caminho, capturado por buffer), sem arquivo do usuário',
         'src/Voto/Service/DocxDaMinuta.php' => 'ZipArchive e leitura do .docx da minuta só dentro da AreaTemporariaPrivada (apagada no finally); o modelo do usuário chega em bytes e nunca é guardado',
+        'src/Voto/Service/JuntadorDoEditalAoPdf.php' => 'Ghostscript (ExecucaoDoGhostscript) e leitura do PDF juntado só dentro da AreaTemporariaPrivada (apagada no finally); o edital sai do armazenamento por chave e o resultado nunca é guardado',
         'src/Voto/Service/ImagemDoResumoDoResultado.php' => 'PNG em memória (imagepng sem caminho, capturado por buffer) e fontes do sistema, sem arquivo do usuário',
         // Falso positivo do regex: método chamado `link()`, que casa com a função `link(` do PHP. Não tocam o disco.
         'src/Agenda/Service/AvisoDoCompromisso.php'                => 'falso positivo: método link()',

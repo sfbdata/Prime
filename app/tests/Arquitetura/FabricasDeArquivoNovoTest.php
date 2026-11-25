@@ -89,6 +89,11 @@ final class FabricasDeArquivoNovoTest extends TestCase
             static fn (?Tenant $t): object => new PautaDaAssembleia(new Assembleia($t ?? new Tenant(), 'AGO', PesoDoVoto::Fracao, 'Gestora'), 1, 'Síndico(a)'),
             CategoriaDeArquivo::VOTO_FOTO_CANDIDATURA,
         ];
+        yield ChavesDoVoto::class . '::novoEdital' => [
+            ChavesDoVoto::class . '::novoEdital',
+            static fn (?Tenant $t): object => new Assembleia($t ?? new Tenant(), 'AGO', PesoDoVoto::Fracao, 'Gestora'),
+            CategoriaDeArquivo::VOTO_EDITAL,
+        ];
         yield ChavesDeChatIa::class . '::novoAnexo' => [
             ChavesDeChatIa::class . '::novoAnexo',
             static fn (?Tenant $t): object => new ConversaDeChat($t ?? new Tenant(), new User(), ModeloDeIa::PADRAO, new \DateTimeImmutable()),

@@ -868,6 +868,20 @@ voto:
                     efeito_3: In the minutes, it appears as a canceled vote, with the reason.
                     efeito_4: Box, trail, and data are kept as proof; it can be archived afterwards.
                     efeito_5: It cannot be undone. To repeat it, use Duplicate vote.
+            edital:
+                menu_anexar: Attach notice
+                menu_baixar: Download notice
+                menu_trocar: Replace notice
+                menu_remover: Remove notice
+                confirmar_titulo: Remove the notice?
+                confirmar_texto: 'The notice will no longer go with the results PDF. You can attach another one later, until the result is out.'
+                confirmar_sim: Remove notice
+                confirmar_nao: Keep notice
+                anexado: Notice attached. It goes at the end of the results PDF.
+                trocado: Notice replaced. The new one goes at the end of the results PDF.
+                removido: Notice removed.
+                sem_arquivo: Choose the notice PDF file.
+                no_pdf: 'Attached notice: {nome}, SHA-256 {hash}'
             arquivar:
                 titulo_sem_deliberar: 'Archive without a resolution: the vote cannot be opened and leaves the lists.'
                 titulo_deliberada: 'Archive a decided vote: result, minutes, report, and audit trail are kept.'

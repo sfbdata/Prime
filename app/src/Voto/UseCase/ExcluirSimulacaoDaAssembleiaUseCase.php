@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Voto\UseCase;
 
 use App\Entity\Tenant\Tenant;
+use App\Voto\Armazenamento\ChavesDoVoto;
 use App\Voto\Exception\AssembleiaNaoEncontradaException;
 use App\Voto\Repository\AssembleiaRepository;
 use App\Voto\Service\FotosDasCandidaturas;
@@ -33,6 +34,9 @@ final class ExcluirSimulacaoDaAssembleiaUseCase
             $fotos = [];
             foreach ($assembleia->getPautas() as $pauta) {
                 $fotos = [...$fotos, ...FotosDasCandidaturas::chavesDaPauta($pauta)];
+            }
+            if ($assembleia->temEdital()) {
+                $fotos[] = ChavesDoVoto::edital($assembleia);
             }
             $this->assembleias->remover($assembleia, flush: true);
             $this->fotos->descartar($fotos, 'simulação apagada');

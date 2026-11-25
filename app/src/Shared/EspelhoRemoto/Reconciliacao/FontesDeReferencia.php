@@ -54,6 +54,7 @@ final class FontesDeReferencia implements FonteDeReferencias
         'pasta_foto' => ['sql' => 'SELECT id, tenant_id AS tenant, foto AS valor FROM pasta WHERE foto IS NOT NULL ORDER BY id', 'categoria' => CategoriaDeArquivo::PASTA_FOTO],
         'tenant_logo' => ['sql' => "SELECT id, id AS tenant, logo_chave AS valor FROM tenant WHERE logo_chave IS NOT NULL AND logo_chave <> '' ORDER BY id", 'categoria' => CategoriaDeArquivo::TENANT_LOGO],
         'voto_foto_candidatura' => ['sql' => 'SELECT id, tenant_id AS tenant, foto AS valor FROM voto.assembleia_opcao WHERE foto IS NOT NULL ORDER BY id', 'categoria' => CategoriaDeArquivo::VOTO_FOTO_CANDIDATURA],
+        'voto_edital' => ['sql' => 'SELECT id, tenant_id AS tenant, edital_chave AS valor FROM voto.assembleia WHERE edital_chave IS NOT NULL ORDER BY id', 'categoria' => CategoriaDeArquivo::VOTO_EDITAL],
         'chat_ia_anexo' => ['sql' => 'SELECT id, tenant_id AS tenant, chave AS valor FROM chat_ia_anexo ORDER BY id', 'categoria' => CategoriaDeArquivo::CHAT_IA_ANEXO],
         'inteligencia_documento_juridico_versao' => ['sql' => 'SELECT id, NULL AS tenant, nome_arquivo AS valor FROM inteligencia_documento_juridico_versao ORDER BY id', 'categoria' => CategoriaDeArquivo::INTELIGENCIA_DOCUMENTO_JURIDICO],
         'lancamento_de_recompensa' => ['sql' => 'SELECT id, NULL AS tenant, comprovante_chave AS valor FROM lancamento_de_recompensa WHERE comprovante_chave IS NOT NULL ORDER BY id', 'categoria' => CategoriaDeArquivo::RECOMPENSA_COMPROVANTE],

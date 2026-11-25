@@ -100,6 +100,26 @@ class Assembleia implements TenantAware, Auditavel
     #[ORM\Column(type: 'datetime_immutable', nullable: true)]
     private ?\DateTimeImmutable $listaTravadaEm = null;
 
+    /**
+     * Edital de convocação (PDF) anexado à assembleia: o nome cunhado pelo storage (a chave do arquivo, no escopo do
+     * escritório), o nome que o gestor enviou, o tamanho medido pelo storage, o sha256 do conteúdo e quando foi enviado.
+     * Tudo nulo sem edital. Vai ao fim do PDF do resultado, com o hash na linha do resumo.
+     */
+    #[ORM\Column(length: 40, nullable: true)]
+    private ?string $editalChave = null;
+
+    #[ORM\Column(length: 200, nullable: true)]
+    private ?string $editalNome = null;
+
+    #[ORM\Column(type: 'integer', nullable: true)]
+    private ?int $editalTamanho = null;
+
+    #[ORM\Column(length: 64, nullable: true, options: ['fixed' => true])]
+    private ?string $editalSha256 = null;
+
+    #[ORM\Column(type: 'datetime_immutable', nullable: true)]
+    private ?\DateTimeImmutable $editalEnviadoEm = null;
+
     /** @var Collection<int, PautaDaAssembleia> */
     #[ORM\OneToMany(mappedBy: 'assembleia', targetEntity: PautaDaAssembleia::class, cascade: ['persist'])]
     #[ORM\OrderBy(['ordem' => 'ASC', 'id' => 'ASC'])]
@@ -442,6 +462,76 @@ class Assembleia implements TenantAware, Auditavel
         }
 
         return $naOrdemDoDia > 0;
+    }
+
+    /**
+     * O edital só muda enquanto o resultado não saiu: depois que alguma pauta encerra (ou o prazo dela vence) ou com a
+     * assembleia arquivada, o arquivo fica fixo (só se baixa). Simulação e rascunho mudam livremente.
+     */
+    public function podeAlterarEdital(?\DateTimeImmutable $agora = null): bool
+    {
+        return !$this->arquivada() && !$this->algumaPautaEncerrada($agora);
+    }
+
+    public function exigirEditalAlteravel(?\DateTimeImmutable $agora = null): void
+    {
+        if ($this->arquivada()) {
+            throw new OperacaoInvalidaNaAssembleiaException('Votação arquivada: o edital não pode mais ser alterado.');
+        }
+        if ($this->algumaPautaEncerrada($agora)) {
+            throw new OperacaoInvalidaNaAssembleiaException('O resultado já saiu: o edital não pode mais ser alterado.');
+        }
+    }
+
+    /** Aponta o edital para o arquivo já gravado (troca o anterior). Quem chama apaga o arquivo antigo DEPOIS do COMMIT. */
+    public function anexarEdital(string $chave, string $nomeOriginal, int $tamanho, string $sha256, ?\DateTimeImmutable $agora = null): void
+    {
+        $this->exigirEditalAlteravel($agora);
+        $this->editalChave = $chave;
+        $this->editalNome = $nomeOriginal;
+        $this->editalTamanho = $tamanho;
+        $this->editalSha256 = $sha256;
+        $this->editalEnviadoEm = $agora ?? new \DateTimeImmutable();
+    }
+
+    public function removerEdital(?\DateTimeImmutable $agora = null): void
+    {
+        $this->exigirEditalAlteravel($agora);
+        $this->editalChave = null;
+        $this->editalNome = null;
+        $this->editalTamanho = null;
+        $this->editalSha256 = null;
+        $this->editalEnviadoEm = null;
+    }
+
+    public function temEdital(): bool
+    {
+        return null !== $this->editalChave;
+    }
+
+    public function getEditalChave(): ?string
+    {
+        return $this->editalChave;
+    }
+
+    public function getEditalNome(): ?string
+    {
+        return $this->editalNome;
+    }
+
+    public function getEditalTamanho(): ?int
+    {
+        return $this->editalTamanho;
+    }
+
+    public function getEditalSha256(): ?string
+    {
+        return $this->editalSha256;
+    }
+
+    public function getEditalEnviadoEm(): ?\DateTimeImmutable
+    {
+        return $this->editalEnviadoEm;
     }
 
     public function getHashDaLista(): ?string
