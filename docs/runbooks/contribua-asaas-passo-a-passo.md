@@ -52,11 +52,16 @@ GitHub nem no WhatsApp).
    - **Token de autenticação:** deixe o Asaas gerar, ou cole um texto longo e aleatório (de 32 a 255
      caracteres, sem espaços)
    - **Fila de sincronização:** ativada · **Status:** ativado · **Tipo de envio:** sequencial
-3. Na lista de **eventos**, marque só estes:
-   - `CHECKOUT_PAID`, `CHECKOUT_CANCELED`, `CHECKOUT_EXPIRED`
-   - `SUBSCRIPTION_CREATED`, `SUBSCRIPTION_UPDATED`, `SUBSCRIPTION_INACTIVATED`, `SUBSCRIPTION_DELETED`
-   - `PAYMENT_CONFIRMED`, `PAYMENT_RECEIVED`, `PAYMENT_OVERDUE`, `PAYMENT_REFUNDED`
-   - `INVOICE_AUTHORIZED`, `INVOICE_ERROR`
+3. Na lista de **eventos**, marque só estes 18 (são os que o `GatewayAsaas` trata, mais os 2 da nota):
+   - **Checkouts:** `CHECKOUT_PAID`, `CHECKOUT_CANCELED`, `CHECKOUT_EXPIRED`
+   - **Assinaturas:** `SUBSCRIPTION_CREATED`, `SUBSCRIPTION_UPDATED`, `SUBSCRIPTION_INACTIVATED`, `SUBSCRIPTION_DELETED`
+   - **Cobranças:** `PAYMENT_CONFIRMED`, `PAYMENT_RECEIVED`, `PAYMENT_OVERDUE`, `PAYMENT_REFUNDED`,
+     `PAYMENT_CREDIT_CARD_CAPTURE_REFUSED`, `PAYMENT_DELETED`, `PAYMENT_RESTORED`,
+     `PAYMENT_CHARGEBACK_REQUESTED`, `PAYMENT_REFUND_IN_PROGRESS`
+   - **Notas fiscais:** `INVOICE_AUTHORIZED`, `INVOICE_ERROR`
+
+   Nos outros grupos (Transferências, Pague contas, Antecipações e os demais), não marque nada.
+   Não mande print desta tela: o token aparece nela.
 4. Clique em **Salvar**. O token aparece **uma vez só**.
    **➜ Enviar:** o token de autenticação do webhook.
 
