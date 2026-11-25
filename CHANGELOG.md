@@ -8,6 +8,33 @@ cada nível e o procedimento de release estão em [docs/versionamento.md](docs/v
 
 ## [Não lançado]
 
+## [3.10.0] - 2026-11-25
+
+### Adicionado
+
+- Painel do Master, em Comercial: nova lista "Contatos salvos", aberta pelo botão "Contatos salvos" no alto da Central de envios. Mostra, de 20 em 20, o e-mail, o nome, de onde veio o contato (Importação ou Manual), se está Ativo ou Descadastrado, a data do último convite e a data em que entrou na lista.
+- Dá para buscar por e-mail ou nome (sem se preocupar com acento ou maiúscula; a busca começa com 2 letras), incluir um contato, corrigir o nome e excluir um ou vários, com confirmação antes de apagar. Quem já pediu para não receber e-mails continua marcado como Descadastrado mesmo se for excluído e entrar de novo.
+- Importar planilha CSV (colunas e-mail e nome, até 5.000 linhas e 1 MB). Ao terminar, a tela diz quantos contatos são novos, quantos tiveram o nome atualizado, quantos já existiam e quantos endereços eram inválidos. O mesmo e-mail não é cadastrado duas vezes.
+- Exportar a lista em CSV, respeitando a busca que estiver na tela. Importar, incluir, editar, excluir e exportar ficam registrados na trilha de auditoria da plataforma, sem guardar os e-mails da exportação.
+- Usar a lista nos envios de campanha vem junto, no público "Contatos salvos" (veja o registro comercial-convite-pela-base).
+- Central de envios do Master: novo público de campanha "Contatos salvos", que usa a lista de contatos salvos (a antiga "Base de contatos", agora com o nome "Contatos salvos" na tela e no botão; o público "Base de contatos" dos que confirmaram a lista continua como era). Convida contatos importados que nunca se cadastraram (convite profissional), sem a exigência de autorização que continua valendo no CSV avulso e no Individual. Para convidar alguém por CSV, importe antes para Contatos salvos, que guarda a origem de cada contato.
+- Como em todo e-mail de campanha, vai o link para não receber mais. Quem se descadastrou (inclusive por lista) nunca mais recebe.
+- Cada contato salvo recebe no máximo 1 convite a cada N dias. O Master define N na Central de envios, ao lado da chave "Envio de campanhas": padrão 7 dias, de 1 a 365. A conta é por dia do calendário. Quem recebeu convite dentro do intervalo fica de fora da campanha, e a contagem mostra "N destinatários · M pulados pelo intervalo · D descadastrados".
+- Quando chega a hora de a campanha real sair para Contatos salvos, o sistema grava a data do último convite de cada contato, de uma vez só para a lista toda. E-mail de teste não conta. A campanha recorrente aplica o intervalo a cada execução. A cota diária de envio que já existia continua valendo. A troca do intervalo entra na trilha de auditoria.
+- Voto: a assembleia ganha o edital de convocação em PDF. No menu de três pontos do cartão da assembleia (Gestão eleitoral) entram "Anexar edital", "Baixar edital", "Trocar edital" e "Remover edital" (esta com confirmação na janela do Voto). Aceita só PDF de verdade (tipo conferido pelo conteúdo e legível), até 10 MB. Anexar, trocar e remover valem só enquanto a votação não começou; com alguma pauta aberta ou encerrada, ou com a votação arquivada, o edital fica fixo e só se baixa.
+- Nova coluna em `voto.assembleia` (migration `Version20261125160000`): `edital_chave`, `edital_nome`, `edital_tamanho`, `edital_sha256`, `edital_enviado_em`. Nova categoria de arquivo `VOTO_EDITAL` (subpasta `voto-editais`, escopo do escritório, entra na purga do escritório e na conferência do espelho remoto).
+- O PDF do resumo do resultado (`/voto/assembleias/{id}/relatorio/resumo.pdf`), quando há edital, traz a linha "Edital anexo: nome, SHA-256 hash" e as páginas do edital ao fim, juntadas pelo Ghostscript. Se a junção falhar, o PDF sai sem as páginas do edital (com a linha do hash) e o erro vai para o log.
+- Novo `JuntadorDoEditalAoPdf`, `AnexarEditalDaAssembleiaUseCase`, `RemoverEditalDaAssembleiaUseCase`, `EditalDaAssembleiaController` e `public/js/voto-edital.js`. Excluir rascunho ou simulação também apaga o edital, depois do COMMIT.
+
+### Alterado
+
+- Painel do Master, Campanhas de e-mail: os botões de enviar, agendar, descartar, sair da edição, voltar modelo ao padrão, excluir modelo, ligar/desligar o envio, cancelar, remover e excluir campanha, e excluir descadastrado, deixam de usar o `window.confirm()` do navegador. Passam pela janela de confirmação do painel (`window.BJMasterConf.perguntar`, nova versão com Promise em `public/js/master/masters.js`).
+- Textos novos (título e botão de cada janela) nos catálogos `comercial` e `comercial_relatorio`, em pt_BR e en. `.mp-conf-texto` ganha `white-space: pre-line` para manter o aviso de envio desligado em parágrafo próprio.
+- Janela "Indicar o BlueJus": saiu a lista de convites (canal, data e selo). Fica o título "SUAS INDICAÇÕES (N)" e, logo abaixo, "X viraram conta" (ou "Nenhuma virou conta ainda"). O GET /indicacao deixa de devolver `ultimas` e passa a devolver `contasCriadas` (`IndicacaoRepository::contarContasCriadasDoUsuario`).
+- Painel do Master, seção "Indicações do BlueJus": nova tabela "Quem indica" (pessoa, escritório, enviados, viraram conta, último envio), com mais envios primeiro, busca por nome ou escritório no servidor (mínimo 2 letras) e paginação. Rota GET /master/indicacoes/quem-indica, só `ROLE_SUPER_ADMIN`.
+- Perfis do escritório: o selo FIXO fica legível com o mouse sobre a linha (`perfis.css`).
+- Sem migration.
+
 ## [3.9.1] - 2026-11-25
 
 ### Corrigido
@@ -2550,7 +2577,8 @@ justificativa está em `docs/versionamento.md`.
 Primeira versão marcada no repositório (tag `v1.0.0`, commit `4940cc87`). Não há registro
 detalhado do que ela continha.
 
-[Não lançado]: https://github.com/sfbdata/Prime/compare/v3.9.1...HEAD
+[Não lançado]: https://github.com/sfbdata/Prime/compare/v3.10.0...HEAD
+[3.10.0]: https://github.com/sfbdata/Prime/compare/v3.9.1...v3.10.0
 [3.9.1]: https://github.com/sfbdata/Prime/compare/v3.9.0...v3.9.1
 [3.9.0]: https://github.com/sfbdata/Prime/compare/v3.8.0...v3.9.0
 [3.8.0]: https://github.com/sfbdata/Prime/compare/v3.7.0...v3.8.0
