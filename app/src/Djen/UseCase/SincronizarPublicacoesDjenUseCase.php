@@ -100,27 +100,7 @@ final class SincronizarPublicacoesDjenUseCase
         $vistosNesteRun = [];
 
         foreach ($this->oabRepository->listarAtivasDoTenant($tenant) as $oab) {
-            $periodoDaOab = $this->periodoDaOab($oab, $periodo);
-
-            // Itens acumulados por referência: se uma página do meio falhar, as anteriores não se perdem.
-            $itens = [];
-
-            try {
-                $this->consultarTodosItens($itens, true, static fn (int $pagina): ConsultaComunicacoesQuery => new ConsultaComunicacoesQuery(
-                    numeroOab: $oab->getNumero(),
-                    ufOab: $oab->getUf(),
-                    dataDisponibilizacaoInicio: $periodoDaOab->inicio,
-                    dataDisponibilizacaoFim: $periodoDaOab->fim,
-                    pagina: $pagina,
-                    itensPorPagina: self::ITENS_POR_PAGINA,
-                ));
-            } catch (ConsultaDjenException $e) {
-                // Falha de uma OAB não derruba as demais: registra o motivo e segue. As páginas que
-                // vieram antes da falha são processadas abaixo (a dedupe por djenId evita duplicar
-                // quando a próxima execução buscar de novo).
-                $resultado->registrarFalha($oab->getRotulo(), $e->getMotivo());
-            }
-
+            $itens = $this->itensDaOab($oab, $this->periodoDaOab($oab, $periodo), $resultado);
             $resultado->registrarRecebidas(\count($itens));
             $this->processarItens($oab, $tenant, $itens, $dryRun, $vistosNesteRun, $resultado);
         }
@@ -151,6 +131,33 @@ final class SincronizarPublicacoesDjenUseCase
      * e o "Sincronizar agora" até D+2 trazem o histórico, então uma falha passageira do DJEN numa delas
      * ainda tem outra chance. A dedupe evita duplicar o que já chegou.
      */
+    /**
+     * Todas as páginas do DJEN de uma OAB. Se uma página do meio falhar, as anteriores não se perdem:
+     * a falha é registrada e os itens já lidos seguem para o processamento (a dedupe por djenId evita
+     * duplicar quando a próxima execução buscar de novo). Falha de uma OAB não derruba as demais.
+     *
+     * @return list<array<string, mixed>>
+     */
+    private function itensDaOab(OabMonitorada $oab, PeriodoConsulta $periodoDaOab, ResultadoSincronizacao $resultado): array
+    {
+        $itens = [];
+
+        try {
+            $this->consultarTodosItens($itens, true, static fn (int $pagina): ConsultaComunicacoesQuery => new ConsultaComunicacoesQuery(
+                numeroOab: $oab->getNumero(),
+                ufOab: $oab->getUf(),
+                dataDisponibilizacaoInicio: $periodoDaOab->inicio,
+                dataDisponibilizacaoFim: $periodoDaOab->fim,
+                pagina: $pagina,
+                itensPorPagina: self::ITENS_POR_PAGINA,
+            ));
+        } catch (ConsultaDjenException $e) {
+            $resultado->registrarFalha($oab->getRotulo(), $e->getMotivo());
+        }
+
+        return $itens;
+    }
+
     private function periodoDaOab(OabMonitorada $oab, PeriodoConsulta $periodo): PeriodoConsulta
     {
         $historico = PeriodoConsulta::ultimosDias(self::DIAS_DE_HISTORICO_DA_OAB_NOVA, $periodo->fim);
