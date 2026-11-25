@@ -1,0 +1,49 @@
+{# Bloco "Base de contatos" da seção Comercial: os contatos salvos do Master (e-mail, nome, origem), com busca no servidor,
+   inclusão, edição do nome, exclusão (um ou vários), importação e exportação de CSV. Fechado até o Master pedir: o botão
+   "Base de contatos" do cabeçalho da Central dispara `mc:base-abrir`. As linhas vêm por JSON (comercial-base.js). A
+   situação (Ativo / Descadastrado) vem do descadastro da plataforma, não é gravada aqui. Mesma moldura e mesmos
+   componentes do bloco Descadastrados. #}
+<div class="mc-dsc mc-bc" data-mc-bc hidden
+     data-url-lista="{{ path('master_comercial_base_listar') }}"
+     data-url-incluir="{{ path('master_comercial_base_incluir') }}"
+     data-url-importar="{{ path('master_comercial_base_importar') }}"
+     data-url-excluir="{{ path('master_comercial_base_excluir') }}"
+     data-url-editar="{{ path('master_comercial_base_editar', {id: 999999999}) }}"
+     data-url-csv="{{ path('master_comercial_base_csv') }}">
+    <div class="mc-dsc-cabeca">
+        <i class="bi bi-people mc-bc-ic" aria-hidden="true"></i>
+        <b class="mc-dsc-titulo" id="mc-bc-titulo">{{ 'comercial.base.titulo'|trans }}</b>
+        <span class="mc-dsc-sub">{{ 'comercial.base.sub'|trans }}</span>
+        <input type="search" class="mc-dsc-busca" id="mc-bc-busca" name="mc-bc-busca" placeholder="{{ 'comercial.base.buscar'|trans }}" aria-label="{{ 'comercial.base.buscar'|trans }}" data-mc-bc-busca>
+        <button type="button" class="mc-dsc-botao" id="mc-bc-incluir" name="mc-bc-incluir" data-mc-bc-incluir><i class="bi bi-plus-lg" aria-hidden="true"></i> {{ 'comercial.base.incluir'|trans }}</button>
+        <button type="button" class="mc-dsc-botao" id="mc-bc-importar" name="mc-bc-importar" data-mc-bc-importar><i class="bi bi-upload" aria-hidden="true"></i> {{ 'comercial.base.importar'|trans }}</button>
+        <input type="file" class="mc-bc-arquivo" id="mc-bc-arquivo" name="mc-bc-arquivo" accept=".csv,.txt,text/csv,text/plain" aria-label="{{ 'comercial.base.importar'|trans }}" data-mc-bc-arquivo hidden>
+        <a class="mc-dsc-botao" id="mc-bc-csv" href="{{ path('master_comercial_base_csv') }}" data-mc-bc-csv download><i class="bi bi-download" aria-hidden="true"></i> {{ 'comercial.base.exportar'|trans }}</a>
+        <button type="button" class="mc-dsc-botao mc-dsc-botao-perigo" id="mc-bc-excluir" name="mc-bc-excluir" data-mc-bc-excluir disabled><i class="bi bi-trash3" aria-hidden="true"></i> <span data-mc-bc-excluir-rotulo>{{ 'comercial.base.excluir'|trans }}</span></button>
+        <button type="button" class="mc-dsc-fechar" id="mc-bc-fechar" name="mc-bc-fechar" aria-label="{{ 'comercial.base.fechar'|trans }}" data-mc-bc-fechar><i class="bi bi-x-lg" aria-hidden="true"></i></button>
+    </div>
+    <div class="mc-bc-form" data-mc-bc-form hidden>
+        <input type="email" class="mc-dsc-busca mc-bc-campo" id="mc-bc-novo-email" name="mc-bc-novo-email" maxlength="180" autocomplete="off" placeholder="{{ 'comercial.base.novo_email'|trans }}" aria-label="{{ 'comercial.base.novo_email'|trans }}" data-mc-bc-novo-email>
+        <input type="text" class="mc-dsc-busca mc-bc-campo" id="mc-bc-novo-nome" name="mc-bc-novo-nome" maxlength="180" autocomplete="off" placeholder="{{ 'comercial.base.novo_nome'|trans }}" aria-label="{{ 'comercial.base.novo_nome'|trans }}" data-mc-bc-novo-nome>
+        <button type="button" class="mc-dsc-botao" id="mc-bc-salvar" name="mc-bc-salvar" data-mc-bc-salvar>{{ 'comercial.base.salvar'|trans }}</button>
+        <button type="button" class="mc-dsc-botao" id="mc-bc-cancelar" name="mc-bc-cancelar" data-mc-bc-cancelar>{{ 'comercial.base.cancelar'|trans }}</button>
+    </div>
+    <div class="mc-dsc-aviso" role="status" aria-live="polite" data-mc-bc-aviso hidden></div>
+    <div class="mc-dsc-vazio" data-mc-bc-vazio hidden>{{ 'comercial.base.vazio'|trans }}</div>
+    <div class="mc-bc-linha mc-bc-titulos" data-mc-bc-titulos hidden>
+        <input type="checkbox" class="mc-bc-marca" id="mc-bc-marcar-todos" name="mc-bc-marcar-todos" aria-label="{{ 'comercial.base.marcar_todos'|trans }}" data-mc-bc-marcar-todos>
+        <span>{{ 'comercial.base.col_email'|trans }}</span>
+        <span>{{ 'comercial.base.col_nome'|trans }}</span>
+        <span>{{ 'comercial.base.col_origem'|trans }}</span>
+        <span>{{ 'comercial.base.col_situacao'|trans }}</span>
+        <span>{{ 'comercial.base.col_convite'|trans }}</span>
+        <span>{{ 'comercial.base.col_criado'|trans }}</span>
+        <span></span>
+    </div>
+    <div class="mc-dsc-linhas" data-mc-bc-linhas aria-labelledby="mc-bc-titulo"></div>
+    <div class="mc-bc-pagina" data-mc-bc-pagina hidden>
+        <button type="button" class="mc-dsc-botao" id="mc-bc-anterior" name="mc-bc-anterior" data-mc-bc-anterior>{{ 'comercial.base.anterior'|trans }}</button>
+        <span class="mc-dsc-sub" data-mc-bc-pagina-info></span>
+        <button type="button" class="mc-dsc-botao" id="mc-bc-proxima" name="mc-bc-proxima" data-mc-bc-proxima>{{ 'comercial.base.proxima'|trans }}</button>
+    </div>
+</div>

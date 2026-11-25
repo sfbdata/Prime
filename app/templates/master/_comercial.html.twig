@@ -38,6 +38,7 @@
      data-url-previa="{{ path('master_comercial_previa', {chave: 'xchavex'}) }}"
      data-token="{{ csrf_token('master_comercial') }}">
     {{ include('master/_comercial_descadastrados.html.twig') }}
+    {{ include('master/_comercial_base_de_contatos.html.twig') }}
 {% endif %}
     {# Chave do envio de campanhas, no topo da Central (nos dois modos; ids com o prefixo do modo). #}
     {{ include('master/_comercial_envio.html.twig') }}
@@ -63,6 +64,9 @@
                Nas duas seções (dc L251 é o mesmo cabeçalho): o bloco é um só, e o comercial-descadastrados.js o leva para
                logo antes da Central de onde veio o clique. #}
             <button type="button" class="mc-cp-descad" id="{{ ids }}-cp-descad" name="{{ ids }}-cp-descad" data-mc-cp-descad title="{{ 'comercial.campanha.descadastrados_dica'|trans }}"><i class="bi bi-slash-circle" aria-hidden="true"></i>{{ 'comercial.campanha.descadastrados'|trans }} (<span data-mc-cp-descad-n>0</span>)</button>
+            {% if not venda %}
+            <button type="button" class="mc-cp-base" id="mc-cp-base" name="mc-cp-base" data-mc-cp-base title="{{ 'comercial.campanha.base_dica'|trans }}"><i class="bi bi-people" aria-hidden="true"></i>{{ 'comercial.campanha.base'|trans }}</button>
+            {% endif %}
             <span class="mc-cabeca-sub">{{ 'comercial.campanha.sub'|trans }}</span>
         </div>
         {# Pedido do Farlei M5.3: a faixa do modo edição (aberto pelo "Editar campanha" do Relatório). Fixa no topo do bloco enquanto
@@ -283,6 +287,7 @@
 {% if not venda %}
 <script src="{{ asset('js/master/comercial.js') }}"></script>
 <script src="{{ asset('js/master/comercial-datas.js') }}"></script>
+<script src="{{ asset('js/master/comercial-base.js') }}"></script>
 {% endif %}
 {# Carregado nos dois modos: cada execução só inicia as raízes ainda não iniciadas (a da venda vem depois no HTML). #}
 <script src="{{ asset('js/master/comercial-campanha.js') }}"></script>
