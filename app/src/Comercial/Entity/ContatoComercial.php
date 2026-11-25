@@ -7,6 +7,7 @@ namespace App\Comercial\Entity;
 use App\Comercial\DTO\DestinatarioDaCampanha;
 use App\Comercial\Repository\ContatoComercialRepository;
 use App\Entity\Auth\User;
+use App\Shared\Attribute\SemIsolamentoDeTenant;
 use Doctrine\ORM\Mapping as ORM;
 
 /**
@@ -20,6 +21,7 @@ use Doctrine\ORM\Mapping as ORM;
  * NÃO é `Auditavel`: as ações do Master vão para o `audit_log` pelo caso de uso.
  */
 #[ORM\Entity(repositoryClass: ContatoComercialRepository::class)]
+#[SemIsolamentoDeTenant('Base de contatos de e-mail do Master, da plataforma: não pertence a nenhum escritório; só o Master lê e escreve')]
 #[ORM\Table(name: 'comercial_contato')]
 #[ORM\UniqueConstraint(name: 'uniq_comercial_contato_email', columns: ['email'])]
 #[ORM\Index(name: 'idx_comercial_contato_criado_em', columns: ['criado_em'])]
