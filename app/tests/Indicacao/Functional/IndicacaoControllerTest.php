@@ -113,7 +113,7 @@ final class IndicacaoControllerTest extends JusPrimeWebTestCase
         self::assertStringContainsString('/login', (string) $this->client->getResponse()->headers->get('Location'));
     }
 
-    #[TestDox('GET /indicacao: JSON com nome, link curto /i/{codigo}, mensagem, total e lista vazia')]
+    #[TestDox('GET /indicacao: JSON com nome, link curto /i/{codigo}, mensagem, total e contas criadas, sem lista')]
     public function testJanelaEmJson(): void
     {
         $this->logarComTenant($this->client, $this->ana, $this->tenant);
@@ -127,7 +127,8 @@ final class IndicacaoControllerTest extends JusPrimeWebTestCase
         self::assertSame([], $dados['pendencias']);
         self::assertNull($dados['trava']);
         self::assertSame(0, $dados['total']);
-        self::assertSame([], $dados['ultimas']);
+        self::assertSame(0, $dados['contasCriadas']);
+        self::assertArrayNotHasKey('ultimas', $dados);
 
         $this->client->request('GET', '/indicacao');
         self::assertSame($dados['link'], json_decode((string) $this->client->getResponse()->getContent(), true)['link'], 'o código não muda');
@@ -186,7 +187,8 @@ final class IndicacaoControllerTest extends JusPrimeWebTestCase
         $this->client->request('GET', '/indicacao');
         $janela = json_decode((string) $this->client->getResponse()->getContent(), true);
         self::assertSame(1, $janela['total']);
-        self::assertSame(['nome' => 'Bia', 'email' => 'bia@exemplo.com', 'canal' => 'email', 'contaCriada' => false], array_diff_key($janela['ultimas'][0], ['em' => 1]));
+        self::assertSame(0, $janela['contasCriadas']);
+        self::assertArrayNotHasKey('ultimas', $janela);
     }
 
     #[TestDox('POST e-mail de quem já é do meu escritório: 422 "Esta pessoa já faz parte da sua conta."')]
@@ -352,7 +354,8 @@ final class IndicacaoControllerTest extends JusPrimeWebTestCase
         );
         self::assertStringStartsWith('O convite é enviado em seu nome:', $c->filter($corpo . ' > .ind-envio > .ind-quem')->text());
         self::assertSame('SUAS INDICAÇÕES (0)', $c->filter($corpo . ' > .ind-titulo-lista')->text());
-        self::assertSame('Nenhuma indicação ainda.', $c->filter($corpo . ' > .ind-lista > .ind-vazio')->text());
+        self::assertCount(1, $c->filter($corpo . ' > .ind-vazio[data-ind-contas]'), 'o resumo "X viraram conta" fica logo abaixo do título');
+        self::assertCount(0, $c->filter($corpo . ' .ind-lista, ' . $corpo . ' .ind-item'), 'sem a lista de convites');
         self::assertNotSame('', (string) $janela->attr('data-token'));
         self::assertSame('/indicacao', $janela->attr('data-url-janela'));
     }

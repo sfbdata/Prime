@@ -219,6 +219,17 @@ master:
         token_invalido: Invalid CSRF token. Reload the page.
         informe_pausa: Indicate whether invitations are paused or enabled.
         informe_inteiros: Enter the limits as whole numbers.
+        quem:
+            titulo: Who refers
+            busca: Name or firm
+            col_pessoa: PERSON
+            col_escritorio: FIRM
+            col_enviados: SENT
+            col_contas: BECAME ACCOUNTS
+            col_ultimo: LAST SENT
+            vazio: No one found.
+            anterior: Previous
+            proxima: Next
     recompensas:
         titulo: Refer and Earn program rules
         campo_valor: REWARD PER FIRM (R$)
@@ -1121,6 +1132,7 @@ master:
             pausados: Invitations paused for everyone
             liberados: Invitations enabled
             erro_carregar: Could not load the referrals. Reload the page.
+            quem_pagina: 'Page {pagina} of {total}'
             erro_salvar: Could not save.
         recompensas:
             ativo: Program active

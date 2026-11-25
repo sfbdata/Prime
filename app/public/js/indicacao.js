@@ -33,17 +33,6 @@
     el.hidden = !texto;
   }
 
-  function item(i) {
-    const linha = document.createElement('div'); linha.className = 'ind-item';
-    const quem = document.createElement('span'); quem.className = 'ind-item-quem';
-    quem.textContent = (i.nome ? i.nome + ' · ' : '') + (i.email || (i.canal === 'whatsapp' ? 'WhatsApp' : i.canal));
-    const data = document.createElement('span'); data.className = 'ind-item-data'; data.textContent = i.em;
-    const selo = document.createElement('span'); selo.className = 'ind-selo' + (i.contaCriada ? ' ind-selo-conta' : '');
-    selo.textContent = i.contaCriada ? BJ_T.t('publicas.js.indicacao.conta_criada') : BJ_T.t('publicas.js.indicacao.enviada');
-    linha.append(quem, data, selo);
-    return linha;
-  }
-
   function desenhar(d) {
     estado = d;
     const falta = d.pendencias.length > 0;
@@ -57,14 +46,9 @@
     $('#indNome').value = ''; $('#indEmail').value = '';
     $('#indMensagem').value = d.mensagem;
     $('[data-ind-total]').textContent = String(d.total);
-    const lista = $('[data-ind-lista]');
-    lista.replaceChildren();
-    if (d.ultimas.length === 0) {
-      const vazio = document.createElement('div'); vazio.className = 'ind-vazio'; vazio.textContent = BJ_T.t('publicas.js.indicacao.vazio');
-      lista.append(vazio);
-    } else {
-      d.ultimas.forEach(i => lista.append(item(i)));
-    }
+    const n = d.contasCriadas;
+    $('[data-ind-contas]').textContent = n === 0 ? BJ_T.t('publicas.js.indicacao.conta_nenhuma')
+      : BJ_T.t(n === 1 ? 'publicas.js.indicacao.conta_uma' : 'publicas.js.indicacao.conta_varias', { n: String(n) });
   }
 
   function carregar(textoDoAviso) {

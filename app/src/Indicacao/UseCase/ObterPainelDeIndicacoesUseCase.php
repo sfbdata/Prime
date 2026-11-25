@@ -8,6 +8,7 @@ use App\Indicacao\DTO\AlertaDeIndicacaoOutput;
 use App\Indicacao\DTO\IndicadorOutput;
 use App\Indicacao\DTO\LimitesDeIndicacaoOutput;
 use App\Indicacao\DTO\PainelDeIndicacoesOutput;
+use App\Indicacao\DTO\QuemIndicaOutput;
 use App\Indicacao\DTO\ResumoDeIndicacoesOutput;
 use App\Indicacao\Repository\IndicacaoAlertaRepository;
 use App\Indicacao\Repository\IndicacaoConfigRepository;
@@ -22,6 +23,8 @@ final class ObterPainelDeIndicacoesUseCase
 {
     public const MAXIMO_POR_PAGINA = 200;
     private const ALERTAS = 3;
+    public const BUSCA_MINIMO = 2;
+    public const POR_PAGINA_DA_TABELA = 20;
 
     public function __construct(
         private readonly IndicacaoRepository $indicacoes,
@@ -68,10 +71,32 @@ final class ObterPainelDeIndicacoesUseCase
         );
     }
 
-    /** @return list<IndicadorOutput> */
-    private function indicadores(\DateTimeImmutable $agora, int $alerta, int $pagina, int $porPagina): array
+    /**
+     * A tabela "Quem indica" do Painel do Master: pessoa, escritório, envios, contas criadas e último envio, com mais
+     * envios primeiro. A busca (nome ou escritório, sem acento nem caixa) vai ao SQL e só vale com
+     * {@see self::BUSCA_MINIMO} letras; com menos, lista todos. Quem chama já exigiu o Master.
+     */
+    public function quemIndica(string $busca = '', int $pagina = 1, int $porPagina = self::POR_PAGINA_DA_TABELA): QuemIndicaOutput
     {
-        $linhas = $this->indicacoes->indicadores($agora->modify('-24 hours'), $agora->modify('-30 days'), ($pagina - 1) * $porPagina, $porPagina);
+        $pagina = max(1, $pagina);
+        $porPagina = min(self::MAXIMO_POR_PAGINA, max(1, $porPagina));
+        $busca = mb_strlen(trim($busca)) >= self::BUSCA_MINIMO ? trim($busca) : '';
+        $agora = $this->relogio->now();
+        $alerta = $this->configs->obter()->getAlerta24h();
+
+        return new QuemIndicaOutput(
+            indicadores: $this->indicadores($agora, $alerta, $pagina, $porPagina, $busca, true),
+            total: $this->indicacoes->contarIndicadores($busca),
+            pagina: $pagina,
+            porPagina: $porPagina,
+            busca: $busca,
+        );
+    }
+
+    /** @return list<IndicadorOutput> */
+    private function indicadores(\DateTimeImmutable $agora, int $alerta, int $pagina, int $porPagina, string $busca = '', bool $porEnvios = false): array
+    {
+        $linhas = $this->indicacoes->indicadores($agora->modify('-24 hours'), $agora->modify('-30 days'), ($pagina - 1) * $porPagina, $porPagina, $busca, $porEnvios);
 
         return array_map(static fn (array $l): IndicadorOutput => new IndicadorOutput(
             userId: $l['user_id'],

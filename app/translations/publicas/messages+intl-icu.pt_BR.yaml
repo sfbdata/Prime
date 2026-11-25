@@ -72,12 +72,11 @@ publicas:
             copiar: Copiar link curto
         lista:
             titulo: SUAS INDICAÇÕES
-            vazio: Nenhuma indicação ainda.
     js:
         # indicacao.js
         indicacao:
-            conta_criada: CONTA CRIADA
-            enviada: ENVIADA
-            vazio: Nenhuma indicação ainda.
+            conta_nenhuma: Nenhuma virou conta ainda
+            conta_uma: '{n} virou conta'
+            conta_varias: '{n} viraram conta'
             falhou: Não foi possível concluir agora. Recarregue a página e tente de novo.
             abrir_falhou: Não foi possível abrir a janela agora. Recarregue a página e tente de novo.

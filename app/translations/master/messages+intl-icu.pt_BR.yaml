@@ -242,6 +242,17 @@ master:
         token_invalido: Token CSRF inválido. Recarregue a página.
         informe_pausa: Informe se os convites ficam pausados ou liberados.
         informe_inteiros: Informe os limites em números inteiros.
+        quem:
+            titulo: Quem indica
+            busca: Nome ou escritório
+            col_pessoa: PESSOA
+            col_escritorio: ESCRITÓRIO
+            col_enviados: ENVIADOS
+            col_contas: VIRARAM CONTA
+            col_ultimo: ÚLTIMO ENVIO
+            vazio: Ninguém encontrado.
+            anterior: Anterior
+            proxima: Próxima
     # Seção Recompensas (master/_recompensas, F1; desenho 05 Perfis 1.2 VS 25.10.26) e as recusas do
     # RecompensasDoMasterController. Os textos do JS ficam em master.js.recompensas.*.
     recompensas:
@@ -1167,6 +1178,7 @@ master:
             pausados: Convites pausados para todos
             liberados: Convites liberados
             erro_carregar: Não foi possível carregar as indicações. Recarregue a página.
+            quem_pagina: 'Página {pagina} de {total}'
             erro_salvar: Não foi possível salvar.
         # Seção Recompensas (public/js/master/recompensas.js).
         recompensas:

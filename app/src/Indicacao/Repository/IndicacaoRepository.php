@@ -36,6 +36,11 @@ class IndicacaoRepository extends ServiceEntityRepository
      */
     private const CONTA_CRIADA = 'COALESCE(i.indicado_user_id, (SELECT u.id FROM "user" u WHERE i.canal = \'email\' AND lower(u.email) = i.email AND u.created_at > i.criada_em ORDER BY u.id LIMIT 1))';
 
+    /** O escritório do envio mais recente de quem indicou (nulo se foi sem escritório ou o escritório foi purgado). */
+    private const ESCRITORIO_DO_INDICADOR = '(SELECT t.name FROM indicacao r LEFT JOIN tenant t ON t.id = r.tenant_origem_id
+                      WHERE r.indicado_por_id = i.indicado_por_id AND NOT r.por_cadastro
+                      ORDER BY r.criada_em DESC, r.id DESC LIMIT 1)';
+
     /** Só os envios (os três canais); exclui a atribuição do cadastro pelo link, com ou sem a conta nova ainda existindo. */
     private const SO_ENVIOS = 'NOT i.por_cadastro';
 
@@ -75,6 +80,15 @@ class IndicacaoRepository extends ServiceEntityRepository
     public function contarDoUsuario(int $userId): int
     {
         return (int) $this->conexao()->fetchOne('SELECT COUNT(*) FROM indicacao WHERE indicado_por_id = ?', [$userId]);
+    }
+
+    /** Contas criadas a partir das indicações da pessoa, cada conta uma vez (e-mail ou link). */
+    public function contarContasCriadasDoUsuario(int $userId): int
+    {
+        return (int) $this->conexao()->fetchOne(
+            'SELECT COUNT(DISTINCT ' . self::CONTA_CRIADA . ') FROM indicacao i WHERE i.indicado_por_id = ?',
+            [$userId],
+        );
     }
 
     /**
@@ -254,9 +268,37 @@ class IndicacaoRepository extends ServiceEntityRepository
         ], $linhas);
     }
 
-    public function contarIndicadores(): int
+    /**
+     * Quantos indicadores existem; com `$busca`, só os que casam por nome ou escritório (sem acento nem caixa).
+     */
+    public function contarIndicadores(string $busca = ''): int
     {
-        return (int) $this->conexao()->fetchOne('SELECT COUNT(DISTINCT indicado_por_id) FROM indicacao');
+        ['sql' => $filtro, 'parametros' => $parametros] = self::filtroDeBusca($busca);
+
+        return (int) $this->conexao()->fetchOne(
+            'SELECT COUNT(*) FROM (SELECT i.indicado_por_id FROM indicacao i JOIN "user" u ON u.id = i.indicado_por_id
+              WHERE ' . $filtro . ' GROUP BY i.indicado_por_id) q',
+            $parametros,
+        );
+    }
+
+    /**
+     * O trecho WHERE da busca por nome ou escritório (o do envio mais recente), com `unaccent` e `lower`; o `%` e o `_`
+     * digitados valem como letra. Busca vazia: não filtra.
+     *
+     * @return array{sql: string, parametros: array<string, string>}
+     */
+    private static function filtroDeBusca(string $busca): array
+    {
+        $busca = trim($busca);
+        if ($busca === '') {
+            return ['sql' => 'TRUE', 'parametros' => []];
+        }
+
+        return [
+            'sql' => '(unaccent(lower(u.full_name)) LIKE unaccent(lower(:busca)) OR unaccent(lower(COALESCE(' . self::ESCRITORIO_DO_INDICADOR . ", ''))) LIKE unaccent(lower(:busca)))",
+            'parametros' => ['busca' => '%' . addcslashes($busca, '%_\\') . '%'],
+        ];
     }
 
     /**
@@ -264,16 +306,21 @@ class IndicacaoRepository extends ServiceEntityRepository
      * total (o id desempata, para a página ser estável). O escritório é o do envio mais recente. Total, janelas e
      * última são só envios; contas criadas conta cada conta uma vez (inclui as que vieram pelo link).
      *
+     * Com `$busca`, só quem casa por nome ou escritório. Com `$porEnvios`, a ordem é a da tabela "Quem indica" do Master:
+     * mais envios no total, depois o envio mais recente.
+     *
      * @return list<array{user_id: int, nome: string, email: string, escritorio: ?string, total: int, ultimas24h: int,
      *     ultimos30d: int, contas_criadas: int, ultima_em: ?string, pausado: bool}>
      */
-    public function indicadores(\DateTimeImmutable $desde24h, \DateTimeImmutable $desde30d, int $offset, int $limite): array
+    public function indicadores(\DateTimeImmutable $desde24h, \DateTimeImmutable $desde30d, int $offset, int $limite, string $busca = '', bool $porEnvios = false): array
     {
+        ['sql' => $filtro, 'parametros' => $parametros] = self::filtroDeBusca($busca);
+        $ordem = $porEnvios
+            ? 'total DESC, ultima_em DESC NULLS LAST, i.indicado_por_id ASC'
+            : 'ultimas24h DESC, total DESC, i.indicado_por_id ASC';
         $linhas = $this->conexao()->fetchAllAssociative(
             'SELECT i.indicado_por_id AS user_id, u.full_name AS nome, u.email,
-                    (SELECT t.name FROM indicacao r LEFT JOIN tenant t ON t.id = r.tenant_origem_id
-                      WHERE r.indicado_por_id = i.indicado_por_id AND NOT r.por_cadastro
-                      ORDER BY r.criada_em DESC, r.id DESC LIMIT 1) AS escritorio,
+                    ' . self::ESCRITORIO_DO_INDICADOR . ' AS escritorio,
                     COUNT(*) FILTER (WHERE ' . self::SO_ENVIOS . ') AS total,
                     COUNT(*) FILTER (WHERE ' . self::SO_ENVIOS . ' AND i.criada_em > :d24) AS ultimas24h,
                     COUNT(*) FILTER (WHERE ' . self::SO_ENVIOS . ' AND i.criada_em > :d30) AS ultimos30d,
@@ -281,10 +328,11 @@ class IndicacaoRepository extends ServiceEntityRepository
                     MAX(i.criada_em) FILTER (WHERE ' . self::SO_ENVIOS . ') AS ultima_em,
                     EXISTS (SELECT 1 FROM indicacao_pausa p WHERE p.user_id = i.indicado_por_id) AS pausado
              FROM indicacao i JOIN "user" u ON u.id = i.indicado_por_id
+             WHERE ' . $filtro . '
              GROUP BY i.indicado_por_id, u.full_name, u.email
-             ORDER BY ultimas24h DESC, total DESC, i.indicado_por_id ASC
+             ORDER BY ' . $ordem . '
              LIMIT :limite OFFSET :offset',
-            ['d24' => self::data($desde24h), 'd30' => self::data($desde30d), 'limite' => max(1, $limite), 'offset' => max(0, $offset)],
+            ['d24' => self::data($desde24h), 'd30' => self::data($desde30d), 'limite' => max(1, $limite), 'offset' => max(0, $offset)] + $parametros,
         );
 
         return array_map(self::linhaDeIndicador(...), $linhas);

@@ -6,13 +6,15 @@
    (public/js/master/indicacoes.js); as regras moram nos UseCases do domínio Indicacao.
    A estrutura das <label> é a do desenho (texto, ícone e campo como filhos diretos da coluna). As dicas do desenho
    (data-tip) vão no title, que o bj-dica.js do painel transforma no balão do sistema.
-   O desenho de 21/10 tirou a tabela por pessoa e a lista de alertas (os alertas vão para a Central de Notificações).
+   O desenho de 21/10 tirou a tabela por pessoa e a lista de alertas (os alertas vão para a Central de Notificações);
+   a tabela "Quem indica" voltou por pedido do dono (25/11), só para o Master, com busca e paginação no servidor.
    Textos no catálogo (master.indicacoes.*; os do JS em master.js.indicacoes.*, spec idioma-do-sistema §8). #}
 <link rel="stylesheet" href="{{ asset('css/master-indicacoes.css') }}">
 <div class="mi" data-mi
      data-url-dados="{{ path('master_indicacoes_dados') }}"
      data-url-pausa="{{ path('master_indicacoes_pausa') }}"
      data-url-limites="{{ path('master_indicacoes_limites') }}"
+     data-url-quem="{{ path('master_indicacoes_quem_indica') }}"
      data-token="{{ csrf_token('master_indicacoes') }}">
     <section class="mi-caixa" aria-labelledby="mi-titulo" aria-busy="true" data-mi-caixa>
         <div class="mi-cabeca">
@@ -22,6 +24,24 @@
             <button type="button" class="mi-chave" role="switch" aria-checked="false" aria-label="{{ 'master.indicacoes.pausar_todos'|trans }}" data-mi-pausa disabled>
                 <span class="mi-chave-trilho" aria-hidden="true"><span class="mi-chave-bola"></span></span><span data-mi-pausa-txt>{{ 'master.indicacoes.liberados'|trans }}</span>
             </button>
+        </div>
+        <div class="mi-quem" data-mi-quem>
+            <div class="mi-quem-barra">
+                <b class="mi-quem-titulo">{{ 'master.indicacoes.quem.titulo'|trans }}</b>
+                <label class="mi-busca"><i class="bi bi-search" aria-hidden="true"></i><input type="search" placeholder="{{ 'master.indicacoes.quem.busca'|trans }}" aria-label="{{ 'master.indicacoes.quem.busca'|trans }}" data-mi-quem-busca></label>
+            </div>
+            <div class="mi-quem-rolagem"><div class="mi-quem-tabela" role="table">
+                <div class="mi-quem-linha mi-quem-cabeca" role="row">
+                    <span>{{ 'master.indicacoes.quem.col_pessoa'|trans }}</span><span>{{ 'master.indicacoes.quem.col_escritorio'|trans }}</span><span class="mi-dir">{{ 'master.indicacoes.quem.col_enviados'|trans }}</span><span class="mi-dir">{{ 'master.indicacoes.quem.col_contas'|trans }}</span><span>{{ 'master.indicacoes.quem.col_ultimo'|trans }}</span>
+                </div>
+                <div class="mi-quem-vazio" data-mi-quem-vazio hidden>{{ 'master.indicacoes.quem.vazio'|trans }}</div>
+                <div data-mi-quem-lista></div>
+            </div></div>
+            <div class="mi-quem-pag" data-mi-quem-pag hidden>
+                <button type="button" class="mi-quem-btn" data-mi-quem-ant>{{ 'master.indicacoes.quem.anterior'|trans }}</button>
+                <span data-mi-quem-pos></span>
+                <button type="button" class="mi-quem-btn" data-mi-quem-prox>{{ 'master.indicacoes.quem.proxima'|trans }}</button>
+            </div>
         </div>
         <div class="mi-limites">
             <label class="mi-campo" title="{{ 'master.indicacoes.limite_dia_dica'|trans }}">{{ 'master.indicacoes.limite_dia'|trans }} <i class="bi bi-info-circle mi-campo-ic" aria-hidden="true"></i><input type="number" min="1" step="1" inputmode="numeric" class="mi-entrada" data-mi-limite="porDia" disabled></label>

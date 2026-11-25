@@ -29,18 +29,11 @@ final class ObterMinhasIndicacoesUseCaseTest extends TestCase
         return new ObterMinhasIndicacoesUseCase($this->indicacoes, $this->portao(), $this->codigo());
     }
 
-    #[TestDox('cadastro completo: nome, link curto, mensagem sugerida do desenho, total e as 8 mais recentes')]
+    #[TestDox('cadastro completo: nome, link curto, mensagem sugerida do desenho, total e quantas viraram conta')]
     public function testJanelaCompleta(): void
     {
         $this->indicacoes->method('contarDoUsuario')->willReturn(12);
-        $this->indicacoes->method('ultimasDoUsuario')->willReturnCallback(static function (int $id, int $limite): array {
-            self::assertSame(8, $limite);
-
-            return [
-                ['nome' => 'Bia', 'email' => 'bia@exemplo.com', 'canal' => 'email', 'criada_em' => '2026-10-18 10:00:00', 'conta_criada' => true],
-                ['nome' => null, 'email' => null, 'canal' => 'whatsapp', 'criada_em' => '2026-10-17 09:00:00', 'conta_criada' => false],
-            ];
-        });
+        $this->indicacoes->method('contarContasCriadasDoUsuario')->with(7)->willReturn(3);
 
         $saida = $this->useCase()->executar(Pessoas::usuario(7, 'Ana Souza Lima'));
 
@@ -53,16 +46,16 @@ final class ObterMinhasIndicacoesUseCaseTest extends TestCase
         self::assertSame([], $saida->pendencias);
         self::assertNull($saida->trava);
         self::assertSame(12, $saida->total);
+        self::assertSame(3, $saida->contasCriadas);
         $json = $saida->paraJson();
-        self::assertSame(['nome' => 'Bia', 'email' => 'bia@exemplo.com', 'canal' => 'email', 'em' => '18/10/2026', 'contaCriada' => true], $json['ultimas'][0]);
-        self::assertFalse($json['ultimas'][1]['contaCriada']);
+        self::assertSame([12, 3], [$json['total'], $json['contasCriadas']]);
+        self::assertArrayNotHasKey('ultimas', $json, 'a janela não lista mais os convites');
     }
 
     #[TestDox('cadastro incompleto: lista o que falta e não calcula trava (a caixa do cadastro vem antes)')]
     public function testCadastroIncompleto(): void
     {
         $this->pausado = true;
-        $this->indicacoes->method('ultimasDoUsuario')->willReturn([]);
 
         $saida = $this->useCase()->executar(Pessoas::usuario(7, 'Ana', null));
 
@@ -76,7 +69,6 @@ final class ObterMinhasIndicacoesUseCaseTest extends TestCase
     public function testTrava(): void
     {
         $this->pausado = true;
-        $this->indicacoes->method('ultimasDoUsuario')->willReturn([]);
 
         self::assertSame('Seus envios de convite foram pausados pela administração do BlueJus.', $this->useCase()->executar(Pessoas::usuario(7))->trava);
     }
