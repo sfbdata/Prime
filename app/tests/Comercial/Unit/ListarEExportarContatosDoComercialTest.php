@@ -6,8 +6,10 @@ namespace App\Tests\Comercial\Unit;
 
 use App\Comercial\DTO\ContatoComercialOutput;
 use App\Comercial\Repository\ContatoComercialRepository;
+use App\Comercial\Service\AuditoriaDaBaseDeContatos;
 use App\Comercial\UseCase\ExportarContatosDoComercialUseCase;
 use App\Comercial\UseCase\ListarContatosDoComercialUseCase;
+use App\Entity\Auth\User;
 use App\Shared\Email\Descadastro\DescadastroDeEmailInterface;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\TestDox;
@@ -79,7 +81,11 @@ final class ListarEExportarContatosDoComercialTest extends TestCase
                 : ['total' => 1001, 'itens' => [self::linha(1001, 'ultimo@ex.com', null, 'importacao')]]);
         $this->descadastro->method('filtrarDescadastrados')->willReturnCallback(static fn (mixed $t, array $emails): array => array_values(array_intersect($emails, ['ultimo@ex.com'])));
 
-        $csv = (new ExportarContatosDoComercialUseCase(new ListarContatosDoComercialUseCase($this->contatos, $this->descadastro)))->executar('ex');
+        $master = new User();
+        $auditoria = $this->createMock(AuditoriaDaBaseDeContatos::class);
+        $auditoria->expects(self::once())->method('registrar')->with('ctt_exp', null, ['linhas' => 1001, 'busca' => 'ex'], $master);
+
+        $csv = (new ExportarContatosDoComercialUseCase(new ListarContatosDoComercialUseCase($this->contatos, $this->descadastro), $auditoria))->executar('ex', $master);
         $linhas = explode("\n", $csv);
 
         self::assertStringStartsWith("\u{FEFF}", $csv);
@@ -88,5 +94,17 @@ final class ListarEExportarContatosDoComercialTest extends TestCase
         self::assertSame('"u1@ex.com";"\'=SOMA(A1)";"Manual";"Ativo";"";"25/11/2026 10:00"', $linhas[1]);
         self::assertSame('"u2@ex.com";"Nome ""Z""";"Manual";"Ativo";"";"25/11/2026 10:00"', $linhas[2]);
         self::assertSame('"ultimo@ex.com";"";"Importação";"Descadastrado";"";"25/11/2026 10:00"', $linhas[1001]);
+    }
+
+    #[TestDox('Células que começam com tab ou CR também ganham apóstrofo, como no CSV de destinatários')]
+    public function testFormulaComTabECr(): void
+    {
+        $this->contatos->method('pagina')->willReturn(['total' => 2, 'itens' => [self::linha(1, 'a@ex.com', "\tcmd"), self::linha(2, 'b@ex.com', "\rcmd")]]);
+        $this->descadastro->method('filtrarDescadastrados')->willReturn([]);
+
+        $csv = (new ExportarContatosDoComercialUseCase(new ListarContatosDoComercialUseCase($this->contatos, $this->descadastro), $this->createStub(AuditoriaDaBaseDeContatos::class)))->executar(null, new User());
+
+        self::assertStringContainsString("\"'\tcmd\"", $csv);
+        self::assertStringContainsString("\"'\rcmd\"", $csv);
     }
 }

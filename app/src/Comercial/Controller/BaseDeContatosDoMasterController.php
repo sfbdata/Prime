@@ -85,7 +85,7 @@ final class BaseDeContatosDoMasterController extends AbstractController
     #[Route('/master/comercial/base-de-contatos.csv', name: 'master_comercial_base_csv', methods: ['GET'])]
     public function csv(Request $request, ExportarContatosDoComercialUseCase $exportar): Response
     {
-        return new Response($exportar->executar(self::busca($request)), Response::HTTP_OK, [
+        return new Response($exportar->executar(self::busca($request), $this->master()), Response::HTTP_OK, [
             'Content-Type' => 'text/csv; charset=utf-8',
             'Content-Disposition' => 'attachment; filename="' . ExportarContatosDoComercialUseCase::ARQUIVO . '"',
         ]);

@@ -22,10 +22,30 @@ class ContatoComercialRepository extends ServiceEntityRepository
         parent::__construct($registry, ContatoComercial::class);
     }
 
-    /** Só o `persist`: quem dá o `flush` é o caso de uso. */
-    public function adicionar(ContatoComercial $contato): void
+    /**
+     * Grava o contato novo por SQL com `ON CONFLICT (email) DO NOTHING`: duas requisições ao mesmo tempo com o mesmo
+     * endereço não dão erro de chave única (que fecharia o EntityManager) nem duplicam; quem perde a corrida recebe null.
+     *
+     * @return int|null o id do contato criado, ou null se o endereço já estava na base
+     */
+    public function inserirSeNovo(ContatoComercial $contato): ?int
     {
-        $this->getEntityManager()->persist($contato);
+        $id = $this->getEntityManager()->getConnection()->fetchOne(
+            'INSERT INTO comercial_contato (email, nome, origem, origem_detalhe, importado_por_id, criado_em, atualizado_em)
+             VALUES (:email, :nome, :origem, :detalhe, :por, :criado, :atualizado)
+             ON CONFLICT (email) DO NOTHING RETURNING id',
+            [
+                'email' => $contato->getEmail(),
+                'nome' => $contato->getNome(),
+                'origem' => $contato->getOrigem(),
+                'detalhe' => $contato->getOrigemDetalhe(),
+                'por' => $contato->getImportadoPorId(),
+                'criado' => $contato->getCriadoEm()->format('Y-m-d H:i:s'),
+                'atualizado' => $contato->getAtualizadoEm()->format('Y-m-d H:i:s'),
+            ],
+        );
+
+        return $id === false ? null : (int) $id;
     }
 
     public function porEmail(string $email): ?ContatoComercial

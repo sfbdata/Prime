@@ -53,6 +53,6 @@ final class ComercialBaseJsTest extends TestCase
         $textos = json_encode([$pt['base'], $en['base'], $pt['campanha']['base'], $pt['js']['base_ok_importado']], \JSON_UNESCAPED_UNICODE);
         self::assertStringNotContainsString('—', (string) $textos);
         self::assertStringNotContainsString('–', (string) $textos);
-        self::assertSame('{novos} novos, {atualizados} atualizados, {invalidos} inválidos', CatalogoPtBr::carregar()['comercial']['js']['base_ok_importado']);
+        self::assertSame('{novos} novos, {atualizados} atualizados, {existiam} já existiam, {invalidos} inválidos', CatalogoPtBr::carregar()['comercial']['js']['base_ok_importado']);
     }
 }

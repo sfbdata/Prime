@@ -379,7 +379,7 @@ comercial:
         base_ok_nome: 'Name updated.'
         base_ok_excluido: 'Contact deleted.'
         base_ok_excluidos: '{n} contacts deleted.'
-        base_ok_importado: '{novos} new, {atualizados} updated, {invalidos} invalid'
+        base_ok_importado: '{novos} new, {atualizados} updated, {existiam} already existed, {invalidos} invalid'
         base_importando: 'Importing…'
         base_arquivo_grande: 'The file is over 1 MB.'
         base_vazio_busca: 'No contacts found for this search.'

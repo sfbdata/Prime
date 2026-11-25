@@ -17,8 +17,10 @@ use Doctrine\ORM\EntityManagerInterface;
 /**
  * Importa o CSV (colunas `email[,nome]`) para a Base de contatos, com a leitura e os limites da lista informada das
  * campanhas (5.000 linhas, 1 MB). Endereço inválido é contado e ignorado. Repetido não duplica: o contato que já
- * existe conta como "atualizado" e só troca o nome quando a linha traz um. Repetido dentro do próprio arquivo conta
- * uma vez (vale o último nome preenchido). A origem do contato novo é `importacao`, com o nome do arquivo.
+ * existe só troca o nome quando a linha traz um diferente ("atualizado"); os demais contam como "já existiam".
+ * Repetido dentro do próprio arquivo conta uma vez (vale o último nome preenchido). A origem do contato novo é
+ * `importacao`, com o nome do arquivo. O contato novo entra por `INSERT ... ON CONFLICT DO NOTHING`: importações
+ * simultâneas não dão erro nem duplicam.
  */
 final class ImportarContatosDoComercialUseCase
 {
@@ -33,23 +35,32 @@ final class ImportarContatosDoComercialUseCase
     public function executar(string $csv, ?string $arquivo, User $master): ImportacaoDeContatosOutput
     {
         [$validos, $invalidos] = $this->lerValidos($csv);
+        $arquivo = $arquivo !== null && trim($arquivo) !== '' ? mb_substr(trim($arquivo), 0, ContatoComercial::TAMANHO_DO_DETALHE) : null;
 
         $existentes = $this->contatos->porEmails(array_map('strval', array_keys($validos)));
         $agora = new \DateTimeImmutable();
         $novos = 0;
+        $atualizados = 0;
+        $jaExistiam = 0;
         foreach ($validos as $email => $nome) {
             $email = (string) $email;
-            if (isset($existentes[$email])) {
-                if ($nome !== '') {
-                    $existentes[$email]->renomear($nome, $agora);
-                }
+            $existente = $existentes[$email] ?? null;
+            if ($existente === null) {
+                // ON CONFLICT: se outra importação criou o endereço agora, ele conta como "já existia".
+                $criado = $this->contatos->inserirSeNovo(new ContatoComercial($email, $nome, ContatoComercial::ORIGEM_IMPORTACAO, $arquivo, $master, $agora));
+                $criado !== null ? ++$novos : ++$jaExistiam;
                 continue;
             }
-            $this->contatos->adicionar(new ContatoComercial($email, $nome, ContatoComercial::ORIGEM_IMPORTACAO, $arquivo, $master, $agora));
-            ++$novos;
+            $nomeNovo = ContatoComercial::nomeLimpo($nome);
+            if ($nomeNovo !== null && $nomeNovo !== $existente->getNome()) {
+                $existente->renomear($nomeNovo, $agora);
+                ++$atualizados;
+                continue;
+            }
+            ++$jaExistiam;
         }
         $this->em->flush();
-        $resultado = new ImportacaoDeContatosOutput($novos, \count($existentes), $invalidos);
+        $resultado = new ImportacaoDeContatosOutput($novos, $atualizados, $jaExistiam, $invalidos);
         $this->auditoria->registrar(AuditoriaDaBaseDeContatos::IMPORTADO, null, ['arquivo' => $arquivo] + $resultado->paraJson(), $master);
 
         return $resultado;

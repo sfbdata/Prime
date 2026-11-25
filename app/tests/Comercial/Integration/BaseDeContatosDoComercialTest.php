@@ -62,7 +62,8 @@ final class BaseDeContatosDoComercialTest extends KernelTestCase
         $r = $caso->executar($csv, 'outra.csv', $this->master);
 
         self::assertSame(1, $r->novos, 'só a Cris é nova (e repetida no arquivo conta uma vez)');
-        self::assertSame(2, $r->atualizados);
+        self::assertSame(1, $r->atualizados, 'só a Ana teve o nome trocado');
+        self::assertSame(1, $r->jaExistiam, 'a Bia veio sem nome: nada mudou');
         self::assertSame(1, $r->invalidos);
         $this->em()->clear();
         self::assertSame('Ana Maria', $this->repo()->porEmail($a)?->getNome(), 'nome preenchido atualiza');
@@ -72,6 +73,36 @@ final class BaseDeContatosDoComercialTest extends KernelTestCase
         self::assertSame('importacao', $cris->getOrigem());
         self::assertSame('outra.csv', $cris->getOrigemDetalhe());
         self::assertCount(3, $this->repo()->porEmails([$a, $b, $c]));
+    }
+
+    #[TestDox('Corrida: o endereço que outra requisição criou agora vira "já existia" na importação e recusa no incluir, sem erro de chave única')]
+    public function testCorridaComOMesmoEndereco(): void
+    {
+        $email = "corrida.{$this->m}@ex.com";
+        $agora = new \DateTimeImmutable();
+        $primeiro = $this->repo()->inserirSeNovo(new ContatoComercial($email, 'Um', 'manual', null, $this->master, $agora));
+        self::assertNotNull($primeiro);
+        self::assertNull($this->repo()->inserirSeNovo(new ContatoComercial($email, 'Dois', 'manual', null, $this->master, $agora)));
+
+        // O Incluir checa pela mesma instrução, então o repetido é a recusa do Master, não um 500.
+        try {
+            static::getContainer()->get(IncluirContatoDoComercialUseCase::class)->executar($email, null, $this->master);
+            self::fail('deveria recusar');
+        } catch (ContatoRecusado $e) {
+            self::assertStringContainsString('já está na base', $e->getMessage());
+        }
+        self::assertTrue($this->em()->isOpen());
+        $r = static::getContainer()->get(ImportarContatosDoComercialUseCase::class)->executar("$email;Tres\n", null, $this->master);
+        self::assertSame(1, $r->atualizados, 'o contato já estava no banco e o nome mudou');
+    }
+
+    #[TestDox('Importar: o nome do arquivo é aparado e cortado em 180 antes de gravar no contato e na trilha')]
+    public function testNomeDoArquivoLongo(): void
+    {
+        static::getContainer()->get(ImportarContatosDoComercialUseCase::class)->executar("longo.{$this->m}@ex.com\n", '  ' . str_repeat('x', 300) . '.csv  ', $this->master);
+
+        $this->em()->clear();
+        self::assertSame(str_repeat('x', 180), $this->repo()->porEmail("longo.{$this->m}@ex.com")?->getOrigemDetalhe());
     }
 
     #[TestDox('Importar: arquivo sem nenhuma linha com e-mail e arquivo acima de 5.000 linhas são recusados')]

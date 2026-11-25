@@ -101,6 +101,11 @@ class ContatoComercial
         return $this->nome;
     }
 
+    public function getImportadoPorId(): ?int
+    {
+        return $this->importadoPor?->getId();
+    }
+
     public function getOrigem(): string
     {
         return $this->origem;

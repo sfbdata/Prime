@@ -115,10 +115,10 @@ final class BaseDeContatosDoMasterControllerTest extends JusPrimeWebTestCase
         $csv = "email,nome\nA.$m@ex.com,Ana\nb.$m@ex.com;Beto\nruim@x\n";
         $this->postar($client, self::URL . '/importar', ['csv' => $csv, 'arquivo' => 'clientes.csv']);
         self::assertResponseIsSuccessful();
-        self::assertSame(['novos' => 2, 'atualizados' => 0, 'invalidos' => 1], $this->json($client));
+        self::assertSame(['novos' => 2, 'atualizados' => 0, 'jaExistiam' => 0, 'invalidos' => 1], $this->json($client));
 
         $this->postar($client, self::URL . '/importar', ['csv' => "a.$m@ex.com;Ana Paula\nc.$m@ex.com\n", 'arquivo' => 'clientes2.csv']);
-        self::assertSame(['novos' => 1, 'atualizados' => 1, 'invalidos' => 0], $this->json($client));
+        self::assertSame(['novos' => 1, 'atualizados' => 1, 'jaExistiam' => 0, 'invalidos' => 0], $this->json($client));
         self::assertSame('Ana Paula', $this->repo()->porEmail("a.$m@ex.com")?->getNome());
         self::assertSame('clientes.csv', $this->repo()->porEmail("a.$m@ex.com")?->getOrigemDetalhe());
 
@@ -146,6 +146,12 @@ final class BaseDeContatosDoMasterControllerTest extends JusPrimeWebTestCase
         self::assertCount(3, explode("\n", $corpo));
         self::assertStringContainsString("\"x.$m@ex.com\";\"Xis\";\"Importação\";\"Ativo\"", $corpo);
         self::assertStringNotContainsString('Fora', $corpo);
+
+        $exportacoes = array_values(array_filter(
+            static::getContainer()->get(EntityManagerInterface::class)->getRepository(AuditLog::class)->findBy(['actorUserId' => $this->master->getId(), 'action' => 'ctt_exp']),
+        ));
+        self::assertCount(1, $exportacoes);
+        self::assertSame(['linhas' => 2, 'busca' => $m], $exportacoes[0]->getChanges());
     }
 
     /** @param array<mixed> $corpo */

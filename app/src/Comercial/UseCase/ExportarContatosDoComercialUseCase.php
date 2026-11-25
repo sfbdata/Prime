@@ -5,10 +5,13 @@ declare(strict_types=1);
 namespace App\Comercial\UseCase;
 
 use App\Comercial\DTO\ContatoComercialOutput;
+use App\Comercial\Service\AuditoriaDaBaseDeContatos;
+use App\Entity\Auth\User;
 
 /**
  * O CSV da Base de contatos: as mesmas linhas da tela (com a busca atual), todas as páginas. Colunas
  * "E-mail;Nome;Origem;Situação;Último convite;Criado em", separador ";" e BOM para o Excel abrir os acentos.
+ * Cada exportação vai ao `audit_log` (`ctt_exp`, quantidade e busca usada, sem e-mails), como a de destinatários.
  */
 final class ExportarContatosDoComercialUseCase
 {
@@ -19,10 +22,11 @@ final class ExportarContatosDoComercialUseCase
 
     public function __construct(
         private readonly ListarContatosDoComercialUseCase $listar,
+        private readonly AuditoriaDaBaseDeContatos $auditoria,
     ) {
     }
 
-    public function executar(?string $busca): string
+    public function executar(?string $busca, User $master): string
     {
         $linhas = [self::linha(['E-mail', 'Nome', 'Origem', 'Situação', 'Último convite', 'Criado em'])];
         $pagina = 1;
@@ -42,20 +46,21 @@ final class ExportarContatosDoComercialUseCase
             $lidos += \count($lista['itens']);
             ++$pagina;
         } while ($lidos < $lista['total'] && $lista['itens'] !== []);
+        $this->auditoria->registrar(AuditoriaDaBaseDeContatos::EXPORTADO, null, ['linhas' => $lidos, 'busca' => ListarContatosDoComercialUseCase::buscaValida($busca)], $master);
 
         return "\u{FEFF}" . implode("\n", $linhas);
     }
 
     /**
-     * Campo que começa com = + - @ ganha um apóstrofo: nome e e-mail vêm de planilhas alheias, e a planilha não pode
-     * executá-los como fórmula.
+     * Campo que começa com = + - @ tab ou CR ganha um apóstrofo (a mesma lista do CSV de destinatários): nome e e-mail
+     * vêm de planilhas alheias, e a planilha não pode executá-los como fórmula.
      *
      * @param list<string> $campos
      */
     private static function linha(array $campos): string
     {
         return implode(';', array_map(static function (string $c): string {
-            $c = preg_match('/^[=+\-@]/', $c) === 1 ? "'" . $c : $c;
+            $c = $c !== '' && \in_array($c[0], ExportarDestinatariosUseCase::PERIGOSOS, true) ? "'" . $c : $c;
 
             return '"' . str_replace('"', '""', $c) . '"';
         }, $campos));

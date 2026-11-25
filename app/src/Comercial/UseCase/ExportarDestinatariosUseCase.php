@@ -31,7 +31,7 @@ final class ExportarDestinatariosUseCase
     public const LIDO = 'lido';
     public const AGUARDANDO = 'aguardando';
     private const BOM = "\u{FEFF}";
-    private const PERIGOSOS = ['=', '+', '-', '@', "\t", "\r"];
+    public const PERIGOSOS = ['=', '+', '-', '@', "\t", "\r"];
 
     public function __construct(
         private readonly CampanhaDeEmailRepository $campanhas,

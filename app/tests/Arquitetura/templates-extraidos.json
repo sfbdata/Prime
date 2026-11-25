@@ -48,8 +48,7 @@
         "permitidos": [
             "PIX",
             "Content-Type",
-            "Escape",
-            "Enter"
+            "Escape"
         ]
     },
 
@@ -136,8 +135,7 @@
         "permitidos": [
             "B",
             "Content-Type",
-            "Escape",
-            "Enter"
+            "Escape"
         ]
     },
 
@@ -268,8 +266,7 @@
             "perfis.js"
         ],
         "permitidos": [
-            "Escape",
-            "Enter"
+            "Escape"
         ]
     },
 
@@ -460,8 +457,7 @@
         "permitidos": [
             "Accept",
             "Enter",
-            "Escape",
-            "Enter"
+            "Escape"
         ]
     },
 
@@ -607,8 +603,7 @@
             "ArrowUp",
             "Enter",
             "Tab",
-            "Escape",
-            "Enter"
+            "Escape"
         ]
     },
 
@@ -761,8 +756,7 @@
             "Outro assunto",
             "Content-Type",
             "CapsLock",
-            "Escape",
-            "Enter"
+            "Escape"
         ]
     },
 
@@ -944,8 +938,7 @@
             "App\\\\Pasta\\\\DTO\\\\PastaFinanceiroOutput::SEM_DADO",
             "Accept",
             "AbortError",
-            "Escape",
-            "Enter"
+            "Escape"
         ]
     },
 

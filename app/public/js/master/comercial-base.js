@@ -190,7 +190,7 @@
     if (arquivo.size > BYTES_DO_CSV) { avisar(t('base_arquivo_grande'), 'erro'); elArquivo.value = ''; return; }
     avisar(t('base_importando'), 'info');
     arquivo.text().then(csv => postar(bloco.dataset.urlImportar, { csv, arquivo: arquivo.name })).then(r => {
-      avisar(t('base_ok_importado', { novos: numero(r.novos), atualizados: numero(r.atualizados), invalidos: numero(r.invalidos) }), 'ok');
+      avisar(t('base_ok_importado', { novos: numero(r.novos), atualizados: numero(r.atualizados), existiam: numero(r.jaExistiam), invalidos: numero(r.invalidos) }), 'ok');
       pagina = 1;
       carregar();
     }).catch(err => avisar(err.message, 'erro')).finally(() => { elArquivo.value = ''; });

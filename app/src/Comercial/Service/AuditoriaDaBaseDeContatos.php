@@ -11,15 +11,16 @@ use Doctrine\ORM\EntityManagerInterface;
 
 /**
  * A linha no `audit_log` de cada escrita do Master na Base de contatos (a entidade não é auditada por listener: uma
- * importação de milhares de linhas vira UMA linha de trilha, com os números).
+ * importação de milhares de linhas vira UMA linha de trilha, com os números). Sem `final` para os testes de UseCase a dublarem.
  */
-final class AuditoriaDaBaseDeContatos
+class AuditoriaDaBaseDeContatos
 {
     /** Ações do `audit_log` (a coluna tem 10 caracteres). */
     public const INCLUIDO = 'ctt_inc';
     public const RENOMEADO = 'ctt_nome';
     public const EXCLUIDO = 'ctt_exc';
     public const IMPORTADO = 'ctt_imp';
+    public const EXPORTADO = 'ctt_exp';
 
     public function __construct(
         private readonly EntityManagerInterface $em,
