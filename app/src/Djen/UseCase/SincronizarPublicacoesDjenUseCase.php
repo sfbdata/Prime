@@ -446,7 +446,6 @@ final class SincronizarPublicacoesDjenUseCase
      * @param list<array<string, mixed>>               $todos                 recebe os itens brutos
      * @param bool                                     $tentarDeNovoSeOcupado repete o 500 "muito ocupado" (só nas OABs)
      * @param \Closure(int): ConsultaComunicacoesQuery $consultaDaPagina      monta a consulta de cada página
-     *
      */
     private function consultarTodosItens(array &$todos, bool $tentarDeNovoSeOcupado, \Closure $consultaDaPagina): void
     {

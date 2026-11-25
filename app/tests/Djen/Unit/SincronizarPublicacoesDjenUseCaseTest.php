@@ -199,8 +199,7 @@ final class SincronizarPublicacoesDjenUseCaseTest extends TestCase
                 return new RespostaComunicacoes(250, $itens);
             }
         );
-        // Dedupe por djenId contra o banco (filtrarDjenIdsExistentesDoTenant) e contra o run:
-        // rodar de novo a mesma janela não duplica o que já foi salvo.
+        // A próxima execução não duplica o que já foi salvo: quem prova é naoDuplicaPublicacaoJaExistenteEnaoNotifica.
         $this->publicacaoRepository->method('filtrarDjenIdsExistentesDoTenant')->willReturn([]);
         $this->processoRepository->method('findByNumeroProcessoDoTenant')->willReturn(null);
         $this->notificador->method('notificar')->willReturn(1);
