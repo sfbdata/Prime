@@ -1,6 +1,11 @@
 # Gerado pelo scripts/mudancas.py no PR de release: o texto vem da seção
 # "## Para o cliente" dos arquivos em mudancas/. Lido pela página Novidades.
 versoes:
+- versao: "3.9.1"
+  data: "2026-11-25"
+  itens:
+    - "Escritórios que ainda não preencheram o estado nos dados do escritório passam a receber o convênio OAB pelo estado da OAB de quem criou a conta. Antes, ficavam sem o convênio até preencher o estado."
+    - "Quando o tribunal falha no meio da consulta de uma OAB, as publicações que já tinham chegado não se perdem mais. Antes, duas falhas seguidas podiam fazer publicações deixarem de aparecer no Push Processual."
 - versao: "3.9.0"
   data: "2026-11-24"
   itens:

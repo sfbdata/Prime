@@ -8,6 +8,15 @@ cada nível e o procedimento de release estão em [docs/versionamento.md](docs/v
 
 ## [Não lançado]
 
+## [3.9.1] - 2026-11-25
+
+### Corrigido
+
+- Convênios: a UF do escritório agora é o estado do escritório e, quando ele está vazio, a UF da inscrição OAB válida de quem criou o escritório (`src/Master/Service/UfDoEscritorio.php`, spec `docs/specs/convenios.md` §5.1). A sincronização das 2h10 de 25/11 criou só 1 vínculo em 34 escritórios porque 32 não tinham estado.
+- A mesma regra vale no código de convênio de um estado, no rótulo e na contagem das contas por estado do painel do Master e no e-mail aos escritórios quando o Master muda o convênio de uma UF.
+- Sem migration: a próxima volta da tarefa diária cria os vínculos que faltam.
+- Push Processual: quando uma página do DJEN falhava no meio da paginação de uma OAB, `SincronizarPublicacoesDjenUseCase` descartava todos os itens já recebidos daquela OAB na execução. Agora as páginas anteriores à falha são processadas e a falha continua registrada para o aviso da tarefa. A dedupe por `djenId` evita duplicar na execução seguinte. A fase de processos (por número) não mudou.
+
 ## [3.9.0] - 2026-11-24
 
 ### Adicionado
@@ -2541,7 +2550,8 @@ justificativa está em `docs/versionamento.md`.
 Primeira versão marcada no repositório (tag `v1.0.0`, commit `4940cc87`). Não há registro
 detalhado do que ela continha.
 
-[Não lançado]: https://github.com/sfbdata/Prime/compare/v3.9.0...HEAD
+[Não lançado]: https://github.com/sfbdata/Prime/compare/v3.9.1...HEAD
+[3.9.1]: https://github.com/sfbdata/Prime/compare/v3.9.0...v3.9.1
 [3.9.0]: https://github.com/sfbdata/Prime/compare/v3.8.0...v3.9.0
 [3.8.0]: https://github.com/sfbdata/Prime/compare/v3.7.0...v3.8.0
 [3.7.0]: https://github.com/sfbdata/Prime/compare/v3.6.0...v3.7.0
