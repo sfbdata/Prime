@@ -71,6 +71,10 @@ enum CategoriaDeArquivo: string
     // pasta; o escopo é o escritório dono da assembleia (`ChavesDoVoto::fotoDaCandidatura`), e a purga a leva pelos
     // registros de `voto.assembleia_opcao`. Entregue ao gestor (equipe) e à urna (link da unidade), nunca por caminho.
     case VOTO_FOTO_CANDIDATURA = 'voto_foto_candidatura';
+    // O PDF do edital de convocação da assembleia do Voto (anexado na tela da assembleia e junto ao PDF do resultado). Plana,
+    // numa subpasta da raiz dos documentos de pasta; o escopo é o escritório dono da assembleia (`ChavesDoVoto::edital`), e a
+    // purga a leva pelos registros de `voto.assembleia`. Entregue só à equipe, por chave, nunca por caminho.
+    case VOTO_EDITAL = 'voto_edital';
     // O ZIP de backup dos dados de uma pessoa (spec backup-e-exportacao-de-dados.md). Descartável: vence em 7 dias. ISOLADA
     // por escritório em disco (`uploads/pastas/backups/<tenantId>/`), está no enum restrito `CategoriaComIsolamentoFisico`
     // e NUNCA vai ao R2 (`PoliticaDeEspelhamento::NUNCA_ESPELHADAS`). A purga leva o diretório inteiro do escritório.

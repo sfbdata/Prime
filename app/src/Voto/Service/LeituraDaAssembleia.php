@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Voto\Service;
 
+use App\Voto\Armazenamento\ChavesDoVoto;
 use App\Voto\DTO\AssembleiaNoPainel;
 use App\Voto\DTO\PautaNoPainel;
 use App\Voto\DTO\RegrasDeParticipacaoNoPainel;
@@ -93,6 +94,11 @@ final class LeituraDaAssembleia
             simulacao: $assembleia->isSimulacao(),
             rotuloUnidade: $assembleia->getRotuloUnidadePersonalizado(),
             rotuloBloco: $assembleia->getRotuloBlocoPersonalizado(),
+            editalNome: $assembleia->getEditalNome(),
+            editalTamanho: $assembleia->getEditalTamanho(),
+            editalSha256: $assembleia->getEditalSha256(),
+            editalChave: $assembleia->temEdital() ? ChavesDoVoto::edital($assembleia) : null,
+            editalAlteravel: $assembleia->podeAlterarEdital(),
         );
     }
 

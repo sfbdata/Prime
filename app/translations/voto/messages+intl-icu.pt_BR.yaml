@@ -916,6 +916,20 @@ voto:
                     efeito_3: Na ata, entra como votação cancelada, com o motivo.
                     efeito_4: Urna, trilha e dados ficam guardados como prova; depois pode ser arquivada.
                     efeito_5: Não pode ser desfeito. Para repetir, use Duplicar votação.
+            edital:
+                menu_anexar: Anexar edital
+                menu_baixar: Baixar edital
+                menu_trocar: Trocar edital
+                menu_remover: Remover edital
+                confirmar_titulo: Remover o edital?
+                confirmar_texto: 'O edital deixa de acompanhar o PDF do resultado. Você pode anexar outro depois, enquanto o resultado não sair.'
+                confirmar_sim: Remover edital
+                confirmar_nao: Manter edital
+                anexado: Edital anexado. Ele vai ao fim do PDF do resultado.
+                trocado: Edital trocado. O novo vai ao fim do PDF do resultado.
+                removido: Edital removido.
+                sem_arquivo: Escolha o arquivo PDF do edital.
+                no_pdf: 'Edital anexo: {nome}, SHA-256 {hash}'
             arquivar:
                 titulo_sem_deliberar: 'Arquivar sem deliberar: a votação não poderá ser aberta e sai das listas.'
                 titulo_deliberada: 'Arquivar votação deliberada: resultado, ata, relatório e trilha de auditoria continuam guardados.'

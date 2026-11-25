@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Voto\DTO;
 
+use App\Shared\Armazenamento\ChaveDeArquivo;
 use App\Voto\Enum\CenarioDaAssembleia;
 
 /**
@@ -24,6 +25,10 @@ final readonly class ResumoDoResultado
         public array $pautas,
         public CenarioDaAssembleia $cenario = CenarioDaAssembleia::Condominio,
         public ?string $entidade = null,
+        /** O edital anexo (nome enviado e sha256) e a chave do arquivo, que vai ao fim do PDF; nulos sem edital. Fora do hash. */
+        public ?string $editalNome = null,
+        public ?string $editalSha256 = null,
+        public ?ChaveDeArquivo $editalChave = null,
     ) {
     }
 }

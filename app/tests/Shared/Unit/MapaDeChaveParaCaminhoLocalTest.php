@@ -91,6 +91,10 @@ final class MapaDeChaveParaCaminhoLocalTest extends TestCase
             CategoriaDeArquivo::VOTO_FOTO_CANDIDATURA, $tenant, 'a1b2.jpg',
             $raiz . '/pastas/voto-fotos/a1b2.jpg',
         ];
+        yield 'voto_edital (plano, subpasta própria)' => [
+            CategoriaDeArquivo::VOTO_EDITAL, $tenant, 'a1b2.pdf',
+            $raiz . '/pastas/voto-editais/a1b2.pdf',
+        ];
         yield 'blog_imagem (plano, escopo global, subpasta própria)' => [
             CategoriaDeArquivo::BLOG_IMAGEM, EscopoDeArquivo::global(), 'a1b2.webp',
             $raiz . '/pastas/blog-imagens/a1b2.webp',

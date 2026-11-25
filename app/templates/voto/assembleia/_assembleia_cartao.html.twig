@@ -38,6 +38,17 @@
     {% if not edita %}
         {% set itens = itens|filter(i => i.acao is not defined and i.revelar is not defined and (i.href is not defined or i.href != path('voto_assembleia_editar', {id: a.id}))) %}
     {% endif %}
+    {# Edital em PDF (discreto, só no menu): baixar para quem vê; anexar, trocar e remover para quem edita, até o resultado sair. #}
+    {% set editalEditavel = edita and a.editalAlteravel and not a.arquivada %}
+    {% if a.temEdital %}
+        {% set itens = itens|merge([{rotulo: 'voto.assembleia.gestor.edital.menu_baixar'|trans, icone: 'bi-paperclip', href: path('voto_assembleia_edital', {id: a.id}), atributos: {target: '_blank', rel: 'noopener'}}]) %}
+    {% endif %}
+    {% if editalEditavel %}
+        {% set itens = itens|merge([{rotulo: (a.temEdital ? 'voto.assembleia.gestor.edital.menu_trocar' : 'voto.assembleia.gestor.edital.menu_anexar')|trans, icone: a.temEdital ? 'bi-arrow-repeat' : 'bi-paperclip', atributos: {'data-voto-edital-escolher': '#edital-form-' ~ a.id}}]) %}
+        {% if a.temEdital %}
+            {% set itens = itens|merge([{rotulo: 'voto.assembleia.gestor.edital.menu_remover'|trans, icone: 'bi-x-circle', acao: path('voto_assembleia_edital_remover', {id: a.id}), token: csrf_token('voto_assembleia_' ~ a.id), confirmar: 'voto.assembleia.gestor.edital.confirmar_texto'|trans, confirmar_titulo: 'voto.assembleia.gestor.edital.confirmar_titulo'|trans, confirmar_sim: 'voto.assembleia.gestor.edital.confirmar_sim'|trans, confirmar_nao: 'voto.assembleia.gestor.edital.confirmar_nao'|trans}]) %}
+        {% endif %}
+    {% endif %}
     {% set podeArquivar = voto_edita(a.id) and a.publicada and not a.arquivada and not a.simulacao and a.pautas|filter(x => x.aberta)|length == 0 %}
     {% if edita and a.podeExcluir and not a.arquivada %}
         {% set itens = itens|merge([{rotulo: 'voto.assembleia.gestor.menu_ciclo.excluir_rascunho'|trans, icone: 'bi-trash', revelar: '#excluir-' ~ a.id, destrutivo: true}]) %}
@@ -56,6 +67,12 @@
         {% set itens = itens|merge([{rotulo: 'voto.assembleia.gestor.menu_ciclo.desarquivar'|trans, icone: 'bi-box-arrow-up', acao: path('voto_assembleia_desarquivar', {id: a.id}), token: csrf_token('voto_assembleia_' ~ a.id)}]) %}
     {% endif %}
     <div class="vEvH"><i class="bi bi-calendar-event"></i><b>{{ a.titulo }}</b><span>{{ (a.publicadaEm ?? a.criadaEm)|date('d/m/Y') }}</span><span class="voto-espaco"></span><span>{{ 'voto.assembleia.gestor.grupo.votacoes'|trans({n: a.pautas|filter(x => not x.retirada)|length}) }}</span>{% if a.arquivada %}<span class="vChip" style="background:#5b7383;">{{ 'voto.assembleia.gestor.chip_ciclo.arquivada'|trans }}</span>{% else %}<span class="vChip voto-chip-claro">{{ ('voto.assembleia.gestor.andamento.' ~ a.situacao())|trans }}</span>{% endif %}{% include 'voto/assembleia/_menu_tres_pontos.html.twig' with {itens: itens} only %}</div>
+    {% if editalEditavel %}
+        <form method="post" enctype="multipart/form-data" action="{{ path('voto_assembleia_edital_anexar', {id: a.id}) }}" id="edital-form-{{ a.id }}" hidden>
+            <input type="hidden" name="_token" value="{{ csrf_token('voto_assembleia_' ~ a.id) }}">
+            <input type="file" name="edital" accept="application/pdf,.pdf" data-voto-edital-arquivo hidden>
+        </form>
+    {% endif %}
     {% include 'voto/assembleia/_etapas.html.twig' with {a: a} only %}
     {% if a.arquivada %}
         <div class="vLin"><div class="voto-faixa-arquivada" data-voto-arquivada><i class="bi bi-archive"></i> {{ 'voto.assembleia.gestor.arquivar.faixa'|trans({em: a.arquivadaEm|date('d/m/Y H:i'), sem: a.situacao() == 'encerrada' ? '' : 'voto.assembleia.gestor.arquivar.sem_deliberacao'|trans, motivo: a.arquivadaMotivo}) }}</div></div>
