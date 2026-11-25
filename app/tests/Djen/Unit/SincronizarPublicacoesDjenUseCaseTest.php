@@ -182,6 +182,40 @@ final class SincronizarPublicacoesDjenUseCaseTest extends TestCase
     }
 
     #[Test]
+    public function falhaNaPaginaDoMeioMantemOsItensDasPaginasAnterioresEregistraAFalha(): void
+    {
+        $this->oabRepository->method('listarAtivasDoTenant')->willReturn([$this->oab('67228', 'PR')]);
+        // 3 páginas de 100: a 1 vem, a 2 cai. Os 100 da página 1 precisam ser processados.
+        $this->djenClient->method('consultarComunicacoes')->willReturnCallback(
+            function ($query): RespostaComunicacoes {
+                if ($query->pagina >= 2) {
+                    throw new ConsultaDjenException(MotivoFalhaDjen::Timeout);
+                }
+                $itens = [];
+                for ($id = 1; $id <= 100; $id++) {
+                    $itens[] = $this->item($id, str_pad((string) $id, 20, '0', STR_PAD_LEFT));
+                }
+
+                return new RespostaComunicacoes(250, $itens);
+            }
+        );
+        // Dedupe por djenId contra o banco (filtrarDjenIdsExistentesDoTenant) e contra o run:
+        // rodar de novo a mesma janela não duplica o que já foi salvo.
+        $this->publicacaoRepository->method('filtrarDjenIdsExistentesDoTenant')->willReturn([]);
+        $this->processoRepository->method('findByNumeroProcessoDoTenant')->willReturn(null);
+        $this->notificador->method('notificar')->willReturn(1);
+
+        $this->publicacaoRepository->expects($this->exactly(100))->method('salvar');
+
+        $resultado = $this->sut->executar($this->tenant, PeriodoConsulta::dia(new \DateTimeImmutable('2026-07-06')));
+
+        self::assertSame(100, $resultado->getRecebidas());
+        self::assertSame(100, $resultado->getNovas());
+        self::assertTrue($resultado->temFalhas());
+        self::assertSame(['67228/PR' => MotivoFalhaDjen::Timeout->value], $resultado->getFalhas());
+    }
+
+    #[Test]
     public function paginaMultiplasPaginasAteAUltima(): void
     {
         $this->oabRepository->method('listarAtivasDoTenant')->willReturn([$this->oab('67228', 'PR')]);

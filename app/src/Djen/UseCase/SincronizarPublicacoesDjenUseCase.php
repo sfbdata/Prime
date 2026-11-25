@@ -102,8 +102,11 @@ final class SincronizarPublicacoesDjenUseCase
         foreach ($this->oabRepository->listarAtivasDoTenant($tenant) as $oab) {
             $periodoDaOab = $this->periodoDaOab($oab, $periodo);
 
+            // Itens acumulados por referência: se uma página do meio falhar, as anteriores não se perdem.
+            $itens = [];
+
             try {
-                $itens = $this->consultarTodosItens(true, static fn (int $pagina): ConsultaComunicacoesQuery => new ConsultaComunicacoesQuery(
+                $this->consultarTodosItens($itens, true, static fn (int $pagina): ConsultaComunicacoesQuery => new ConsultaComunicacoesQuery(
                     numeroOab: $oab->getNumero(),
                     ufOab: $oab->getUf(),
                     dataDisponibilizacaoInicio: $periodoDaOab->inicio,
@@ -112,10 +115,10 @@ final class SincronizarPublicacoesDjenUseCase
                     itensPorPagina: self::ITENS_POR_PAGINA,
                 ));
             } catch (ConsultaDjenException $e) {
-                // Falha de uma OAB não derruba as demais — registra o motivo e segue.
+                // Falha de uma OAB não derruba as demais: registra o motivo e segue. As páginas que
+                // vieram antes da falha são processadas abaixo (a dedupe por djenId evita duplicar
+                // quando a próxima execução buscar de novo).
                 $resultado->registrarFalha($oab->getRotulo(), $e->getMotivo());
-
-                continue;
             }
 
             $resultado->registrarRecebidas(\count($itens));
@@ -321,7 +324,8 @@ final class SincronizarPublicacoesDjenUseCase
             $numero = $numeros[$indice];
 
             try {
-                $itens = $this->consultarTodosItens(false, static fn (int $pagina): ConsultaComunicacoesQuery => new ConsultaComunicacoesQuery(
+                $itens = [];
+                $this->consultarTodosItens($itens, false, static fn (int $pagina): ConsultaComunicacoesQuery => new ConsultaComunicacoesQuery(
                     dataDisponibilizacaoInicio: $periodo->inicio,
                     dataDisponibilizacaoFim: $periodo->fim,
                     pagina: $pagina,
@@ -436,15 +440,16 @@ final class SincronizarPublicacoesDjenUseCase
     /**
      * Busca todas as páginas de uma consulta (até o teto), acumulando os itens brutos.
      *
+     * Os itens vão para `$todos` (por referência) a cada página: se uma página lançar
+     * `ConsultaDjenException`, quem chamou ainda tem o que veio antes da falha.
+     *
+     * @param list<array<string, mixed>>               $todos                 recebe os itens brutos
      * @param bool                                     $tentarDeNovoSeOcupado repete o 500 "muito ocupado" (só nas OABs)
      * @param \Closure(int): ConsultaComunicacoesQuery $consultaDaPagina      monta a consulta de cada página
      *
-     * @return list<array<string, mixed>>
      */
-    private function consultarTodosItens(bool $tentarDeNovoSeOcupado, \Closure $consultaDaPagina): array
+    private function consultarTodosItens(array &$todos, bool $tentarDeNovoSeOcupado, \Closure $consultaDaPagina): void
     {
-        $todos = [];
-
         for ($pagina = 1; $pagina <= self::MAX_PAGINAS; $pagina++) {
             $resposta = $tentarDeNovoSeOcupado
                 ? $this->consultarComNovaTentativa($consultaDaPagina($pagina))
@@ -458,8 +463,6 @@ final class SincronizarPublicacoesDjenUseCase
                 break;
             }
         }
-
-        return $todos;
     }
 
     /** Só o 500 "muito ocupado" tenta de novo: o limite (429) e o timeout têm tratamento próprio. */
