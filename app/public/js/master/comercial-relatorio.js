@@ -246,7 +246,7 @@
         : BJ_T.t('comercial_relatorio.js.confirmar_cancelar_fila');
       perguntar({
         titulo: BJ_T.t('comercial_relatorio.js.cancelar_titulo'), icone: 'bi-x-octagon', cor: PERIGO,
-        texto: pergunta, botao: BJ_T.t('comercial_relatorio.js.cancelar_botao'),
+        texto: pergunta, botao: BJ_T.t('comercial_relatorio.js.cancelar_botao'), cancelar: BJ_T.t('comercial_relatorio.js.cancelar_voltar'),
       }).then(ok => {
         if (!ok) return;
         pedir(url(raiz.dataset.urlCancelar, c.id), Object.assign(POST(), { body: '{}' }))

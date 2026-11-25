@@ -78,6 +78,7 @@ comercial_relatorio:
         confirmar_excluir_encerrada: 'Excluir esta campanha do relatório? Ela já foi enviada ou cancelada: só deixa de aparecer na lista.'
         cancelar_titulo: Cancelar o envio da campanha?
         cancelar_botao: Cancelar o envio
+        cancelar_voltar: Voltar
         remover_titulo: Remover campanhas do relatório?
         remover_botao: Remover
         excluir_titulo: Excluir a campanha?

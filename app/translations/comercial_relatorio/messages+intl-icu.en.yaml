@@ -76,6 +76,7 @@ comercial_relatorio:
         confirmar_excluir_encerrada: 'Delete this campaign from the report? It was already sent or canceled: it just stops showing in the list.'
         cancelar_titulo: Cancel the campaign sending?
         cancelar_botao: Cancel sending
+        cancelar_voltar: Back
         remover_titulo: Remove campaigns from the report?
         remover_botao: Remove
         excluir_titulo: Delete the campaign?

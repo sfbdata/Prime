@@ -38,6 +38,10 @@
     qs('[data-mp-conf-texto]', conf).textContent = op.texto;
     const ok = qs('[data-mp-conf-ok]', conf);
     ok.textContent = op.botao;
+    // Rótulo do botão de fechar: o padrão do HTML, ou o da ação (ex.: "Voltar" quando o botão de confirmar já diz "Cancelar o envio").
+    const fechar = qs('[data-mp-conf-cancelar]', conf);
+    if (fechar.dataset.padrao === undefined) fechar.dataset.padrao = fechar.textContent;
+    fechar.textContent = op.cancelar || fechar.dataset.padrao;
     palavraExigida = op.palavra || null;
     if (campo && entrada) {
       campo.hidden = !palavraExigida;
