@@ -232,7 +232,7 @@ final class CadastroPeloLinkTest extends JusPrimeWebTestCase
         self::assertCount(1, $linha);
         self::assertSame([0, 0, 0, 1], [$linha[0]['total'], $linha[0]['ultimas24h'], $linha[0]['ultimos30d'], $linha[0]['contas_criadas']]);
 
-        // "Suas indicações" de quem indicou: a linha do link, sem dado da pessoa nova, com "CONTA CRIADA".
+        // "Suas indicações" de quem indicou: conta como "viraram conta", sem dado da pessoa nova.
         $this->client->getCookieJar()->clear();
         $this->client->loginUser($this->ana);
         $this->marcarTermosAceitos($this->client);
@@ -240,7 +240,8 @@ final class CadastroPeloLinkTest extends JusPrimeWebTestCase
         self::assertResponseIsSuccessful();
         $janela = json_decode((string) $this->client->getResponse()->getContent(), true, flags: JSON_THROW_ON_ERROR);
         self::assertSame(1, $janela['total']);
-        self::assertSame(['nome' => null, 'email' => null, 'canal' => 'link', 'contaCriada' => true], array_intersect_key($janela['ultimas'][0], array_flip(['nome', 'email', 'canal', 'contaCriada'])));
+        self::assertSame(1, $janela['contasCriadas']);
+        self::assertArrayNotHasKey('ultimas', $janela, 'a janela não lista os convites nem dado da pessoa nova');
     }
 
     #[TestDox('cupom do cadastro (desenho 10 VS 25.10.26): o código digitado liga a conta nova a quem indicou, com e sem o BJ-')]

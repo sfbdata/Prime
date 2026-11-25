@@ -66,11 +66,10 @@ publicas:
             copiar: Copy short link
         lista:
             titulo: YOUR REFERRALS
-            vazio: No referrals yet.
     js:
         indicacao:
-            conta_criada: ACCOUNT CREATED
-            enviada: SENT
-            vazio: No referrals yet.
+            conta_nenhuma: None became an account yet
+            conta_uma: '{n} became an account'
+            conta_varias: '{n} became accounts'
             falhou: Could not complete right now. Reload the page and try again.
             abrir_falhou: Could not open the window right now. Reload the page and try again.

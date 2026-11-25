@@ -123,6 +123,7 @@ final class IndicacaoRepositoryTest extends KernelTestCase
         self::assertFalse($porEmail['antes@exemplo.com']);
         self::assertFalse($porEmail['nunca@exemplo.com']);
         self::assertSame(1, $this->repo->totais($this->agora->modify('-24 hours'))['viraramConta'] - $antes);
+        self::assertSame(1, $this->repo->contarContasCriadasDoUsuario((int) $ana->getId()));
     }
 
     #[TestDox('as últimas respeitam o limite e vêm da mais recente para a mais antiga')]
