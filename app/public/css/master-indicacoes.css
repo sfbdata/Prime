@@ -30,3 +30,21 @@
 .mi-regras { flex: 1; min-width: 200px; font-size: 12px; color: var(--mi-sub); cursor: help; display: flex; align-items: center; gap: 6px; }
 .mi-regras > .bi { color: var(--mi-azul); }
 .mi-msg { margin: 10px 18px; padding: 8px 12px; border-radius: 4px; background: var(--mi-msg); color: var(--mi-msg-tx); font-size: 12.5px; }
+
+/* Tabela "Quem indica" (pedido do dono, 25/11): linhas em grade, no jeito das tabelas do painel. */
+.mi-quem { border-bottom: 1px solid var(--mi-div); }
+.mi-quem-barra { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; padding: 12px 18px; }
+.mi-quem-titulo { font-size: 13.5px; flex: 1; }
+.mi-busca { display: flex; align-items: center; gap: 7px; height: 32px; width: 260px; max-width: 100%; border: 1px solid var(--mi-campo-borda); border-radius: 3px; padding: 0 9px; margin: 0; }
+.mi-busca > .bi { color: var(--mi-sub); }
+.mi-busca input { border: none; outline: none; flex: 1; min-width: 0; font-size: 13px; background: transparent; color: inherit; }
+.mi-quem-rolagem { overflow-x: auto; }
+.mi-quem-tabela { min-width: 640px; }
+.mi-quem-linha { display: grid; grid-template-columns: minmax(150px, 1.4fr) minmax(150px, 1.4fr) 90px 90px 140px; gap: 8px; align-items: center; padding: 8px 18px; border-top: 1px solid var(--mi-div-limites); font-size: 13px; }
+.mi-quem-linha > span { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.mi-quem-cabeca { background: var(--mi-cabeca); font-size: 11.5px; font-weight: bold; letter-spacing: .6px; color: var(--mi-rotulo); }
+.mi-dir { text-align: right; }
+.mi-quem-vazio { padding: 14px 18px; font-size: 12.5px; color: var(--mi-sub); }
+.mi-quem-pag { display: flex; align-items: center; justify-content: flex-end; gap: 10px; padding: 10px 18px; font-size: 12.5px; color: var(--mi-sub); border-top: 1px solid var(--mi-div-limites); }
+.mi-quem-btn { height: 28px; padding: 0 10px; border: 1px solid var(--mi-campo-borda); border-radius: 3px; background: var(--mi-fundo); color: var(--mi-botao-tx); font: inherit; font-size: 12.5px; cursor: pointer; }
+.mi-quem-btn:disabled { opacity: .5; cursor: default; }

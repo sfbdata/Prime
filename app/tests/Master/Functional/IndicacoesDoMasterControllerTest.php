@@ -80,10 +80,51 @@ final class IndicacoesDoMasterControllerTest extends JusPrimeWebTestCase
         self::assertArrayNotHasKey('alertas', $dados, 'os alertas vão para a Central de Notificações');
     }
 
+    #[TestDox('Quem indica: nome, escritório, enviados e contas, mais envios primeiro, com busca (sem acento) e paginação no servidor')]
+    public function testQuemIndica(): void
+    {
+        $this->entrarComoMaster();
+        $marca = 'Zqx' . substr(uniqid(), -6);
+        $ana = $this->usuario(['ROLE_USER']);
+        $ana->setFullName($marca . ' Ação Souza');
+        $bia = $this->usuario(['ROLE_USER']);
+        $bia->setFullName($marca . ' Bia Lima');
+        $agora = new \DateTimeImmutable();
+        $emailQueVirouConta = uniqid('v_') . '@exemplo.com';
+        $this->em->persist(Indicacao::porEmail($bia, null, uniqid('a_') . '@exemplo.com', null, $agora->modify('-1 hour')));
+        $this->em->persist(Indicacao::porEmail($bia, null, uniqid('b_') . '@exemplo.com', null, $agora->modify('-2 hours')));
+        $this->em->persist(Indicacao::porEmail($bia, null, $emailQueVirouConta, null, $agora->modify('-3 days')));
+        $this->em->persist(Indicacao::porEmail($ana, null, uniqid('c_') . '@exemplo.com', null, $agora->modify('-1 day')));
+        $this->usuario(['ROLE_USER'], $emailQueVirouConta, $agora->modify('-1 day'));
+        $this->em->flush();
+
+        $this->client->request('GET', '/master/indicacoes/quem-indica', ['q' => $marca]);
+
+        self::assertResponseIsSuccessful();
+        $dados = $this->json();
+        self::assertSame(2, $dados['total']);
+        self::assertSame([$marca . ' Bia Lima', $marca . ' Ação Souza'], array_column($dados['itens'], 'nome'));
+        self::assertSame([3, 1], array_column($dados['itens'], 'enviadas'));
+        self::assertSame([1, 0], array_column($dados['itens'], 'viraramConta'));
+        self::assertNotNull($dados['itens'][0]['ultimoEnvio']);
+        self::assertArrayNotHasKey('email', $dados['itens'][0], 'sem dado pessoal além do nome');
+
+        $this->client->request('GET', '/master/indicacoes/quem-indica', ['q' => strtolower($marca) . ' acao']);
+        self::assertSame([$marca . ' Ação Souza'], array_column($this->json()['itens'], 'nome'), 'sem acento nem caixa');
+
+        $this->client->request('GET', '/master/indicacoes/quem-indica', ['q' => $marca . '_zzz']);
+        self::assertSame([0, []], [$this->json()['total'], $this->json()['itens']]);
+
+        $this->client->request('GET', '/master/indicacoes/quem-indica', ['q' => $marca, 'pagina' => 99]);
+        self::assertSame([], $this->json()['itens'], 'página além do fim vem vazia');
+        self::assertSame(2, $this->json()['total']);
+    }
+
     /** @return iterable<string, array{string, string}> */
     public static function rotas(): iterable
     {
         yield 'GET dados' => ['GET', '/master/indicacoes'];
+        yield 'GET quem indica' => ['GET', '/master/indicacoes/quem-indica'];
         yield 'POST pausa' => ['POST', '/master/indicacoes/pausa'];
         yield 'POST limites' => ['POST', '/master/indicacoes/limites'];
     }

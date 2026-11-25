@@ -3,6 +3,7 @@
    L683-689; spec docs/specs/indicar-bluejus.md).
    - Carrega na primeira vez que a seção abre (evento `mp:secao` do painel) ou já aberta pelo hash.
    - Cabeçalho: "N enviadas · N hoje · N viraram conta" (enviadas, últimas 24h e viraram conta do servidor).
+   - Tabela "Quem indica" (pedido do dono, 25/11): GET quem-indica com `q` (mín. 2 letras) e `pagina`; só o Master.
    - A chave pausa ou libera os convites de todos; os três campos gravam ao mudar (onChange do dc), sempre os três.
    - POST JSON com X-CSRF-Token; a resposta traz o estado novo e a tela se redesenha. Recusa: a mensagem do servidor
      aparece e o campo volta ao último valor gravado.
@@ -27,6 +28,62 @@
   let estado = null;
   let carregado = false;
   let ocupado = false;
+
+  // Tabela "Quem indica": a busca (nome ou escritório, mínimo 2 letras) e a página vão ao servidor.
+  const BUSCA_MINIMO = 2;
+  const elQuemBusca = raiz.querySelector('[data-mi-quem-busca]');
+  const elQuemLista = raiz.querySelector('[data-mi-quem-lista]');
+  const elQuemVazio = raiz.querySelector('[data-mi-quem-vazio]');
+  const elQuemPag = raiz.querySelector('[data-mi-quem-pag]');
+  const elQuemPos = raiz.querySelector('[data-mi-quem-pos]');
+  const elQuemAnt = raiz.querySelector('[data-mi-quem-ant]');
+  const elQuemProx = raiz.querySelector('[data-mi-quem-prox]');
+  let quemPagina = 1;
+  let quemSeq = 0;
+
+  function celula(texto, classe) {
+    const s = document.createElement('span');
+    if (classe) s.className = classe;
+    s.textContent = texto;
+    if (texto) s.title = texto;
+    return s;
+  }
+
+  function desenharQuem(d) {
+    elQuemLista.replaceChildren();
+    d.itens.forEach(i => {
+      const linha = document.createElement('div');
+      linha.className = 'mi-quem-linha';
+      linha.setAttribute('role', 'row');
+      linha.append(
+        celula(i.nome), celula(i.escritorio || '-'), celula(num(i.enviadas), 'mi-dir'), celula(num(i.viraramConta), 'mi-dir'),
+        celula(i.ultimoEnvio ? window.BJFormato.dataHora(i.ultimoEnvio) : '-'),
+      );
+      elQuemLista.append(linha);
+    });
+    elQuemVazio.hidden = d.itens.length > 0;
+    const paginas = Math.max(1, Math.ceil(d.total / d.porPagina));
+    elQuemPag.hidden = paginas <= 1;
+    elQuemPos.textContent = T('master.js.indicacoes.quem_pagina', { pagina: num(d.pagina), total: num(paginas) });
+    elQuemAnt.disabled = d.pagina <= 1;
+    elQuemProx.disabled = d.pagina >= paginas;
+    quemPagina = d.pagina;
+  }
+
+  function carregarQuem(pagina) {
+    const seq = ++quemSeq;
+    const termo = window.BJBusca.termo(elQuemBusca.value, BUSCA_MINIMO);
+    const url = raiz.dataset.urlQuem + '?pagina=' + encodeURIComponent(String(pagina)) + (termo ? '&q=' + encodeURIComponent(elQuemBusca.value.trim()) : '');
+    return fetch(url, { headers: { Accept: 'application/json' }, credentials: 'same-origin' })
+      .then(r => (r.ok ? r.json() : Promise.reject(new Error(String(r.status)))))
+      .then(d => { if (seq === quemSeq) desenharQuem(d); })
+      .catch(() => { if (seq === quemSeq) avisar(T('master.js.indicacoes.erro_carregar')); });
+  }
+
+  const buscarQuem = window.BJBusca.atrasar(() => carregarQuem(1), 300);
+  elQuemBusca.addEventListener('input', buscarQuem);
+  elQuemAnt.addEventListener('click', () => carregarQuem(quemPagina - 1));
+  elQuemProx.addEventListener('click', () => carregarQuem(quemPagina + 1));
 
   function avisar(texto) {
     elMsg.textContent = texto || '';
@@ -55,7 +112,7 @@
     travar(true);
     return fetch(raiz.dataset.urlDados, { headers: { Accept: 'application/json' }, credentials: 'same-origin' })
       .then(r => (r.ok ? r.json() : Promise.reject(new Error(String(r.status)))))
-      .then(d => { desenhar(d); travar(false); })
+      .then(d => { desenhar(d); travar(false); carregarQuem(1); })
       .catch(() => { carregado = false; avisar(T('master.js.indicacoes.erro_carregar')); });
   }
 

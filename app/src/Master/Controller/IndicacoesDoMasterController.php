@@ -6,6 +6,7 @@ namespace App\Master\Controller;
 
 use App\Entity\Auth\User;
 use App\Indicacao\DTO\AlterarLimitesDeIndicacaoInput;
+use App\Indicacao\DTO\IndicadorOutput;
 use App\Indicacao\DTO\LimitesDeIndicacaoOutput;
 use App\Indicacao\UseCase\AlterarLimitesDeIndicacaoUseCase;
 use App\Indicacao\UseCase\ObterPainelDeIndicacoesUseCase;
@@ -26,7 +27,8 @@ use Symfony\Contracts\Translation\TranslatorInterface;
  *
  * JSON. Os POST levam o token CSRF `master_indicacoes` no header `X-CSRF-Token` (o padrão das outras seções do
  * /master) e respondem o mesmo corpo do GET, já com o estado novo; recusa em 422 com `{erro}`.
- * O desenho de 21/10 tirou a tabela por pessoa e a lista de alertas: o corpo leva só o cabeçalho e os limites.
+ * O desenho de 21/10 tirou a tabela por pessoa e a lista de alertas: o corpo leva só o cabeçalho e os limites. A
+ * tabela "Quem indica" voltou por pedido do dono (25/11), em rota própria (GET /master/indicacoes/quem-indica).
  *
  * Idioma (spec idioma-do-sistema, P3 da b5): as recusas próprias saem do catálogo (master.indicacoes.*) no idioma da
  * requisição. A do validador e a do UseCase (domínio Indicacao, compartilhado com o lado do usuário) vão como estão.
@@ -47,6 +49,30 @@ final class IndicacoesDoMasterController extends AbstractController
     public function dados(): JsonResponse
     {
         return $this->json($this->resumo());
+    }
+
+    /**
+     * A tabela "Quem indica" (estatísticas por pessoa, só do Master). Query: `q` (nome ou escritório, mínimo 2 letras,
+     * no servidor) e `pagina`. Corpo: `{total, pagina, porPagina, itens: [{nome, escritorio, enviadas, viraramConta, ultimoEnvio}]}`.
+     * Sem e-mail nem dado de quem foi indicado.
+     */
+    #[Route('/master/indicacoes/quem-indica', name: 'master_indicacoes_quem_indica', methods: ['GET'])]
+    public function quemIndica(Request $request): JsonResponse
+    {
+        $saida = $this->painel->quemIndica((string) $request->query->get('q', ''), max(1, $request->query->getInt('pagina', 1)));
+
+        return $this->json([
+            'total' => $saida->total,
+            'pagina' => $saida->pagina,
+            'porPagina' => $saida->porPagina,
+            'itens' => array_map(static fn (IndicadorOutput $i): array => [
+                'nome' => $i->nome,
+                'escritorio' => $i->escritorio,
+                'enviadas' => $i->total,
+                'viraramConta' => $i->contasCriadas,
+                'ultimoEnvio' => $i->ultimaEm?->format('c'),
+            ], $saida->indicadores),
+        ]);
     }
 
     /** A chave "Convites liberados" / "Convites pausados para todos" (dc L236). Corpo `{pausar: bool}`. */

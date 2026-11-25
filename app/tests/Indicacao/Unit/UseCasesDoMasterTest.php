@@ -167,6 +167,35 @@ final class UseCasesDoMasterTest extends TestCase
         self::assertNull($painel->indicadores[1]->ultimaEm);
     }
 
+    #[TestDox('quem indica: busca com menos de 2 letras é ignorada; a busca válida e a ordem por envios vão ao repositório')]
+    public function testQuemIndica(): void
+    {
+        $chamadas = [];
+        $indicacoes = $this->createStub(IndicacaoRepository::class);
+        $indicacoes->method('contarIndicadores')->willReturnCallback(static function (string $busca = '') use (&$chamadas): int {
+            $chamadas[] = $busca;
+
+            return 45;
+        });
+        $indicacoes->method('indicadores')->willReturnCallback(static function (\DateTimeImmutable $d24, \DateTimeImmutable $d30, int $offset, int $limite, string $busca = '', bool $porEnvios = false) use (&$chamadas): array {
+            $chamadas[] = [$offset, $limite, $busca, $porEnvios];
+
+            return [['user_id' => 7, 'nome' => 'Ana', 'email' => 'ana@x.com', 'escritorio' => 'Alfa', 'total' => 30, 'ultimas24h' => 5, 'ultimos30d' => 30, 'contas_criadas' => 2, 'ultima_em' => '2026-10-19 14:00:00', 'pausado' => false]];
+        });
+        $useCase = new ObterPainelDeIndicacoesUseCase($indicacoes, $this->configs, $this->createStub(IndicacaoAlertaRepository::class), $this->relogio);
+
+        $saida = $useCase->quemIndica(' a ', 3);
+        self::assertSame('', $saida->busca);
+        self::assertSame([[40, 20, '', true], ''], $chamadas);
+        self::assertSame([45, 3, 20], [$saida->total, $saida->pagina, $saida->porPagina]);
+        self::assertSame('Alfa', $saida->indicadores[0]->escritorio);
+
+        $chamadas = [];
+        $saida = $useCase->quemIndica('  Alfa ');
+        self::assertSame('Alfa', $saida->busca);
+        self::assertSame([[0, 20, 'Alfa', true], 'Alfa'], $chamadas);
+    }
+
     #[TestDox('resumo: só os totais e os limites, sem consultar a tabela por pessoa nem os alertas')]
     public function testResumo(): void
     {
