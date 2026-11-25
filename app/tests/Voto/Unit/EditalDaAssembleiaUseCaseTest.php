@@ -157,7 +157,7 @@ final class EditalDaAssembleiaUseCaseTest extends TestCase
             $this->anexar($this->upload($this->pdf()));
             self::fail('deveria recusar');
         } catch (OperacaoInvalidaNaAssembleiaException $e) {
-            self::assertStringContainsString('resultado já saiu', $e->getMessage());
+            self::assertStringContainsString('depois que a votação começou', $e->getMessage());
         }
         self::assertNull($this->assembleia->getEditalChave());
         self::assertFalse($this->assembleia->podeAlterarEdital());
@@ -177,6 +177,28 @@ final class EditalDaAssembleiaUseCaseTest extends TestCase
         }
         self::assertTrue($this->armazenamento->existe($chave));
         self::assertTrue($this->assembleia->temEdital());
+    }
+
+    #[TestDox('Com pauta aberta (a votação começou): anexar, trocar e remover são bloqueados e o arquivo fica; a recusa vem antes do contador de páginas')]
+    public function testBloqueiaComPautaAberta(): void
+    {
+        $this->anexar($this->upload($this->pdf('um')));
+        $chave = ChavesDoVoto::edital($this->assembleia);
+        $pauta = new PautaDaAssembleia($this->assembleia, 1, 'Pauta');
+        (new \ReflectionProperty(PautaDaAssembleia::class, 'estado'))->setValue($pauta, \App\Voto\Enum\EstadoDaPauta::Aberta);
+        $this->paginas = null;
+
+        self::assertFalse($this->assembleia->podeAlterarEdital());
+        foreach ([fn () => $this->anexar($this->upload($this->pdf('dois'))), fn () => $this->remover()] as $acao) {
+            try {
+                $acao();
+                self::fail('deveria recusar');
+            } catch (OperacaoInvalidaNaAssembleiaException $e) {
+                self::assertSame('O edital não pode mudar depois que a votação começou.', $e->getMessage());
+            }
+        }
+        self::assertTrue($this->armazenamento->existe($chave));
+        self::assertSame($chave->nome, $this->assembleia->getEditalChave());
     }
 
     #[TestDox('Remover: tira o edital e o arquivo sai só depois do flush')]

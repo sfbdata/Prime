@@ -465,22 +465,30 @@ class Assembleia implements TenantAware, Auditavel
     }
 
     /**
-     * O edital só muda enquanto o resultado não saiu: depois que alguma pauta encerra (ou o prazo dela vence) ou com a
-     * assembleia arquivada, o arquivo fica fixo (só se baixa). Simulação e rascunho mudam livremente.
+     * O edital só muda enquanto a votação não começou: com alguma pauta aberta (ou suspensa), encerrada (ou com o prazo
+     * vencido) ou com a assembleia arquivada, o arquivo fica fixo (só se baixa). Rascunho e simulação mudam livremente.
      */
     public function podeAlterarEdital(?\DateTimeImmutable $agora = null): bool
     {
-        return !$this->arquivada() && !$this->algumaPautaEncerrada($agora);
+        return !$this->arquivada() && !$this->algumaPautaAberta() && !$this->algumaPautaEncerrada($agora);
     }
 
     public function exigirEditalAlteravel(?\DateTimeImmutable $agora = null): void
     {
-        if ($this->arquivada()) {
-            throw new OperacaoInvalidaNaAssembleiaException('Votação arquivada: o edital não pode mais ser alterado.');
+        if (!$this->podeAlterarEdital($agora)) {
+            throw new OperacaoInvalidaNaAssembleiaException('O edital não pode mudar depois que a votação começou.');
         }
-        if ($this->algumaPautaEncerrada($agora)) {
-            throw new OperacaoInvalidaNaAssembleiaException('O resultado já saiu: o edital não pode mais ser alterado.');
+    }
+
+    private function algumaPautaAberta(): bool
+    {
+        foreach ($this->pautas as $pauta) {
+            if (EstadoDaPauta::Aberta === $pauta->getEstado()) {
+                return true;
+            }
         }
+
+        return false;
     }
 
     /** Aponta o edital para o arquivo já gravado (troca o anterior). Quem chama apaga o arquivo antigo DEPOIS do COMMIT. */

@@ -216,13 +216,43 @@ final class EditalDaAssembleiaControllerTest extends JusPrimeWebTestCase
         $antes = $a->getEditalSha256();
         $this->client->request('POST', $this->url($a), ['_token' => $token], ['edital' => $this->upload($this->pdf(1), 'outro.pdf')]);
         $painel = $this->client->followRedirect();
-        self::assertStringContainsString('O resultado já saiu', $painel->filter('[data-voto-toasts]')->text());
+        self::assertStringContainsString('O edital não pode mudar depois que a votação começou.', $painel->filter('[data-voto-toasts]')->text());
         $this->client->request('POST', $this->url($a) . '/remover', ['_token' => $token]);
         $painel = $this->client->followRedirect();
-        self::assertStringContainsString('O resultado já saiu', $painel->filter('[data-voto-toasts]')->text());
+        self::assertStringContainsString('O edital não pode mudar depois que a votação começou.', $painel->filter('[data-voto-toasts]')->text());
         $a = $this->recarregar($a);
         self::assertSame($antes, $a->getEditalSha256());
 
+        $this->client->request('GET', $this->url($a));
+        self::assertResponseIsSuccessful();
+    }
+
+    #[TestDox('Votação aberta: o edital fica fixo (menu só com Baixar) e anexar e remover são recusados')]
+    public function testFixoComVotacaoAberta(): void
+    {
+        $this->entrar();
+        $a = AssembleiaFactory::new(['tenant' => $this->escritorio])->publicada()->create()->_real();
+        $id = (int) $a->getId();
+        $token = $this->tokenValido($id);
+        $this->client->request('POST', $this->url($a), ['_token' => $token], ['edital' => $this->upload($this->pdf(2), 'Edital.pdf')]);
+        $a = $this->recarregar($a);
+        self::assertTrue($a->temEdital());
+        PautaDaAssembleiaFactory::new(['assembleia' => $a, 'ordem' => 1, 'titulo' => 'Aberta'])->comOpcoesPadrao()->aberta(1, new \DateTimeImmutable('+5 minutes'))->create();
+        $this->em->clear();
+
+        $painel = $this->client->request('GET', '/voto?aba=ges');
+        $menu = array_values(array_filter(
+            $painel->filter('#assembleia-' . $id . ' .vKm [role=menuitem]')->each(static fn ($c): string => trim($c->text())),
+            static fn (string $t): bool => str_contains($t, 'edital'),
+        ));
+        self::assertSame(['Baixar edital'], $menu);
+
+        $token = $this->tokenValido($id);
+        foreach ([[$this->url($a), ['edital' => $this->upload($this->pdf(1), 'outro.pdf')]], [$this->url($a) . '/remover', []]] as [$url, $arquivos]) {
+            $this->client->request('POST', $url, ['_token' => $token], $arquivos);
+            $painel = $this->client->followRedirect();
+            self::assertStringContainsString('O edital não pode mudar depois que a votação começou.', $painel->filter('[data-voto-toasts]')->text());
+        }
         $this->client->request('GET', $this->url($a));
         self::assertResponseIsSuccessful();
     }

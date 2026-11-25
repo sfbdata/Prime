@@ -19,8 +19,8 @@ use Symfony\Component\HttpFoundation\File\UploadedFile;
 
 /**
  * Anexa (ou troca) o edital de convocação, em PDF, da assembleia. Só PDF de verdade (tipo pelo conteúdo, conferido pelo finfo,
- * e legível pelo contador de páginas), até 10 MB. Só enquanto nenhum resultado saiu e a votação não está arquivada
- * ({@see \App\Voto\Entity\Assembleia::exigirEditalAlteravel()}). Outro escritório é tratado como inexistente.
+ * e legível pelo contador de páginas), até 10 MB. Só enquanto a votação não começou (nenhuma pauta aberta ou encerrada) e não está arquivada
+ * ({@see \App\Voto\Entity\Assembleia::exigirEditalAlteravel()}, conferido antes do Ghostscript). Outro escritório é tratado como inexistente.
  *
  * Arquivo: o novo é gravado antes (nome cunhado pelo storage), o banco confirma pela `TransacaoComArquivoNovo` (que o
  * apaga se o COMMIT comprovadamente não aconteceu) e o edital anterior, se havia, só sai DEPOIS do COMMIT (INV-6).
@@ -43,15 +43,15 @@ final class AnexarEditalDaAssembleiaUseCase
     /** @return bool true quando trocou um edital que já existia */
     public function executar(Tenant $tenant, int $assembleiaId, UploadedFile $arquivo, ?\DateTimeImmutable $agora = null): bool
     {
-        self::exigirPdfValido($arquivo);
-        if (null === $this->contador->contar($arquivo->getPathname())) {
-            throw new OperacaoInvalidaNaAssembleiaException('Não foi possível ler este PDF. Envie um PDF sem senha e sem defeito, de até 10 MB.');
-        }
-
         return $this->serializacao->executar($tenant, $assembleiaId, function () use ($tenant, $assembleiaId, $arquivo, $agora): bool {
+            // Posse e regra antes de qualquer trabalho caro: um 404 ou uma recusa não gasta o Ghostscript.
             $assembleia = $this->assembleias->buscarDoEscritorio($assembleiaId, $tenant)
                 ?? throw new AssembleiaNaoEncontradaException();
             $assembleia->exigirEditalAlteravel($agora);
+            self::exigirPdfValido($arquivo);
+            if (null === $this->contador->contar($arquivo->getPathname())) {
+                throw new OperacaoInvalidaNaAssembleiaException('Não foi possível ler este PDF. Envie um PDF sem senha e sem defeito, de até 10 MB.');
+            }
 
             $antigo = $assembleia->temEdital() ? ChavesDoVoto::edital($assembleia) : null;
             $nome = self::nomeOriginal($arquivo);
