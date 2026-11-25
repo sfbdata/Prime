@@ -48,7 +48,8 @@
         "permitidos": [
             "PIX",
             "Content-Type",
-            "Escape"
+            "Escape",
+            "Enter"
         ]
     },
 
@@ -100,6 +101,7 @@
     "comercial": {
         "templates": [
             "master/_comercial.html.twig",
+            "master/_comercial_base_de_contatos.html.twig",
             "master/_comercial_datas.html.twig",
             "master/_comercial_descadastrados.html.twig",
             "master/_comercial_kpis.html.twig",
@@ -108,6 +110,7 @@
         ],
         "js": [
             "master/comercial.js",
+            "master/comercial-base.js",
             "master/comercial-campanha.js",
             "master/comercial-datas.js",
             "master/comercial-descadastrados.js",
@@ -118,7 +121,8 @@
             "B",
             "Content-Type",
             "Accept",
-            "Escape"
+            "Escape",
+            "Enter"
         ]
     },
 
@@ -132,7 +136,8 @@
         "permitidos": [
             "B",
             "Content-Type",
-            "Escape"
+            "Escape",
+            "Enter"
         ]
     },
 
@@ -263,7 +268,8 @@
             "perfis.js"
         ],
         "permitidos": [
-            "Escape"
+            "Escape",
+            "Enter"
         ]
     },
 
@@ -454,7 +460,8 @@
         "permitidos": [
             "Accept",
             "Enter",
-            "Escape"
+            "Escape",
+            "Enter"
         ]
     },
 
@@ -600,7 +607,8 @@
             "ArrowUp",
             "Enter",
             "Tab",
-            "Escape"
+            "Escape",
+            "Enter"
         ]
     },
 
@@ -753,7 +761,8 @@
             "Outro assunto",
             "Content-Type",
             "CapsLock",
-            "Escape"
+            "Escape",
+            "Enter"
         ]
     },
 
@@ -935,7 +944,8 @@
             "App\\\\Pasta\\\\DTO\\\\PastaFinanceiroOutput::SEM_DADO",
             "Accept",
             "AbortError",
-            "Escape"
+            "Escape",
+            "Enter"
         ]
     },
 
