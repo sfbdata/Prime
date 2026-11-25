@@ -51,12 +51,13 @@ final class ComercialRascunhoJsTest extends TestCase
     {
         $js = $this->js();
 
-        self::assertStringContainsString("const podeDescartar = () => !ed || !sujo || window.confirm(BJ_T.t('comercial.js.rascunho_confirmar_troca'));", $js);
-        self::assertStringContainsString("if (modelo) {\n        if (!podeDescartar()) return;", $js);
-        self::assertStringContainsString("if (e.target.closest('[data-mc-cp-novo]')) { if (!podeDescartar()) return;", $js);
-        self::assertStringContainsString("if (!podeDescartar()) { avisar(BJ_T.t('comercial.js.rascunho_mantido')); return; }", $js);
+        self::assertStringContainsString("const podeDescartar = () => (!ed || !sujo ? Promise.resolve(true) : perguntar({", $js);
+        self::assertStringContainsString("texto: BJ_T.t('comercial.js.rascunho_confirmar_troca')", $js);
+        self::assertStringContainsString("if (modelo) {\n        podeDescartar().then(ok => {", $js);
+        self::assertStringContainsString("if (e.target.closest('[data-mc-cp-novo]')) { podeDescartar().then(ok => {", $js);
+        self::assertStringContainsString("if (!ok) { avisar(BJ_T.t('comercial.js.rascunho_mantido')); return; }", $js);
         self::assertStringContainsString('if (carregado) abrir(); else carregarPrimeira().then(abrir);', $js, 'carrega (o rascunho volta) antes de perguntar');
-        self::assertStringContainsString("if (!podeDescartar()) { entrada.value = ''; return; }", $js, 'importar HTML também pergunta');
+        self::assertStringContainsString("podeDescartar().then(ok => { if (ok) importar(arquivo); });", $js, 'importar HTML também pergunta');
     }
 
     #[TestDox('Campanha confirmada apaga o rascunho dela e não pede mais confirmação para trocar')]
@@ -67,7 +68,7 @@ final class ComercialRascunhoJsTest extends TestCase
         self::assertNotFalse($fim);
         $sucesso = substr($js, $fim - 300, 300);
 
-        self::assertStringContainsString("sujo = false;\n            gravarRascunho();", $sucesso);
+        self::assertStringContainsString("sujo = false;\n              gravarRascunho();", $sucesso);
         self::assertStringContainsString('if (ed && sujo) window.localStorage.setItem(', $js, 'sem nada a perder, gravar apaga');
     }
 

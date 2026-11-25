@@ -30,7 +30,9 @@ final class ComercialDescadastradosJsTest extends TestCase
     {
         $js = (string) file_get_contents(self::JS);
 
-        self::assertStringContainsString("window.confirm(BJ_T.t('comercial.js.dsc_confirmar_excluir', { email: item.email }))", $js);
+        self::assertStringContainsString("window.BJMasterConf.perguntar({", $js);
+        self::assertStringContainsString("texto: BJ_T.t('comercial.js.dsc_confirmar_excluir', { email: item.email })", $js);
+        self::assertStringNotContainsString('window.confirm(', $js, 'a confirmação é a janela do painel, não a do navegador');
         self::assertStringContainsString("window.prompt(BJ_T.t('comercial.js.dsc_registrar_pergunta'), '')", $js);
         $catalogo = CatalogoPtBr::carregar()['comercial']['js'];
         self::assertSame('Excluir {email} da lista de descadastrados? Ele volta a poder receber e-mails. Faça isso só se o próprio contato pediu (LGPD).', $catalogo['dsc_confirmar_excluir']);
