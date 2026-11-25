@@ -204,6 +204,7 @@ final class TenantAwareCoberturaTest extends KernelTestCase
         \App\Comercial\Entity\AutomacaoDeEmail::class,
         \App\Comercial\Entity\CicloDaConta::class,
         \App\Comercial\Entity\VarreduraComercial::class,
+        \App\Comercial\Entity\ContatoComercial::class, // base de contatos do Master, da plataforma (sem escritório)
         // Fatia 1b (§4): a vez dos avisos de espaço é lida e gravada só por SQL no ouvinte, que roda sem sessão (o
         // escritório vem do evento e vai na consulta à mão); nunca é listada para ninguém.
         \App\Comercial\Entity\AvisoDeEspaco::class,
