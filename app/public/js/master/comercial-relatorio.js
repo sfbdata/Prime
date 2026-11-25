@@ -50,6 +50,9 @@
 
   const esc = t => String(t == null ? '' : t).replace(/[&<>"']/g, m => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[m]));
   const url = (base, id) => base.replace(MARCADOR, String(id));
+  // Janela de confirmação do painel do Master (masters.js): devolve Promise<boolean>; Cancelar e Esc resolvem false.
+  const perguntar = op => window.BJMasterConf.perguntar(op);
+  const PERIGO = '#a3232b';
 
   // As outras instâncias mostram a mesma lista: recarregam depois de uma marca ou de um cancelamento.
   function recarregarOutras(atual) {

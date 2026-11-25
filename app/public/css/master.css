@@ -450,7 +450,8 @@
 .mp-rodape-cinza { padding: 11px 18px; font-size: 12px; color: #5b7383; background: #f8fafb; }
 
 /* ---------- confirmação interna (desenho 1.2, linhas 411-419) ---------- */
-.mp-conf-fundo { position: fixed; inset: 0; z-index: 1060; background: rgba(13,27,42,.35); display: flex; align-items: center; justify-content: center; padding: 20px; }
+/* Acima dos visualizadores e menus das campanhas (até 9651): a confirmação é aberta de dentro deles. */
+.mp-conf-fundo { position: fixed; inset: 0; z-index: 9700; background: rgba(13,27,42,.35); display: flex; align-items: center; justify-content: center; padding: 20px; }
 .mp .mp-conf-fundo[hidden] { display: none !important; }
 .mp-conf { width: 100%; max-width: 440px; background: #fff; border-radius: 4px; box-shadow: 0 20px 50px -12px rgba(13,27,42,.45); overflow: hidden; }
 .mp-conf-cab { background: var(--cor, #0a6fa0); color: #fff; padding: 14px 20px; display: flex; align-items: center; gap: 10px; font-weight: bold; font-size: 16px; line-height: normal; }

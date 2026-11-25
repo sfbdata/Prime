@@ -33,6 +33,8 @@
   };
   const abrirConf = op => {
     if (!conf) return;
+    // Uma pergunta (perguntar) ainda aberta é respondida com false antes de outra janela ocupar o lugar.
+    if (respostaPendente) { const anterior = respostaPendente; respostaPendente = null; anterior(false); }
     qs('[data-mp-conf-titulo]', conf).textContent = op.titulo;
     qs('[data-mp-conf-icone]', conf).className = 'bi ' + op.icone;
     qs('[data-mp-conf-texto]', conf).textContent = op.texto;
@@ -74,7 +76,6 @@
   // Versão com Promise (campanhas de e-mail): resolve true só se confirmar; Cancelar, Esc e clique fora resolvem false.
   const perguntar = op => new Promise(resolver => {
     if (!conf) { resolver(false); return; }
-    if (respostaPendente) { const anterior = respostaPendente; respostaPendente = null; anterior(false); }
     abrirConf(Object.assign({ icone: 'bi-question-circle', cor: COR_ROXO }, op, {
       aoConfirmar: () => { respostaPendente = null; fecharConf(); resolver(true); },
     }));
