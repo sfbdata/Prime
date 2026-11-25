@@ -36,6 +36,8 @@ final class AvisoDeConvenioDaUfTest extends TestCase
             ['id' => 3, 'estado' => 'RJ', 'ativo' => true],
             ['id' => 4, 'estado' => null, 'ativo' => true],
             ['id' => 5, 'estado' => ' SP ', 'ativo' => true],
+            ['id' => 6, 'estado' => null, 'uf_oab' => 'SP', 'ativo' => true],
+            ['id' => 7, 'estado' => 'RJ', 'uf_oab' => 'SP', 'ativo' => true],
         ]);
         $repo = $this->createStub(PrimariosDosEscritoriosRepository::class);
         $repo->method('dos')->willReturnCallback(function (array $ids) use ($primarios): array {
@@ -62,12 +64,12 @@ final class AvisoDeConvenioDaUfTest extends TestCase
         return new ConvenioDaUf('SP', $modo, 9.9, new \DateTimeImmutable('2026-11-01'), $motivo, null, $em);
     }
 
-    #[TestDox('só os escritórios ativos da UF entram, pela mesma regra de UF das contas')]
+    #[TestDox('só os escritórios ativos da UF entram, pela mesma regra de UF das contas (sem estado, a UF da OAB do criador)')]
     public function testSoEscritoriosAtivosDaUf(): void
     {
         $dest = $this->servico([['email' => 'a@x.com', 'nome' => 'Ana Silva']])->destinatarios('SP');
 
-        self::assertSame([1, 5], $this->escritoriosConsultados);
+        self::assertSame([1, 5, 6], $this->escritoriosConsultados);
         self::assertCount(1, $dest);
     }
 

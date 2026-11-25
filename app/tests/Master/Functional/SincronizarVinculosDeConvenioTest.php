@@ -23,7 +23,9 @@ use App\Master\Repository\ConfiguracaoGlobalRepository;
 use App\Master\Repository\ConvenioDaUfRepository;
 use App\Master\Repository\ConvenioRepository;
 use App\Master\Repository\ConvenioVinculoRepository;
+use App\Master\Repository\PainelMasterRepository;
 use App\Master\Service\ConveniosDoEscritorio;
+use App\Master\Service\UfDoEscritorio;
 use App\Master\UseCase\SincronizarVinculosDeConvenioUseCase;
 use App\Tenant\DTO\SalvarDadosDoEscritorioInput;
 use App\Tenant\UseCase\SalvarDadosDoEscritorioUseCase;
@@ -42,6 +44,8 @@ use Symfony\Component\Console\Tester\CommandTester;
 #[CoversClass(SincronizarVinculosDeConvenioUseCase::class)]
 #[CoversClass(SincronizarVinculosDeConvenioCommand::class)]
 #[CoversClass(ConvenioVinculoRepository::class)]
+#[CoversClass(PainelMasterRepository::class)]
+#[CoversClass(UfDoEscritorio::class)]
 final class SincronizarVinculosDeConvenioTest extends KernelTestCase
 {
     private EntityManagerInterface $em;
@@ -59,7 +63,8 @@ final class SincronizarVinculosDeConvenioTest extends KernelTestCase
         $advogado = $this->escritorio('Goiânia/GO', $this->criador(StatusOab::Confirmada));
         $semOab = $this->escritorio('Goiânia/GO', $this->criador(null));
         $divergente = $this->escritorio('Goiânia/GO', $this->criadorComInscricao(StatusOab::Divergente));
-        $semEstado = $this->escritorio(null, $this->criador(StatusOab::NaoVerificada));
+        $semEstadoComOab = $this->escritorio(null, $this->criador(StatusOab::NaoVerificada));
+        $semEstadoSemOab = $this->escritorio(null, $this->criador(null));
 
         $saida = $this->rodarTarefa();
         $this->rodarTarefa();
@@ -68,7 +73,8 @@ final class SincronizarVinculosDeConvenioTest extends KernelTestCase
         self::assertCount(1, $this->abertos($advogado));
         self::assertSame([], $this->abertos($semOab));
         self::assertSame([], $this->abertos($divergente));
-        self::assertSame([], $this->abertos($semEstado));
+        self::assertCount(1, $this->abertos($semEstadoComOab), 'sem estado, vale a UF da OAB do criador');
+        self::assertSame([], $this->abertos($semEstadoSemOab));
         self::assertNotNull(static::getContainer()->get(ConfiguracaoGlobalRepository::class)->buscarUnica()?->getVinculosDeConvenioSincronizadosEm());
         $vigentes = static::getContainer()->get(ConveniosDoEscritorio::class)->dosTenants([(int) $advogado->getId() => 'GO', (int) $semOab->getId() => 'GO']);
         self::assertFalse($vigentes[(int) $advogado->getId()][0]->implicito);
@@ -90,14 +96,25 @@ final class SincronizarVinculosDeConvenioTest extends KernelTestCase
         self::assertSame($advogado->getId(), $linha->getTenantId());
     }
 
-    #[TestDox('mudar o estado para fora de um estado válido fecha o vínculo com "estado_mudou" (gancho dos dados do escritório)')]
+    #[TestDox('apagar o estado mantém o vínculo pela UF da OAB; ir para uma UF "sem convênio" fecha com "estado_mudou" (gancho dos dados do escritório)')]
     public function testMudouDeEstado(): void
     {
         $advogado = $this->escritorio('Goiânia/GO', $this->criador(StatusOab::Confirmada));
         $this->useCase()->doEscritorio((int) $advogado->getId());
         $vinculo = $this->abertos($advogado)[0];
+        $salvar = static::getContainer()->get(SalvarDadosDoEscritorioUseCase::class);
 
-        static::getContainer()->get(SalvarDadosDoEscritorioUseCase::class)->executar($this->master(), $advogado, new SalvarDadosDoEscritorioInput(nome: (string) $advogado->getName(), cidadeUf: ''));
+        $salvar->executar($this->master(), $advogado, new SalvarDadosDoEscritorioInput(nome: (string) $advogado->getName(), cidadeUf: ''));
+        self::assertSame([$vinculo->getId()], array_map(static fn (ConvenioVinculo $v): ?int => $v->getId(), $this->abertos($advogado)), 'sem estado, a UF é a da OAB (GO)');
+
+        $sp = static::getContainer()->get(ConvenioDaUfRepository::class)->buscar('SP');
+        if ($sp !== null) {
+            $this->em->remove($sp);
+            $this->em->flush();
+        }
+        $this->em->persist(new ConvenioDaUf('SP', ConvenioDaUf::MODO_SEM, 0.0, new \DateTimeImmutable('2026-01-01'), null, null, new \DateTimeImmutable()));
+        $this->em->flush();
+        $salvar->executar($this->master(), $advogado, new SalvarDadosDoEscritorioInput(nome: (string) $advogado->getName(), cidadeUf: 'São Paulo/SP'));
 
         self::assertSame([], $this->abertos($advogado));
         self::assertSame(MotivoDoFimDoVinculo::EstadoMudou, $vinculo->getMotivoFim());
@@ -172,6 +189,48 @@ final class SincronizarVinculosDeConvenioTest extends KernelTestCase
         self::assertSame(['GO', true, true], $porId[$emQuarentena->getId()]);
     }
 
+    #[TestDox('escritório sem estado: a UF é a da OAB válida do criador (principal primeiro); com estado, vale o estado')]
+    public function testSemEstadoUsaAUfDaOab(): void
+    {
+        $doCriador = $this->criadorComInscricao(StatusOab::Confirmada, 'SP');
+        $suplementar = new InscricaoOab($doCriador, (string) random_int(10000, 99999), 'RJ', TipoInscricaoOab::Suplementar);
+        $suplementar->registrarVerificacao(StatusOab::Confirmada, null);
+        $this->em->persist($suplementar);
+        $this->em->flush();
+        $pelaInscricao = $this->escritorio(null, $doCriador);
+        $peloEspelho = $this->escritorio(null, $this->criador(StatusOab::NaoVerificada));
+        $estadoInvalido = $this->escritorio(null, $this->criador(StatusOab::Confirmada));
+        $estadoInvalido->setEstado('XX');
+        $soDivergente = $this->escritorio(null, $this->criadorComInscricao(StatusOab::Divergente, 'SP'));
+        $comEstado = $this->escritorio('Rio de Janeiro/RJ', $this->criadorComInscricao(StatusOab::Confirmada, 'SP'));
+        $this->em->flush();
+
+        $ids = array_map(static fn (Tenant $t): int => (int) $t->getId(), [$pelaInscricao, $peloEspelho, $estadoInvalido, $soDivergente, $comEstado]);
+        $uf = [];
+        foreach (static::getContainer()->get(ConvenioVinculoRepository::class)->escritoriosParaConvenio($ids) as $e) {
+            $uf[$e->tenantId] = $e->uf;
+        }
+        $this->useCase()->dosEscritorios($ids);
+        $doPainel = [];
+        foreach (static::getContainer()->get(PainelMasterRepository::class)->escritorios() as $linha) {
+            if (in_array($linha['id'], $ids, true)) {
+                $doPainel[$linha['id']] = UfDoEscritorio::daLinha($linha);
+            }
+        }
+
+        self::assertSame('SP', $uf[$pelaInscricao->getId()], 'a inscrição principal, não a suplementar');
+        self::assertSame('GO', $uf[$peloEspelho->getId()], 'sem linha em inscricao_oab, o espelho do usuário');
+        self::assertSame('GO', $uf[$estadoInvalido->getId()], 'estado que não é UF conta como vazio');
+        self::assertNull($uf[$soDivergente->getId()]);
+        self::assertSame('RJ', $uf[$comEstado->getId()], 'o estado do escritório vem antes da OAB');
+        self::assertCount(1, $this->abertos($pelaInscricao));
+        self::assertCount(1, $this->abertos($peloEspelho));
+        self::assertSame([], $this->abertos($soDivergente));
+        ksort($uf);
+        ksort($doPainel);
+        self::assertSame($uf, $doPainel, 'o painel do Master (rótulo, contagem e aviso da UF) lê a mesma UF');
+    }
+
     private function useCase(): SincronizarVinculosDeConvenioUseCase
     {
         return static::getContainer()->get(SincronizarVinculosDeConvenioUseCase::class);
@@ -225,10 +284,10 @@ final class SincronizarVinculosDeConvenioTest extends KernelTestCase
         return $u;
     }
 
-    private function criadorComInscricao(StatusOab $status): User
+    private function criadorComInscricao(StatusOab $status, string $uf = 'GO'): User
     {
         $u = $this->criador($status);
-        $inscricao = new InscricaoOab($u, (string) random_int(10000, 99999), 'GO', TipoInscricaoOab::Principal);
+        $inscricao = new InscricaoOab($u, (string) random_int(10000, 99999), $uf, TipoInscricaoOab::Principal);
         $inscricao->registrarVerificacao($status, null);
         $this->em->persist($inscricao);
         $this->em->flush();
