@@ -147,7 +147,7 @@ final class PainelMenuDaContaJsTest extends TestCase
         self::assertStringContainsString('URLS.contaReativar', $js);
         self::assertStringContainsString('window.BJMasterConf.abrir(', $js);
 
-        self::assertStringContainsString('window.BJMasterConf = { abrir: abrirConf, fechar: fecharConf };', self::js('masters.js'));
+        self::assertStringContainsString('window.BJMasterConf = { abrir: abrirConf, fechar: fecharConf, perguntar };', self::js('masters.js'));
         self::assertStringContainsString('ok.disabled = !!palavraExigida;', self::js('masters.js'), 'a confirmação destrava para a próxima ação sem recarregar (menos a que exige palavra)');
 
         $twig = (string) file_get_contents(self::RAIZ . 'templates/master/painel.html.twig');

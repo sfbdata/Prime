@@ -38,7 +38,9 @@ final class ComercialModelosEditaveisJsTest extends TestCase
         $voltar = substr($js, (int) strpos($js, 'function voltarAoPadrao()'), 800);
 
         self::assertStringContainsString("x.hidden = !m.editado;", $js);
-        self::assertStringContainsString("if (m.proprio || !m.editado || !window.confirm(BJ_T.t('comercial.js.confirmar_voltar_padrao', { nome: m.nome }))) return;", $voltar);
+        self::assertStringContainsString('if (m.proprio || !m.editado) return;', $voltar);
+        self::assertStringContainsString("texto: BJ_T.t('comercial.js.confirmar_voltar_padrao', { nome: m.nome })", $voltar);
+        self::assertStringNotContainsString('window.confirm(', $voltar);
         self::assertStringContainsString("postar(ROTAS.urlPadrao.replace('xchavex', encodeURIComponent(m.chave)))", $voltar);
         self::assertStringContainsString('carregar(m.chave)', $voltar);
         self::assertStringContainsString("if (e.target.closest('[data-mc-cp-voltar-padrao]')) { voltarAoPadrao(); return; }", $js);

@@ -23,14 +23,27 @@
   const campo = conf ? qs('[data-mp-conf-campo]', conf) : null;
   const entrada = conf ? qs('[data-mp-conf-palavra]', conf) : null;
 
-  const fecharConf = () => { if (!conf) return; conf.hidden = true; aoConfirmar = null; };
+  // Pergunta em andamento por perguntar(): fechar sem confirmar (Cancelar, Esc, clique fora) resolve com false.
+  let respostaPendente = null;
+  const fecharConf = () => {
+    if (!conf) return;
+    conf.hidden = true; aoConfirmar = null;
+    const pendente = respostaPendente; respostaPendente = null;
+    if (pendente) pendente(false);
+  };
   const abrirConf = op => {
     if (!conf) return;
+    // Uma pergunta (perguntar) ainda aberta é respondida com false antes de outra janela ocupar o lugar.
+    if (respostaPendente) { const anterior = respostaPendente; respostaPendente = null; anterior(false); }
     qs('[data-mp-conf-titulo]', conf).textContent = op.titulo;
     qs('[data-mp-conf-icone]', conf).className = 'bi ' + op.icone;
     qs('[data-mp-conf-texto]', conf).textContent = op.texto;
     const ok = qs('[data-mp-conf-ok]', conf);
     ok.textContent = op.botao;
+    // Rótulo do botão de fechar: o padrão do HTML, ou o da ação (ex.: "Voltar" quando o botão de confirmar já diz "Cancelar o envio").
+    const fechar = qs('[data-mp-conf-cancelar]', conf);
+    if (fechar.dataset.padrao === undefined) fechar.dataset.padrao = fechar.textContent;
+    fechar.textContent = op.cancelar || fechar.dataset.padrao;
     palavraExigida = op.palavra || null;
     if (campo && entrada) {
       campo.hidden = !palavraExigida;
@@ -60,7 +73,15 @@
   }
 
   // Confirmação compartilhada com o painel.js (menu da conta: suspender, reativar e excluir com a palavra EXCLUIR).
-  window.BJMasterConf = { abrir: abrirConf, fechar: fecharConf };
+  // Versão com Promise (campanhas de e-mail): resolve true só se confirmar; Cancelar, Esc e clique fora resolvem false.
+  const perguntar = op => new Promise(resolver => {
+    if (!conf) { resolver(false); return; }
+    abrirConf(Object.assign({ icone: 'bi-question-circle', cor: COR_ROXO }, op, {
+      aoConfirmar: () => { respostaPendente = null; fecharConf(); resolver(true); },
+    }));
+    respostaPendente = resolver;
+  });
+  window.BJMasterConf = { abrir: abrirConf, fechar: fecharConf, perguntar };
 
   /* ---------- promover a Master (só no HTML do Master primário) ---------- */
   const form = qs('[data-mp-form-promover]');

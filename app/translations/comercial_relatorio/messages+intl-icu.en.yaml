@@ -74,6 +74,13 @@ comercial_relatorio:
         confirmar_remover: 'Remove {n} campaign(s) from the report?'
         confirmar_excluir_ativa: 'Delete this campaign? Sending will be canceled (what is still queued will not go out) and it leaves the report. The audit trail is kept.'
         confirmar_excluir_encerrada: 'Delete this campaign from the report? It was already sent or canceled: it just stops showing in the list.'
+        cancelar_titulo: Cancel the campaign sending?
+        cancelar_botao: Cancel sending
+        cancelar_voltar: Back
+        remover_titulo: Remove campaigns from the report?
+        remover_botao: Remove
+        excluir_titulo: Delete the campaign?
+        excluir_botao: Delete
         editar_motivo: Only before it starts sending.
         reenvio_menu_rastreada: Resending is available as soon as the reads are recorded.
         reenvio_menu_sem_rastreio: This campaign did not track reads.

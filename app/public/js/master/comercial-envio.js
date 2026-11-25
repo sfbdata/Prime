@@ -57,7 +57,13 @@
       const pergunta = ligar
         ? T(atual.esperando > 0 ? 'envio_confirmar_ligar' : 'envio_confirmar_ligar_zero', { n: atual.esperando })
         : T('envio_confirmar_desligar');
-      if (!window.confirm(pergunta)) return;
+      window.BJMasterConf.perguntar({
+        titulo: T(ligar ? 'envio_titulo_ligar' : 'envio_titulo_desligar'), icone: 'bi-power', cor: ligar ? '#7a3e8f' : '#a3232b',
+        texto: pergunta, botao: T(ligar ? 'envio_botao_ligar' : 'envio_botao_desligar'),
+      }).then(ok => { if (ok) alterarEnvio(ligar); });
+    });
+
+    function alterarEnvio(ligar) {
       chave.disabled = true;
       falar(T('envio_salvando'));
       pedir(URL_ALTERAR, {
@@ -72,7 +78,7 @@
         falar(e.message, 'erro');
         chave.disabled = false;
       });
-    });
+    }
 
     // A outra instância (ou qualquer parte da tela) mudou o estado: só redesenha, sem reavisar.
     document.addEventListener('mc:envio', e => {
