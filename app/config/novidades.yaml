@@ -1,6 +1,17 @@
 # Gerado pelo scripts/mudancas.py no PR de release: o texto vem da seção
 # "## Para o cliente" dos arquivos em mudancas/. Lido pela página Novidades.
 versoes:
+- versao: "3.10.0"
+  data: "2026-11-25"
+  itens:
+    - "Ao confirmar ações nas campanhas de e-mail, o painel agora mostra uma janela do próprio BlueJus, com o botão escrito com a ação (por exemplo \"Enviar agora\" ou \"Excluir\"), em vez da caixa cinza do navegador. Esc ou Cancelar fecham a janela sem fazer nada."
+    - "Na área de envio de e-mails da equipe do BlueJus, agora existe uma lista de contatos salva. A equipe inclui pessoas uma a uma, importa uma planilha, corrige nomes, apaga contatos e baixa a lista completa. Quem pediu para não receber e-mails aparece marcado como Descadastrado."
+    - "Na área de envio de e-mails da equipe do BlueJus, agora dá para convidar a lista de contatos salvos. Cada pessoa recebe no máximo 1 convite a cada poucos dias (7 por padrão, a equipe pode mudar), quem pediu para não receber nunca mais é incomodado, e, como em todo e-mail de campanha, vai o link para não receber mais."
+    - "Na janela de indicar o BlueJus, você vê só o total de convites e quantos já viraram conta, sem a lista longa de convites. A janela ficou mais curta e limpa."
+    - "Na tela de Perfis do escritório, a etiqueta FIXO agora continua legível quando você passa o mouse sobre o perfil."
+    - "Agora dá para anexar o edital da assembleia (um PDF de convocação) direto na aba Voto, pelo menu de três pontos da assembleia, sem mudar o visual da tela."
+    - "Esse edital sai junto com o PDF do resultado: as páginas dele ficam no fim do arquivo impresso, e a folha do resultado mostra o nome do edital e o código de conferência dele."
+    - "Você pode trocar ou remover o edital até a votação começar. Depois disso ele fica travado, e só dá para baixar."
 - versao: "3.9.1"
   data: "2026-11-25"
   itens:
