@@ -3,8 +3,8 @@ comercial:
         titulo: Mailing Center · new campaign
         descadastrados: Unsubscribed
         descadastrados_dica: Emails that asked not to receive
-        base: 'Contact base'
-        base_dica: 'Saved contacts: add, import and export'
+        base: 'Saved contacts'
+        base_dica: 'Add, import and export saved contacts'
         sub: invitations, offers, thank-yous, and news · individual or large scale
         passo_modelo: 1 · TEMPLATE
         novo_modelo: New template
@@ -20,6 +20,8 @@ comercial:
         publico:
             leads: Contact base
             leads_desc: Contacts who agreed to campaigns
+            contatos: Saved contacts
+            contatos_desc: The Master base, with an interval between invitations
             leads_venda: New contacts (base)
             leads_venda_desc: Interested people without an account yet
             prim: Primary users
@@ -160,7 +162,7 @@ comercial:
         fechar: Close
         vazio: Nobody has unsubscribed yet.
     base:
-        titulo: 'Contact base'
+        titulo: 'Saved contacts'
         sub: 'saved Commercial contacts; people who unsubscribed show as Unsubscribed and receive nothing'
         buscar: 'Search e-mail or name'
         incluir: 'Add contact'
@@ -202,6 +204,10 @@ comercial:
         chave_desligada: 'Campaign sending is off: no commemorative date goes out until it is turned on at the top of the sending center.'
     envio:
         rotulo: Campaign sending
+        intervalo_rotulo: Interval between invitations
+        intervalo_dias: days
+        intervalo_salvar: Save
+        intervalo_dica: 'Each saved contact receives at most 1 invitation every N days (1 to 365; the default is 7). Applies to the Saved contacts audience.'
     leitura:
         ligada: Read receipt
         desligada: No read receipt
@@ -242,6 +248,11 @@ comercial:
         dest_repetidos: '{n} duplicate(s) removed'
         dest_invalidos: '{n} invalid ignored'
         dest_sem_autorizacao: '{n} without consent removed'
+        dest_pulados_intervalo: '{n} skipped by the interval'
+        intervalo_salvando: Saving…
+        intervalo_ok: 'Interval saved: {n} day(s).'
+        intervalo_erro_carregar: 'Could not load the interval between invitations. Reload the page.'
+        intervalo_erro_salvar: 'Could not save the interval between invitations.'
         dest_total: '{n} recipient(s)'
         dest_lista_limpa: list cleared
         csv_lido: '{nome} · {n} email(s)'

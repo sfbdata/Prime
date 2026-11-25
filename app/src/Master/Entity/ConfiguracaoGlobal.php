@@ -37,6 +37,8 @@ class ConfiguracaoGlobal implements Auditavel
     private const PREFIXO_REVISAO_OAB = 'revisaoOab.';
     private const PREFIXO_COMERCIAL = 'comercial.';
     private const ENVIO_DE_CAMPANHAS = self::PREFIXO_COMERCIAL . 'campanhasLigadas';
+    /** O intervalo mínimo, em dias, entre dois convites ao mesmo contato salvo (decisão do Samuel, 25/11/2026). */
+    private const INTERVALO_DE_CONVITE = self::PREFIXO_COMERCIAL . 'intervaloConviteDias';
     private const PREFIXO_IA = 'ia.';
     private const PREFIXO_CONVENIO = 'convenio.';
     /** A chave geral do Convênio OAB (M2.1). O nome é o ponto de partida da spec docs/specs/convenios.md: não renomear. */
@@ -99,6 +101,31 @@ class ConfiguracaoGlobal implements Auditavel
         $valor = $this->valores[self::ENVIO_DE_CAMPANHAS] ?? null;
 
         return $valor === null ? null : $valor === '1';
+    }
+
+    /**
+     * Grava o intervalo, em dias, entre dois convites ao mesmo contato salvo. Registra quem e quando, como a chave das
+     * campanhas: a troca entra na Trilha de Auditoria pelo AuditLogSubscriber. A faixa é conferida por quem chama.
+     */
+    public function definirIntervaloDeConvite(int $dias, ?User $por, \DateTimeImmutable $em): void
+    {
+        $this->valores[self::INTERVALO_DE_CONVITE] = (string) $dias;
+        $this->alteradoPor = $por;
+        $this->alteradoEm = $em;
+    }
+
+    /** Null: o Master ainda não mexeu (vale o padrão). */
+    public function getIntervaloDeConvite(): ?int
+    {
+        $valor = $this->valores[self::INTERVALO_DE_CONVITE] ?? null;
+
+        return \is_string($valor) && ctype_digit($valor) ? (int) $valor : null;
+    }
+
+    /** O nome da chave do intervalo dentro do JSON `valores`, para a leitura direta do banco. */
+    public static function chaveDoIntervaloDeConvite(): string
+    {
+        return self::INTERVALO_DE_CONVITE;
     }
 
     /**

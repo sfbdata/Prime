@@ -71,6 +71,33 @@ final class CampanhasDoMasterControllerTest extends JusPrimeWebTestCase
         self::assertSame(0, $this->contar('comercial_campanha'));
     }
 
+    #[TestDox('Contatos salvos: a contagem e o confirmar aceitam o público; o confirmar conta só os elegíveis e grava o público sem lista guardada')]
+    public function testContatosSalvosNaContagemENoConfirmar(): void
+    {
+        $client = $this->clienteMaster();
+        $agora = new \DateTimeImmutable();
+        $this->conexao()->executeStatement('DELETE FROM comercial_contato');
+        foreach ([['livre' . uniqid() . '@exemplo.com', null], ['recente' . uniqid() . '@exemplo.com', $agora->modify('-1 hour')]] as [$email, $ultimo]) {
+            $this->conexao()->executeStatement(
+                "INSERT INTO comercial_contato (email, nome, origem, criado_em, atualizado_em, ultimo_convite_em) VALUES (?, '', 'importacao', ?, ?, ?)",
+                [$email, $agora->format('Y-m-d H:i:s'), $agora->format('Y-m-d H:i:s'), $ultimo?->format('Y-m-d H:i:s')],
+            );
+        }
+
+        $this->postar($client, '/master/comercial/publicos/contagem', ['publico' => 'contatos']);
+        self::assertResponseIsSuccessful();
+        $contagem = $this->json($client);
+        self::assertSame([1, 1, 0, 2], [$contagem['destinatarios'], $contagem['puladosPeloIntervalo'], $contagem['descadastrados'], $contagem['publicos']['contatos']]);
+
+        $this->postar($client, '/master/comercial/campanhas', $this->pedido([], ['publico' => 'contatos', 'individual' => '']));
+        self::assertResponseIsSuccessful();
+        $campanha = $this->conexao()->fetchAssociative('SELECT publico, total, publico_parametros FROM comercial_campanha WHERE id = ?', [$this->json($client)['id']]);
+        self::assertSame(['contatos', 1, null], [$campanha['publico'] ?? null, $campanha['total'] ?? null, $campanha['publico_parametros'] ?? null]);
+
+        $this->postar($client, '/master/comercial/publicos/contagem', ['publico' => 'contatos', 'modo' => 'venda']);
+        self::assertResponseStatusCodeSame(422, 'a seção Indicações não mostra Contatos salvos');
+    }
+
     #[TestDox('Chave desligada (M8.4): a campanha é gravada do mesmo jeito e fica esperando; nada sai')]
     public function testChaveDesligadaGravaEEspera(): void
     {

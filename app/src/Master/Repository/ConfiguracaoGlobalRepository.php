@@ -76,6 +76,26 @@ class ConfiguracaoGlobalRepository extends ServiceEntityRepository
     }
 
     /**
+     * O intervalo (dias) entre convites ao mesmo contato salvo, lido direto do banco a cada chamada (o worker vive horas).
+     * Null: ninguém gravou ainda, o valor não é um inteiro, ou a leitura falhou (quem chama usa o padrão).
+     */
+    public function intervaloDeConviteDias(): ?int
+    {
+        try {
+            $valor = $this->getEntityManager()->getConnection()->fetchOne(
+                'SELECT valores ->> :chave FROM configuracao_global WHERE id = :id',
+                ['chave' => ConfiguracaoGlobal::chaveDoIntervaloDeConvite(), 'id' => ConfiguracaoGlobal::ID_UNICO],
+            );
+        } catch (\Throwable $e) {
+            $this->logger->warning('Configurações globais: falha ao ler o intervalo entre convites; vale o padrão.', ['exception' => $e]);
+
+            return null;
+        }
+
+        return \is_string($valor) && ctype_digit($valor) ? (int) $valor : null;
+    }
+
+    /**
      * O teto mensal (centavos de dólar) que a I.A. ligada pelo dono recebe, lido direto do banco (spec multiproduto,
      * §9, regra 3). Null: ninguém gravou ainda, o valor não é um inteiro, ou a leitura falhou (quem chama usa a reserva).
      */

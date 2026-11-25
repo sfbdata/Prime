@@ -21,8 +21,10 @@ use App\Comercial\Service\MontadorDeEmail;
 use App\Comercial\UseCase\AlterarAutomacaoUseCase;
 use App\Comercial\UseCase\AlterarDataComemorativaUseCase;
 use App\Comercial\UseCase\AlterarEnvioDeCampanhasUseCase;
+use App\Comercial\UseCase\AlterarIntervaloDeConviteUseCase;
 use App\Comercial\UseCase\CadastrarContatoDoMasterUseCase;
 use App\Comercial\UseCase\ConsultarEnvioDeCampanhasUseCase;
+use App\Comercial\UseCase\ConsultarIntervaloDeConviteUseCase;
 use App\Comercial\UseCase\ListarAutomacoesUseCase;
 use App\Comercial\UseCase\ListarDatasComemorativasUseCase;
 use App\Comercial\UseCase\ListarModelosDasDatasUseCase;
@@ -103,6 +105,35 @@ final class ComercialDoMasterController extends AbstractController
         }
 
         return $this->json($alterar->executar($corpo['ligada'], $usuario)->paraJson());
+    }
+
+    /** O intervalo entre convites aos contatos salvos: `{dias, origem, padrao, minimo, maximo}`. */
+    #[Route('/master/comercial/convite-intervalo', name: 'master_comercial_convite_intervalo', methods: ['GET'])]
+    public function conviteIntervalo(ConsultarIntervaloDeConviteUseCase $consultar): JsonResponse
+    {
+        return $this->json($consultar->executar()->paraJson());
+    }
+
+    /** `{dias}`: troca o intervalo entre convites ao mesmo contato salvo (1 a 365); a troca vai para a Trilha de Auditoria. */
+    #[Route('/master/comercial/convite-intervalo', name: 'master_comercial_convite_intervalo_alterar', methods: ['POST'])]
+    public function alterarConviteIntervalo(Request $request, AlterarIntervaloDeConviteUseCase $alterar): JsonResponse
+    {
+        if (!$this->isCsrfTokenValid(self::TOKEN, (string) $request->headers->get('X-CSRF-Token', ''))) {
+            return $this->json(['erro' => 'Token CSRF inválido. Recarregue a página.'], Response::HTTP_FORBIDDEN);
+        }
+        $corpo = json_decode($request->getContent(), true);
+        if (!is_array($corpo) || !is_int($corpo['dias'] ?? null)) {
+            return $this->json(['erro' => 'Informe o intervalo em dias, como número inteiro.'], Response::HTTP_UNPROCESSABLE_ENTITY);
+        }
+        $usuario = $this->getUser();
+        if (!$usuario instanceof User) {
+            return $this->json(['erro' => 'Sessão inválida. Entre de novo.'], Response::HTTP_FORBIDDEN);
+        }
+        try {
+            return $this->json($alterar->executar($corpo['dias'], $usuario)->paraJson());
+        } catch (CampanhaRecusada $e) {
+            return $this->json(['erro' => $e->getMessage()], Response::HTTP_UNPROCESSABLE_ENTITY);
+        }
     }
 
     /**

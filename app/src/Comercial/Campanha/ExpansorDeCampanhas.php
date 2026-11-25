@@ -22,7 +22,8 @@ use Psr\Log\LoggerInterface;
  *   1. a chave do envio de campanhas: desligada, nada mais roda na volta e as campanhas ativas ficam esperando, sem
  *      cancelar (pedido do Farlei M8.4, 23/11/2026). Ao religar, {@see \App\Comercial\UseCase\AlterarEnvioDeCampanhasUseCase}
  *      traz para agora as que venceram no meio, para a tolerância de 24 h abaixo não as cancelar;
- *   2. materializa a execução devida em `comercial_campanha_destino`, com o público resolvido de novo pelo modelo
+ *   2. materializa a execução devida em `comercial_campanha_destino` (no público Contatos salvos, também grava
+ *      `ultimo_convite_em` dos contatos que entraram), com o público resolvido de novo pelo modelo
  *      gravado (`modelo_chave`; B1 e descadastro reaplicados) e a lista de cada destinatário (§11). Nada é recuperado: a única que acordou mais de 24 h atrasada é cancelada sem enviar; a recorrente
  *      que perdeu a vez pula para a próxima data futura;
  *   3. libera um lote numa transação da conexão (trava as linhas com `SKIP LOCKED`, entrega ao Carteiro, que vira
@@ -166,11 +167,16 @@ final class ExpansorDeCampanhas
             if ($this->campanhas->travarDevida($campanha['id'], $campanha['estado'], $campanha['execucoes'], $agora) === null) {
                 return;
             }
+            // Contatos salvos: trava advisory de transação antes de ler `ultimo_convite_em`; solta no COMMIT desta transação.
+            $this->publicos->travarConvites($campanha['publico']);
             $informados = array_map(static fn (array $d): DestinatarioDaCampanha => new DestinatarioDaCampanha($d['email'], $d['nome']), $campanha['publico_parametros']);
             // O filtro congelado (§9) volta a valer, com a data desta execução (idade e aniversário).
             $publico = $this->publicos->resolver($campanha['publico'], $informados, $filtro, $agora, $this->modeloDoPublico($campanha));
             $execucao = $campanha['execucoes'] + 1;
             $this->destinos->materializar($campanha['id'], $execucao, $publico->destinatarios, $agora);
+            // Contatos salvos: o convite conta a partir daqui (mesma transação, ainda sob a trava acima), não do envio de cada
+            // e-mail: a cota diária pode espalhar a execução por dias, e outra campanha nesse meio tempo não pode convidar o mesmo endereço.
+            $this->publicos->registrarConvite($campanha['publico'], $publico->destinatarios, $agora);
             $recorrente = $campanha['estado'] === CampanhaDeEmail::RECORRENTE;
             $estado = $recorrente ? CampanhaDeEmail::RECORRENTE : ($publico->total() > 0 ? CampanhaDeEmail::ENVIANDO : CampanhaDeEmail::ENVIADA);
             $this->campanhas->registrarExecucao($campanha['id'], $execucao, $publico->total(), $estado, $recorrente ? $seguinte : null);

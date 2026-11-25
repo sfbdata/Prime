@@ -842,6 +842,8 @@ primeira execução). (A9) Rótulos e cores do dc (L586) para
 - **Retenção** (R9): `comercial_campanha_destino` segue a da §3.2 (P4, 24 meses; depois `email` vira hash e `nome`
   nulo); `publico_parametros` é apagado quando a campanha vira `enviada` ou `cancelada`.
 
+**Público "Contatos salvos" (`contatos`, decisão do Samuel de 25/11/2026).** Lê `comercial_contato` (a base do Master). Fica fora do B1 por decisão explícita ({@see PoliticaDeDestinatarios::dispensarAutorizacaoNosContatosSalvos()}): convite profissional por legítimo interesse; o CSV avulso e o Individual seguem com o B1 (importar antes para Contatos salvos, que guarda a origem). Sempre de fora: descadastrados (inclusive por lista) e quem recebeu convite dentro do intervalo `comercial.intervaloConviteDias` de `configuracao_global` (padrão 7, mínimo 1, máximo 365; conta por dia do calendário; editável na Central de envios, `master_comercial_convite_intervalo`). O `ultimo_convite_em` é gravado na materialização da execução (mesma transação), em lote; teste não marca; a recorrente reaplica o filtro a cada execução. A cota diária de campanhas é a de sempre. A contagem mostra "M pulados pelo intervalo".
+
 ### 8.6 Rotas (Master, `ROLE_SUPER_ADMIN`, JSON com `X-CSRF-Token` `master_comercial`, padrão da 1a)
 
 2a: `GET /master/comercial/modelos`, `POST /master/comercial/modelos` (novo, duplicar, importar), `POST

@@ -89,5 +89,63 @@
       .catch(() => falar(T('envio_erro_carregar'), 'erro'));
   }
 
+  /* O intervalo entre convites aos contatos salvos (decisão de 25/11/2026): carrega o valor, salva por POST JSON com o
+     X-CSRF-Token da raiz da Central. O servidor confere a faixa (1 a 365); aqui só se evita o clique sem número. */
+  function iniciarIntervalo(bloco) {
+    if (bloco.dataset.mcIniciada) return;
+    bloco.dataset.mcIniciada = '1';
+    const raiz = bloco.closest('[data-mc-envio]');
+    const TOKEN = raiz ? raiz.dataset.token || '' : '';
+    const campo = bloco.querySelector('[data-mc-intervalo-dias]');
+    const salvar = bloco.querySelector('[data-mc-intervalo-salvar]');
+    const retorno = bloco.querySelector('[data-mc-intervalo-retorno]');
+
+    function falar(texto, tipo) {
+      retorno.textContent = texto || '';
+      retorno.hidden = !texto;
+      retorno.classList.toggle('is-ok', tipo === 'ok');
+      retorno.classList.toggle('is-erro', tipo === 'erro');
+      retorno.setAttribute('role', tipo === 'erro' ? 'alert' : 'status');
+    }
+
+    function desenhar(d) {
+      campo.min = String(d.minimo);
+      campo.max = String(d.maximo);
+      campo.value = String(d.dias);
+      campo.disabled = false;
+      salvar.disabled = false;
+    }
+
+    function pedir(url, opcoes, erroPadrao) {
+      return fetch(url, Object.assign({ credentials: 'same-origin', headers: { Accept: 'application/json' } }, opcoes))
+        .then(r => r.json().catch(() => ({})).then(j => {
+          if (!r.ok) throw new Error(j.erro || T(erroPadrao));
+          return j;
+        }));
+    }
+
+    salvar.addEventListener('click', () => {
+      const dias = parseInt(campo.value, 10);
+      if (!Number.isInteger(dias)) { falar(T('intervalo_erro_salvar'), 'erro'); return; }
+      salvar.disabled = true;
+      falar(T('intervalo_salvando'));
+      pedir(bloco.dataset.urlAlterar, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Accept: 'application/json', 'X-CSRF-Token': TOKEN },
+        body: JSON.stringify({ dias }),
+      }, 'intervalo_erro_salvar').then(d => {
+        desenhar(d);
+        falar(T('intervalo_ok', { n: d.dias }), 'ok');
+      }).catch(e => {
+        falar(e.message, 'erro');
+        salvar.disabled = false;
+      });
+    });
+
+    pedir(bloco.dataset.urlEstado, {}, 'intervalo_erro_carregar').then(desenhar)
+      .catch(() => falar(T('intervalo_erro_carregar'), 'erro'));
+  }
+
   document.querySelectorAll('[data-mc-envio]').forEach(iniciar);
+  document.querySelectorAll('[data-mc-intervalo]').forEach(iniciarIntervalo);
 })();
