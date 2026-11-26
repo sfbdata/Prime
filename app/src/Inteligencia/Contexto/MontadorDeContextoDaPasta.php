@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Inteligencia\Contexto;
 
+use App\Cliente\Entity\Cliente;
 use App\Cliente\Entity\ClientePF;
 use App\Cliente\Entity\ClientePJ;
 use App\Entity\Tarefa\Tarefa;
@@ -205,12 +206,49 @@ final class MontadorDeContextoDaPasta
 
     private function clientes(Tenant $tenant, Pasta $pasta, bool $mascarar): SecaoDeContexto
     {
-        $principal = $pasta->getClientePrincipal();
         $linhas = [];
         $assinaturas = [];
-        $todos = $this->dados->clientesDaPasta($tenant, $pasta);
+        $vinculados = $this->listaDeClientes($pasta, $this->dados->clientesDaPasta($tenant, $pasta), $mascarar);
+        foreach ($vinculados['itens'] as $cliente) {
+            $linhas[] = sprintf(
+                '%s · %s%s [nível %d, cadastro]',
+                $cliente['nome'],
+                $cliente['tipo'],
+                $cliente['principal'] ? ' · cliente principal' : '',
+                SecaoDoContexto::Clientes->nivel(),
+            );
+            $assinaturas[] = sprintf('cliente:%d:%s:%s:%d', $cliente['id'], $cliente['nome'], $cliente['tipo'], $cliente['principal'] ? 1 : 0);
+        }
+
+        return new SecaoDeContexto(SecaoDoContexto::Clientes, $linhas, $vinculados['omitidos'], $assinaturas);
+    }
+
+    /**
+     * Os clientes vinculados como a seção `<clientes>` os mostra: na ordem recebida (a da
+     * {@see FonteDeDadosDaPasta::clientesDaPasta()}, pelo id), cortados em {@see LIMITE_CLIENTES}, o nome pelo
+     * rótulo do contexto (neutralizado, mascarado se o escritório não desligou, cortado) e, na PJ, o nome fantasia
+     * entre parênteses. Público para a lista do conector (`buscar_pastas`) mostrar o MESMO que o resumo da pasta.
+     * Só nome e natureza: CPF/CNPJ, e-mail, telefone e endereço NÃO saem (spec §2.1).
+     *
+     * @param list<Cliente> $todos os clientes da pasta, do escritório, na ordem do id
+     *
+     * @return array{itens: list<array{id: int, nome: string, tipo: string, principal: bool}>, omitidos: int}
+     */
+    public function clientesParaMostrar(Tenant $tenant, Pasta $pasta, array $todos): array
+    {
+        return $this->listaDeClientes($pasta, $todos, $this->politica->mascarar($tenant));
+    }
+
+    /**
+     * @param list<Cliente> $todos
+     *
+     * @return array{itens: list<array{id: int, nome: string, tipo: string, principal: bool}>, omitidos: int}
+     */
+    private function listaDeClientes(Pasta $pasta, array $todos, bool $mascarar): array
+    {
+        $principal = $pasta->getClientePrincipal();
+        $itens = [];
         foreach (array_slice($todos, 0, self::LIMITE_CLIENTES) as $cliente) {
-            // Só nome e natureza: CPF/CNPJ, e-mail, telefone e endereço NÃO saem (spec §2.1).
             $tipo = match (true) {
                 $cliente instanceof ClientePF => 'pessoa física',
                 $cliente instanceof ClientePJ => 'pessoa jurídica',
@@ -220,18 +258,10 @@ final class MontadorDeContextoDaPasta
             if ($cliente instanceof ClientePJ && $cliente->getNomeFantasia() !== null && trim($cliente->getNomeFantasia()) !== '') {
                 $nome .= ' (' . $this->rotulo($cliente->getNomeFantasia(), '', $mascarar) . ')';
             }
-            $ehPrincipal = $principal !== null && $principal === $cliente;
-            $linhas[] = sprintf(
-                '%s · %s%s [nível %d, cadastro]',
-                $nome,
-                $tipo,
-                $ehPrincipal ? ' · cliente principal' : '',
-                SecaoDoContexto::Clientes->nivel(),
-            );
-            $assinaturas[] = sprintf('cliente:%d:%s:%s:%d', (int) $cliente->getId(), $nome, $tipo, $ehPrincipal ? 1 : 0);
+            $itens[] = ['id' => (int) $cliente->getId(), 'nome' => $nome, 'tipo' => $tipo, 'principal' => $principal !== null && $principal === $cliente];
         }
 
-        return new SecaoDeContexto(SecaoDoContexto::Clientes, $linhas, max(0, count($todos) - self::LIMITE_CLIENTES), $assinaturas);
+        return ['itens' => $itens, 'omitidos' => max(0, count($todos) - self::LIMITE_CLIENTES)];
     }
 
     private function movimentacoes(Tenant $tenant, Pasta $pasta): SecaoDeContexto

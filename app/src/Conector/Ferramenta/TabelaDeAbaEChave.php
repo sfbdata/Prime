@@ -124,6 +124,8 @@ final class TabelaDeAbaEChave
             'conferir_documento' => ['modulos' => self::CLIENTES, 'abas' => [], 'chaves' => self::NENHUMA],
             'documentos_do_cliente' => ['modulos' => self::CLIENTES, 'abas' => self::DOCUMENTOS, 'chaves' => self::NENHUMA],
             'documentos_de_identidade' => ['modulos' => self::CLIENTES, 'abas' => self::DOCUMENTOS, 'chaves' => self::NENHUMA],
+            // `pendencias` (M9, 26/11/2026): como o `ler`, módulo `clientes`; cada pasta da lista ainda passa pelo recurso de ver.
+            'pendencias' => ['modulos' => self::CLIENTES, 'abas' => [], 'chaves' => self::NENHUMA],
         ],
         // `agenda`: módulo `agenda` (`AgendaNovaController` :58). `minhas_metas` (14.i): módulo `tarefas` e a chave `metas`
         // da tela `tarefa_minhas`.

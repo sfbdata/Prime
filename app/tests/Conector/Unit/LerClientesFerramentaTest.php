@@ -21,7 +21,7 @@ use PHPUnit\Framework\TestCase;
 #[CoversClass(LerClientesFerramenta::class)]
 final class LerClientesFerramentaTest extends TestCase
 {
-    #[TestDox('o esquema lista buscar, ler, conferir_documento, documentos_de_identidade e documentos_do_cliente, exige a ação e fecha os campos')]
+    #[TestDox('o esquema lista buscar, ler, conferir_documento, documentos_de_identidade, documentos_do_cliente e pendencias, exige a ação e fecha os campos')]
     public function testEsquema(): void
     {
         $esquema = $this->ferramenta()->esquemaDeEntrada();
@@ -29,8 +29,12 @@ final class LerClientesFerramentaTest extends TestCase
         self::assertSame('object', $esquema['type']);
         self::assertSame(['acao'], $esquema['required']);
         self::assertFalse($esquema['additionalProperties']);
-        self::assertSame(['buscar', 'ler', 'conferir_documento', 'documentos_de_identidade', 'documentos_do_cliente'], $esquema['properties']['acao']['enum']);
-        self::assertSame(['acao', 'termo', 'cliente_id', 'documento'], array_keys($esquema['properties']));
+        self::assertSame(['buscar', 'ler', 'conferir_documento', 'documentos_de_identidade', 'documentos_do_cliente', 'pendencias'], $esquema['properties']['acao']['enum']);
+        self::assertSame(['acao', 'termo', 'cliente_id', 'documento', 'visao', 'faltando', 'pagina', 'por_pagina'], array_keys($esquema['properties']));
+        self::assertSame(['clientes', 'pastas_sem_cliente'], $esquema['properties']['visao']['enum']);
+        self::assertContains('cpf', $esquema['properties']['faltando']['items']['enum']);
+        self::assertContains('endereco', $esquema['properties']['faltando']['items']['enum']);
+        self::assertSame(200, $esquema['properties']['por_pagina']['maximum']);
         self::assertSame('ler_clientes', $this->ferramenta()->nome());
         self::assertSame('Ler clientes', $this->ferramenta()->titulo());
     }
@@ -72,6 +76,16 @@ final class LerClientesFerramentaTest extends TestCase
         yield 'conferir com 10 dígitos' => [['acao' => 'conferir_documento', 'documento' => '5299822472'], ErroDaFerramenta::MOTIVO_FILTRO_INVALIDO];
         yield 'documentos_de_identidade com documento' => [['acao' => 'documentos_de_identidade', 'cliente_id' => 1, 'documento' => 'x'], $invalido];
         yield 'campo desconhecido' => [['acao' => 'ler', 'cliente_id' => 1, 'cpf' => 'x'], $invalido];
+        $filtro = ErroDaFerramenta::MOTIVO_FILTRO_INVALIDO;
+        yield 'pendencias com cliente_id' => [['acao' => 'pendencias', 'cliente_id' => 1], $invalido];
+        yield 'pendencias com visão fora da lista' => [['acao' => 'pendencias', 'visao' => 'todas'], $filtro];
+        yield 'pendencias com faltando vazio' => [['acao' => 'pendencias', 'faltando' => []], $filtro];
+        yield 'pendencias com faltando texto' => [['acao' => 'pendencias', 'faltando' => 'cpf'], $filtro];
+        yield 'pendencias com campo desconhecido em faltando' => [['acao' => 'pendencias', 'faltando' => ['cpf', 'senha']], $filtro];
+        yield 'pendencias com faltando na visão de pastas' => [['acao' => 'pendencias', 'visao' => 'pastas_sem_cliente', 'faltando' => ['cpf']], $invalido];
+        yield 'pendencias com página zero' => [['acao' => 'pendencias', 'pagina' => 0], $filtro];
+        yield 'pendencias com por_pagina acima de 200' => [['acao' => 'pendencias', 'por_pagina' => 201], $filtro];
+        yield 'pendencias com por_pagina texto' => [['acao' => 'pendencias', 'por_pagina' => 'cem'], $filtro];
     }
 
     /** @param array<string, mixed> $argumentos */

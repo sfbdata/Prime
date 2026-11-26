@@ -814,6 +814,14 @@ Todas: `readOnlyHint: true`, escopo `mcp:leitura`, sem confirmação.
   aplica o cadeado (senão, `AcessoAPasta::idsOcultosPara`); os relatórios do Expediente já tinham UseCase (feito no PR 14, sem extração).
 - Permissão: módulo `expediente` (como o `/api/agente`, `AgenteDePastasController.php:99`); Minhas demandas, módulo `pastas`
   (`app/src/Pasta/Controller/DemandasController.php:240`).
+- **Clientes de cada pasta (M9 de 26/11/2026, item 4).** Em `buscar` e `minhas_demandas`, cada pasta traz `clientes`
+  (nomes), `clientes_ids` (mesma ordem), `cliente_principal` (`{id, nome}` ou `null`) e `clientes_omitidos` quando passa do
+  corte. A rotina é a do resumo da `ler_pasta` (`MontadorDeContextoDaPasta::clientesParaMostrar`): ordem do id, corte em
+  `LIMITE_CLIENTES` (10), rótulo da PJ com o nome fantasia entre parênteses, nome neutralizado e mascarado. Antes vinha
+  sempre `[]` em pasta com cliente: o `PastaDoAgenteOutput` só preenche os nomes quando não há identificador, e desde
+  27/10/2026 o identificador é o cliente principal (decisão de desenho, não defeito; corrigido só no conector). `clientes: []`
+  quer dizer "sem cliente vinculado"; campo não carregado é **omitido**, nunca lista vazia nem texto no lugar. Pasta trancada
+  mostra só o que a Lista mostra: `clientes` com o nome do cliente principal, sem os outros clientes e sem ids.
 
 **`ler_pasta`** (PR 6; publicações no PR 7)
 - Entrada: `pasta_id`, `partes` (padrão `resumo`), `publicacao_id?`, `pagina?`.
@@ -857,7 +865,8 @@ Todas: `readOnlyHint: true`, escopo `mcp:leitura`, sem confirmação.
   (`ContextoDaPastaNoChat.php:47`), e no conector vale o aceite do conector (14.a).
 
 **`ler_documentos_e_modelos`** (PR 7; outros tipos nos PRs 7b e 7c)
-- Ações: `listar` (documentos e subpastas da pasta, sem conteúdo: id, nome, categoria, subpasta, data, tamanho, tipo),
+- Ações: `listar` (documentos e subpastas da pasta, sem conteúdo: id, nome, categoria, subpasta, data, tamanho, tipo; filtros
+  e modo compacto abaixo),
   `ler` (`documento_id`: o conteúdo, pela tabela da 6.5), `lixeira` (o que está na lixeira da pasta,
   `ListarLixeiraDaPastaUseCase`), `modelos` (modelos de peça do escritório) e `modelo` (corpo de um modelo, **sem preencher**).
 - `duplicados` (M9 do dono de 26/11/2026, item 3; só leitura, nada é excluído): sem `pasta_id` (a única ação em que ele
@@ -898,6 +907,14 @@ Todas: `readOnlyHint: true`, escopo `mcp:leitura`, sem confirmação.
   documento que está na lixeira não sai (o leitor tira a lixeira de propósito; restaurar entra em `documentos_e_pecas`).
 - Permissão: recurso `pasta` view (a `lixeira` pede `pasta` edit, como a tela, decisão 29); aba Documentos (e Detalhes para `modelos` e `modelo`, como a tela `pasta_modelos_*`,
   `MAPA` `:71`); chave `expedientes`. A chave `peticionar` não vale aqui: cobre só `pasta_peticionar*`.
+- **Filtros da `listar` (M9 de 26/11/2026, item 2).** Todos opcionais e combináveis, sobre o que a pessoa já vê (aba oculta,
+  lixeira e contrato com o Financeiro oculto continuam fora antes do filtro): `categoria` (uma das 7 da aba), `nome` (trecho
+  do nome do arquivo ou do título, sem caixa nem acento, casado contra o texto que **sai**, já neutralizado, mascarado e
+  cortado; nunca contra o cru, para um trecho de CPF não achar o arquivo que tem o CPF no nome), `tipo` (extensão, como `pdf`,
+  ou mime inteiro ou o começo, como `image/`; `jpg` e `jpeg` são o mesmo, `tif` e `tiff` também) e `subpasta_id` (0 = fora das
+  subpastas). Com filtro, `total` conta os que casam e `total_na_pasta` os da pasta. `compacto: true` traz só `id`, `nome` e
+  `categoria`, 100 por página; `por_pagina` vai até 50 sem compacto e até 200 com. Valor fora do esperado é "filtro inválido"
+  com o nome do campo.
 
 **`ler_processos`** (PR 7; CNJ no PR 13)
 - Ações: `buscar` (no escritório, por número CNJ ou termo), `para_vincular` (processos já cadastrados que podem ir para uma
@@ -941,6 +958,15 @@ Todas: `readOnlyHint: true`, escopo `mcp:leitura`, sem confirmação.
   cadastro passa no dígito verificador, sem o valor: sem ele, a busca não roda e a lista vazia pareceria "nenhum documento".)*
 - Permissão: recurso `cliente` view; buscar e conferir documento, módulo `clientes`; `documentos_de_identidade`, também a
   aba Documentos de cada pasta (6.6, tabela).
+- **`pendencias` (M9 de 26/11/2026, item 1).** O relatório de pendências do cadastro numa chamada só, paginado (100 por
+  página, `por_pagina` até 200) e com o `total` do filtro (`LerClientesPendencias`). Visão `clientes` (padrão): os clientes
+  que a pessoa vê (recurso `cliente` view em lote, escopo do restrito) a que falta qualquer campo de `faltando` (as chaves do
+  `CamposDoCadastro` e o grupo `endereco`; sem ele, `cpf` e `cnpj`; campo de outro tipo de cadastro não conta), na ordem do
+  nome. Cada linha: `id`, `nome`, `tipo`, `campos_que_faltam` e as pastas vinculadas que a pessoa abre (`id` e `numero`, até
+  10, `pastas_a_mais` além disso), sem as em segredo (`pastas_em_segredo` conta). Visão `pastas_sem_cliente` (a inversa): as
+  pastas ativas sem nenhum cliente vinculado que a pessoa abre, com `nome_cliente_escrito`; exige também o módulo
+  `expediente` (a porta da `buscar_pastas`); `omitidas_em_segredo` e `omitidas_sem_acesso` (para o restrito, só as do seu
+  escopo). Valores de documento, contato e endereço nunca saem (regra 4 da 6.2): o valor só decide se o cliente entra.
 
 **`ler_agenda`** (PR 6)
 - Ações: `agenda` (padrão) e `minhas_metas` (14.i).
@@ -1304,6 +1330,7 @@ clientes, mas não os processos, `app/src/Pasta/UseCase/DuplicarPastaUseCase.php
 | `ler_processos`: buscar, detalhar | `processo_index`, `processo_show` | nenhuma (não é rota de pasta) | nenhuma |
 | `ler_processos`: para_vincular, cnj | `pasta_buscar_processos`, `pasta_processo_buscar_cnj` | Processo | `expedientes` |
 | `ler_clientes`: buscar, ler, conferir_documento, documentos_do_cliente | `cliente_cadastro`, `cliente_resumo`, `pasta_clientes_buscar` | nenhuma | nenhuma |
+| `ler_clientes`: pendencias | `cliente_cadastro`, `cliente_resumo`; na visão `pastas_sem_cliente`, também a Lista (módulo `expediente`) | nenhuma | nenhuma |
 | `ler_clientes`: documentos_de_identidade | `cliente_resumo` | Documentos, de cada pasta (pasta com a aba oculta sai da lista; a tela não barra, porque a rota não é de pasta) | nenhuma |
 | `ler_agenda`: agenda | `agenda_index` | nenhuma | nenhuma |
 | `ler_agenda`: minhas_metas | `tarefa_minhas` | nenhuma (rotas `tarefa_*` ficam fora do `MAPA`) | `metas` |

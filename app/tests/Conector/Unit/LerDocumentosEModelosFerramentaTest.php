@@ -70,6 +70,37 @@ final class LerDocumentosEModelosFerramentaTest extends TestCase
         yield 'campo fora do esquema' => [['acao' => 'listar', 'pasta_id' => 1, 'caminho' => '/etc/passwd']];
         yield 'duplicados com pasta zero' => [['acao' => 'duplicados', 'pasta_id' => 0]];
         yield 'duplicados com documento' => [['acao' => 'duplicados', 'documento_id' => 3]];
+        yield 'ler com filtro de categoria' => [['acao' => 'ler', 'pasta_id' => 1, 'documento_id' => 3, 'categoria' => 'PECA']];
+        yield 'modelos com compacto' => [['acao' => 'modelos', 'pasta_id' => 1, 'compacto' => true]];
+        yield 'listar com por_pagina zero' => [['acao' => 'listar', 'pasta_id' => 1, 'por_pagina' => 0]];
+    }
+
+    /** @return iterable<string, array{array<string, mixed>, string}> */
+    public static function filtrosInvalidosDaLista(): iterable
+    {
+        yield 'categoria fora da lista' => [['acao' => 'listar', 'pasta_id' => 1, 'categoria' => 'SENHAS'], 'categoria'];
+        yield 'categoria que não é texto' => [['acao' => 'listar', 'pasta_id' => 1, 'categoria' => 3], 'categoria'];
+        yield 'nome vazio' => [['acao' => 'listar', 'pasta_id' => 1, 'nome' => '   '], 'nome'];
+        yield 'nome enorme' => [['acao' => 'listar', 'pasta_id' => 1, 'nome' => str_repeat('a', 101)], 'nome'];
+        yield 'tipo que não é texto' => [['acao' => 'listar', 'pasta_id' => 1, 'tipo' => ['pdf']], 'tipo'];
+        yield 'subpasta negativa' => [['acao' => 'listar', 'pasta_id' => 1, 'subpasta_id' => -1], 'subpasta_id'];
+        yield 'compacto que não é booleano' => [['acao' => 'listar', 'pasta_id' => 1, 'compacto' => 'sim'], 'compacto'];
+        yield 'por_pagina acima de 50 sem compacto' => [['acao' => 'listar', 'pasta_id' => 1, 'por_pagina' => 51], 'por_pagina'];
+        yield 'por_pagina acima de 200 no compacto' => [['acao' => 'listar', 'pasta_id' => 1, 'compacto' => true, 'por_pagina' => 201], 'por_pagina'];
+    }
+
+    /** @param array<string, mixed> $argumentos */
+    #[DataProvider('filtrosInvalidosDaLista')]
+    #[TestDox('filtro inválido da listar antes da guarda, pelo nome do campo: $_dataName')]
+    public function testFiltroInvalidoDaLista(array $argumentos, string $campo): void
+    {
+        try {
+            $this->ferramenta()->executar($argumentos, $this->chamada());
+            self::fail('deveria recusar o filtro');
+        } catch (ErroDaFerramenta $e) {
+            self::assertSame(ErroDaFerramenta::MOTIVO_FILTRO_INVALIDO, $e->motivo);
+            self::assertStringContainsString($campo, $e->getMessage());
+        }
     }
 
     /** @param array<string, mixed> $argumentos */

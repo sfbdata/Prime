@@ -44,7 +44,11 @@ use Symfony\Component\RateLimiter\RateLimiterFactoryInterface;
  * `ler_documentos_e_modelos` (`docs/specs/mcp-remoto-oauth.md`, 6.4 e 6.5, e as decisões 24 e 26 da seção 14). Todas as
  * ações pedem `pasta_id` (a tabela da 6.6 dá aba a todas), menos `duplicados` do escritório inteiro:
  *  - `listar`: documentos e subpastas da pasta, sem conteúdo ({@see ListarDocumentosDaPastaDoAgenteUseCase}); a aba
- *    Documentos inteira oculta responde "não encontrado" (o UseCase confia na rota para isso);
+ *    Documentos inteira oculta responde "não encontrado" (o UseCase confia na rota para isso). Filtros opcionais (M9 de
+ *    26/11/2026, item 2), aplicados sobre a mesma lista que a pessoa vê, sem consulta de acesso própria: `categoria`,
+ *    `nome` (trecho do nome ou do título, sem ligar para maiúsculas e acentos), `tipo` (extensão ou mime) e
+ *    `subpasta_id` (0 = fora de qualquer subpasta); `total` conta o filtro e `total_na_pasta` a lista inteira. O modo
+ *    `compacto` traz só id, nome e categoria, {@see POR_PAGINA_COMPACTO} por página (até {@see MAXIMO_POR_PAGINA_COMPACTO});
  *  - `ler` (`documento_id`): o conteúdo, pelo {@see LeitorDeDocumentosDaPasta} com a
  *    {@see PortaDoConectorNaLeituraDeDocumentos}. PDF e imagem vão inteiros no {@see ArquivoNaResposta}, e o `dados`
  *    leva só os metadados; peça do editor, DOCX, DOC, ODT, RTF, TXT, CSV, XML e KML vão como TEXTO no `dados.texto`
@@ -78,6 +82,14 @@ final class LerDocumentosEModelosFerramenta implements FerramentaDoConector
     public const ACOES = ['listar', 'ler', 'lixeira', 'modelos', 'modelo', 'modelos_de_checklist', LerDocumentosDuplicados::ACAO];
 
     public const POR_PAGINA = 50;
+    public const POR_PAGINA_COMPACTO = 100;
+    public const MAXIMO_POR_PAGINA_COMPACTO = 200;
+    public const CATEGORIAS = [
+        PastaDocumento::CATEGORIA_PECA, PastaDocumento::CATEGORIA_PROCURACAO, PastaDocumento::CATEGORIA_IDENTIFICACAO,
+        PastaDocumento::CATEGORIA_COMPROVANTE_RESIDENCIA, PastaDocumento::CATEGORIA_GRATUIDADE_JUSTICA,
+        PastaDocumento::CATEGORIA_DEMAIS, PastaDocumento::CATEGORIA_CONTRATO,
+    ];
+    private const TAMANHO_MAXIMO_DO_FILTRO = 100;
     private const TETO_DE_PAGINA = 10_000;
     private const LIMITE_DE_SUBPASTAS = 100;
     private const TAMANHO_DO_NOME = 150;
@@ -105,7 +117,7 @@ final class LerDocumentosEModelosFerramenta implements FerramentaDoConector
 
     /** Os campos que cada ação aceita além de `acao` e `pasta_id` (6.2, regra 10: o resto é recusado). */
     private const CAMPOS_DA_ACAO = [
-        'listar' => ['pagina'],
+        'listar' => ['pagina', 'categoria', 'nome', 'tipo', 'subpasta_id', 'compacto', 'por_pagina'],
         'ler' => ['documento_id'],
         'lixeira' => ['pagina'],
         'modelos' => ['pagina', 'busca'],
@@ -145,7 +157,10 @@ final class LerDocumentosEModelosFerramenta implements FerramentaDoConector
 
     public function descricao(): string
     {
-        return 'Lê documentos e modelos de peça de uma pasta do escritório (pasta_id é obrigatório, menos em duplicados). Ações: listar (documentos e subpastas, sem conteúdo, 50 por página), '
+        return 'Lê documentos e modelos de peça de uma pasta do escritório (pasta_id é obrigatório, menos em duplicados). Ações: listar (documentos e subpastas, sem conteúdo, 50 por página; '
+            . 'filtros opcionais: categoria, nome (trecho do nome do arquivo ou do título como saem na resposta, já mascarados), tipo (extensão, como pdf, ou mime, como image/; jpg e jpeg são o mesmo, tif e tiff também) e subpasta_id (0 = fora das subpastas); '
+            . 'total diz quantos casam com o filtro e total_na_pasta quantos a pasta tem; compacto: true traz só id, nome e categoria, '
+            . self::POR_PAGINA_COMPACTO . ' por página, por_pagina até ' . self::MAXIMO_POR_PAGINA_COMPACTO . '), '
             . 'ler (o conteúdo de um documento pelo documento_id: PDF e imagem PNG, JPEG, GIF e WEBP vêm como arquivo junto da resposta; peça do editor, DOCX, DOC, ODT, RTF, TXT, CSV, XML e KML vêm como texto, que pode vir cortado), '
             . 'lixeira (o que foi excluído da pasta, sem conteúdo), modelos (os modelos de peça do escritório) modelo (o texto de um modelo pelo modelo_id, sem preencher) e modelos_de_checklist (os modelos de checklist do escritório, com os primeiros itens; só para quem edita a pasta). '
             . 'duplicados (somente leitura, nada é excluído): sem pasta_id, os totais do escritório e as pastas com documentos repetidos, 100 por página; com pasta_id, os grupos de repetidos daquela pasta com os documentos de cada um. Critério conteudo = arquivo idêntico (mesmo hash); provavel = mesmo nome e tamanho entre documentos ainda sem hash. Só nesta ação pasta_id é opcional. '
@@ -164,6 +179,12 @@ final class LerDocumentosEModelosFerramenta implements FerramentaDoConector
                 'modelo_id' => ['type' => 'integer', 'minimum' => 1, 'description' => 'Na acao modelo: o id do modelo (veja a acao modelos).'],
                 'busca' => ['type' => 'string', 'maxLength' => 100, 'description' => 'Na acao modelos: busca no título e no texto dos modelos.'],
                 'pagina' => ['type' => 'integer', 'minimum' => 1, 'description' => 'A página seguinte: o valor de proxima_pagina da resposta anterior.'],
+                'categoria' => ['type' => 'string', 'enum' => self::CATEGORIAS, 'description' => 'Na acao listar: só os documentos desta categoria.'],
+                'nome' => ['type' => 'string', 'maxLength' => self::TAMANHO_MAXIMO_DO_FILTRO, 'description' => 'Na acao listar: só os documentos com este trecho no nome do arquivo ou no título como eles saem na resposta, já mascarados (sem ligar para maiúsculas e acentos).'],
+                'tipo' => ['type' => 'string', 'maxLength' => self::TAMANHO_MAXIMO_DO_FILTRO, 'description' => 'Na acao listar: a extensão (pdf, docx, jpg) ou o mime (application/pdf, ou só o começo, como image/). jpg e jpeg são o mesmo tipo, e tif e tiff também.'],
+                'subpasta_id' => ['type' => 'integer', 'minimum' => 0, 'description' => 'Na acao listar: só os documentos direto nesta subpasta (o id vem em subpastas); 0 = os que estão fora de qualquer subpasta.'],
+                'compacto' => ['type' => 'boolean', 'description' => 'Na acao listar: true traz só id, nome e categoria de cada documento, ' . self::POR_PAGINA_COMPACTO . ' por página.'],
+                'por_pagina' => ['type' => 'integer', 'minimum' => 1, 'maximum' => self::MAXIMO_POR_PAGINA_COMPACTO, 'description' => 'Na acao listar: quantos por página; até ' . self::POR_PAGINA . ' sem compacto e até ' . self::MAXIMO_POR_PAGINA_COMPACTO . ' com compacto.'],
             ],
             'required' => ['acao'],
             'additionalProperties' => false,
@@ -186,7 +207,7 @@ final class LerDocumentosEModelosFerramenta implements FerramentaDoConector
         $abasOcultas = $this->liberar($chamada, $pastaId);
 
         return match ($acao) {
-            'listar' => $this->listar($pasta, $chamada, $extras['pagina'] ?? 1),
+            'listar' => $this->listar($pasta, $chamada, $extras['pagina'] ?? 1, self::filtroDaLista($extras)),
             'ler' => $this->ler($pasta, $chamada, $extras['documento_id'], $abasOcultas),
             'lixeira' => $this->naLixeira($pasta, $chamada, $abasOcultas, $extras['pagina'] ?? 1),
             'modelos' => $this->listaDeModelos($pasta, $chamada, (string) ($extras['busca'] ?? ''), $extras['pagina'] ?? 1),
@@ -220,7 +241,7 @@ final class LerDocumentosEModelosFerramenta implements FerramentaDoConector
             throw ErroDaFerramenta::entradaInvalida();
         }
         $extras = [];
-        foreach (['pagina', 'documento_id', 'modelo_id'] as $campo) {
+        foreach (['pagina', 'documento_id', 'modelo_id', 'por_pagina'] as $campo) {
             if (\array_key_exists($campo, $argumentos)) {
                 $extras[$campo] = self::inteiro($argumentos[$campo]) ?? throw ErroDaFerramenta::entradaInvalida();
             }
@@ -235,6 +256,7 @@ final class LerDocumentosEModelosFerramenta implements FerramentaDoConector
             }
             $extras['busca'] = trim($busca);
         }
+        $extras += self::filtrosDaLista($argumentos, $extras['por_pagina'] ?? null);
         foreach (['ler' => 'documento_id', 'modelo' => 'modelo_id'] as $daAcao => $obrigatorio) {
             if ($acao === $daAcao && !isset($extras[$obrigatorio])) {
                 throw ErroDaFerramenta::entradaInvalida();
@@ -242,6 +264,98 @@ final class LerDocumentosEModelosFerramenta implements FerramentaDoConector
         }
 
         return [$acao, $pastaId, $extras];
+    }
+
+    /**
+     * Os filtros da `listar`, conferidos; o valor digitado nunca entra na mensagem, só o nome do campo.
+     *
+     * @param array<string, mixed> $argumentos
+     *
+     * @return array<string, mixed>
+     *
+     * @throws ErroDaFerramenta
+     */
+    private static function filtrosDaLista(array $argumentos, ?int $porPagina): array
+    {
+        $filtros = [];
+        if (\array_key_exists('categoria', $argumentos)) {
+            $categoria = $argumentos['categoria'];
+            if (!\is_string($categoria) || !\in_array(mb_strtoupper(trim($categoria)), self::CATEGORIAS, true)) {
+                throw ErroDaFerramenta::filtroInvalido('categoria');
+            }
+            $filtros['categoria'] = mb_strtoupper(trim($categoria));
+        }
+        foreach (['nome', 'tipo'] as $campo) {
+            if (\array_key_exists($campo, $argumentos)) {
+                $texto = $argumentos[$campo];
+                if (!\is_string($texto) || trim($texto) === '' || mb_strlen($texto) > self::TAMANHO_MAXIMO_DO_FILTRO) {
+                    throw ErroDaFerramenta::filtroInvalido($campo);
+                }
+                $filtros[$campo] = self::semAcento(trim($texto));
+            }
+        }
+        if (\array_key_exists('subpasta_id', $argumentos)) {
+            $filtros['subpasta_id'] = self::subpastaIdValido($argumentos['subpasta_id']);
+        }
+        if (\array_key_exists('compacto', $argumentos)) {
+            if (!\is_bool($argumentos['compacto'])) {
+                throw ErroDaFerramenta::filtroInvalido('compacto');
+            }
+            $filtros['compacto'] = $argumentos['compacto'];
+        }
+        $maximo = ($filtros['compacto'] ?? false) ? self::MAXIMO_POR_PAGINA_COMPACTO : self::POR_PAGINA;
+        if ($porPagina !== null && $porPagina > $maximo) {
+            throw ErroDaFerramenta::filtroInvalido('por_pagina');
+        }
+
+        return $filtros;
+    }
+
+    /**
+     * O `subpasta_id` como inteiro não negativo (aceita string só de dígitos).
+     *
+     * @throws ErroDaFerramenta
+     */
+    private static function subpastaIdValido(mixed $subpasta): int
+    {
+        if (\is_string($subpasta) && ctype_digit($subpasta) && \strlen($subpasta) <= 9) {
+            $subpasta = (int) $subpasta;
+        }
+        if (!\is_int($subpasta) || $subpasta < 0) {
+            throw ErroDaFerramenta::filtroInvalido('subpasta_id');
+        }
+
+        return $subpasta;
+    }
+
+    /**
+     * O filtro da `listar` a partir dos extras já conferidos.
+     *
+     * @param array<string, mixed> $extras
+     *
+     * @return array{categoria: ?string, nome: ?string, tipo: ?string, subpasta_id: ?int, compacto: bool, por_pagina: int}
+     */
+    private static function filtroDaLista(array $extras): array
+    {
+        $compacto = (bool) ($extras['compacto'] ?? false);
+
+        return [
+            'categoria' => isset($extras['categoria']) ? (string) $extras['categoria'] : null,
+            'nome' => isset($extras['nome']) ? (string) $extras['nome'] : null,
+            'tipo' => isset($extras['tipo']) ? (string) $extras['tipo'] : null,
+            'subpasta_id' => isset($extras['subpasta_id']) ? (int) $extras['subpasta_id'] : null,
+            'compacto' => $compacto,
+            'por_pagina' => isset($extras['por_pagina']) ? (int) $extras['por_pagina'] : ($compacto ? self::POR_PAGINA_COMPACTO : self::POR_PAGINA),
+        ];
+    }
+
+    /** Minúsculas e sem acento, para o trecho casar como a pessoa digita. */
+    private static function semAcento(string $texto): string
+    {
+        $minusculo = mb_strtolower($texto);
+        $decomposto = \Normalizer::normalize($minusculo, \Normalizer::FORM_D);
+
+        return (string) preg_replace('/\p{Mn}/u', '', \is_string($decomposto) ? $decomposto : $minusculo);
     }
 
     private static function inteiro(mixed $valor): ?int
@@ -271,7 +385,10 @@ final class LerDocumentosEModelosFerramenta implements FerramentaDoConector
         }
     }
 
-    private function listar(Pasta $pasta, ChamadaDoConector $chamada, int $pagina): RespostaDaFerramenta
+    /**
+     * @param array{categoria: ?string, nome: ?string, tipo: ?string, subpasta_id: ?int, compacto: bool, por_pagina: int} $filtro
+     */
+    private function listar(Pasta $pasta, ChamadaDoConector $chamada, int $pagina, array $filtro): RespostaDaFerramenta
     {
         $escritorio = $chamada->contexto->escritorio;
         try {
@@ -279,7 +396,12 @@ final class LerDocumentosEModelosFerramenta implements FerramentaDoConector
         } catch (PastaNaoEncontradaException|SemPermissaoParaVerPastaException) {
             throw ErroDaFerramenta::naoEncontrado();
         }
-        $itens = array_map(fn (DocumentoDoAgenteOutput $d): array => [
+        $documentos = $this->filtrados($saida->documentos, $filtro, $pasta, $escritorio);
+        $itens = array_map(fn (DocumentoDoAgenteOutput $d): array => $filtro['compacto'] ? [
+            'id' => $d->id,
+            'nome' => $this->nomeCurto($escritorio, $d->nome),
+            'categoria' => $d->categoria,
+        ] : [
             'id' => $d->id,
             'titulo' => $this->nomeCurto($escritorio, $d->titulo),
             'nome' => $this->nomeCurto($escritorio, $d->nome),
@@ -288,14 +410,81 @@ final class LerDocumentosEModelosFerramenta implements FerramentaDoConector
             'data' => $d->data,
             'tamanho_bytes' => $d->tamanho,
             'tipo' => $d->tipo,
-        ], $saida->documentos);
-        [$daPagina, $proxima] = self::fatia($itens, $pagina);
+        ], $documentos);
+        [$daPagina, $proxima] = self::fatia($itens, $pagina, $filtro['por_pagina']);
         $dados = ['pasta_id' => (int) $pasta->getId(), 'documentos' => $daPagina, 'total' => \count($itens), 'pagina' => $pagina];
+        if (self::temFiltro($filtro)) {
+            $dados['total_na_pasta'] = \count($saida->documentos);
+        }
+        if ($filtro['compacto'] || $filtro['por_pagina'] !== self::POR_PAGINA) {
+            $dados['por_pagina'] = $filtro['por_pagina'];
+        }
         if ($pagina === 1) {
             $dados += $this->subpastas($pasta, $escritorio);
         }
 
         return new RespostaDaFerramenta($dados, $proxima, ['documentos' => \count($itens)], ['pasta' => [(int) $pasta->getId()]]);
+    }
+
+    /** @param array{categoria: ?string, nome: ?string, tipo: ?string, subpasta_id: ?int, compacto: bool, por_pagina: int} $filtro */
+    private static function temFiltro(array $filtro): bool
+    {
+        return $filtro['categoria'] !== null || $filtro['nome'] !== null || $filtro['tipo'] !== null || $filtro['subpasta_id'] !== null;
+    }
+
+    /**
+     * Os documentos que a pessoa vê e que casam com todos os filtros pedidos. A subpasta de cada documento vem da mesma
+     * consulta da aba (pasta e escritório), só quando o filtro a pede.
+     *
+     * @param list<DocumentoDoAgenteOutput>                                                                                    $documentos
+     * @param array{categoria: ?string, nome: ?string, tipo: ?string, subpasta_id: ?int, compacto: bool, por_pagina: int} $filtro
+     *
+     * @return list<DocumentoDoAgenteOutput>
+     */
+    private function filtrados(array $documentos, array $filtro, Pasta $pasta, Tenant $escritorio): array
+    {
+        if (!self::temFiltro($filtro)) {
+            return $documentos;
+        }
+        $subpastaDe = [];
+        if ($filtro['subpasta_id'] !== null) {
+            foreach ($this->documentos->findByPastaComSecao($pasta, $escritorio) as $documento) {
+                $subpastaDe[(int) $documento->getId()] = (int) $documento->getSecao()?->getId();
+            }
+        }
+
+        // O nome e o título casam contra o texto que SAI (neutralizado, mascarado e cortado), nunca contra o cru: um
+        // trecho de CPF no filtro não pode achar o arquivo que tem o CPF no nome (a máscara o esconde na resposta).
+        return array_values(array_filter($documentos, fn (DocumentoDoAgenteOutput $d): bool => ($filtro['categoria'] === null || $d->categoria === $filtro['categoria'])
+            && ($filtro['nome'] === null
+                || str_contains(self::semAcento($this->nomeCurto($escritorio, $d->nome)), $filtro['nome'])
+                || str_contains(self::semAcento($this->nomeCurto($escritorio, $d->titulo)), $filtro['nome']))
+            && ($filtro['tipo'] === null || self::casaOTipo($d, $filtro['tipo']))
+            && ($filtro['subpasta_id'] === null || ($subpastaDe[$d->id] ?? -1) === $filtro['subpasta_id'])));
+    }
+
+    /**
+     * Com barra, o mime (inteiro ou o começo, como `image/`); sem barra, a extensão do nome do arquivo ou o fim do mime
+     * (`pdf` casa com `application/pdf`). `jpg` e `jpeg` são o mesmo tipo, e `tif` e `tiff` também, dos dois lados.
+     */
+    private static function casaOTipo(DocumentoDoAgenteOutput $d, string $tipo): bool
+    {
+        $tipo = self::tipoEquivalente($tipo);
+        $mime = self::tipoEquivalente(mb_strtolower(trim($d->tipo)));
+        if (str_contains($tipo, '/')) {
+            return str_starts_with($mime, $tipo);
+        }
+        $extensao = ltrim($tipo, '.');
+        $doNome = self::tipoEquivalente(mb_strtolower(pathinfo($d->nome, \PATHINFO_EXTENSION)));
+        $barra = strrpos($mime, '/');
+
+        return $extensao !== '' && ($doNome === $extensao || ($barra !== false && substr($mime, $barra + 1) === $extensao));
+    }
+
+    /** Os nomes do mesmo tipo viram um só: `jpeg` vira `jpg` e `tiff` vira `tif` (na extensão e no fim do mime). */
+    private static function tipoEquivalente(string $tipo): string
+    {
+        return (string) preg_replace(['/(?<![a-z0-9])jpeg(?![a-z0-9])/', '/(?<![a-z0-9])tiff(?![a-z0-9])/'], ['jpg', 'tif'], $tipo);
     }
 
     /** @return array{subpastas: list<array{id: int, nome: string}>, subpastas_omitidas: int} */
@@ -564,7 +753,7 @@ final class LerDocumentosEModelosFerramenta implements FerramentaDoConector
     }
 
     /**
-     * Uma página de {@see POR_PAGINA} itens e a seguinte, se houver.
+     * Uma página de `$porPagina` itens ({@see POR_PAGINA} se não vier) e a seguinte, se houver.
      *
      * @template T
      *
@@ -572,10 +761,10 @@ final class LerDocumentosEModelosFerramenta implements FerramentaDoConector
      *
      * @return array{0: list<T>, 1: ?int}
      */
-    private static function fatia(array $itens, int $pagina): array
+    private static function fatia(array $itens, int $pagina, int $porPagina = self::POR_PAGINA): array
     {
-        $daPagina = \array_slice($itens, ($pagina - 1) * self::POR_PAGINA, self::POR_PAGINA);
-        $proxima = \count($itens) > $pagina * self::POR_PAGINA ? $pagina + 1 : null;
+        $daPagina = \array_slice($itens, ($pagina - 1) * $porPagina, $porPagina);
+        $proxima = \count($itens) > $pagina * $porPagina ? $pagina + 1 : null;
 
         return [$daPagina, $proxima];
     }

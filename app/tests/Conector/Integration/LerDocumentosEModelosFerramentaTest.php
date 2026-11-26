@@ -122,6 +122,127 @@ final class LerDocumentosEModelosFerramentaTest extends KernelTestCase
         self::assertSame(55, $segunda->dados['total']);
     }
 
+    #[TestDox('listar com categoria IDENTIFICACAO: só os documentos dessa categoria; total conta o filtro e total_na_pasta a pasta inteira (aceite do item 2 do M9)')]
+    public function testListarSoIdentificacao(): void
+    {
+        $pasta = $this->pasta();
+        $rg = $this->documento($pasta, 'rg.pdf', self::PDF, categoria: PastaDocumento::CATEGORIA_IDENTIFICACAO);
+        $cnh = $this->documento($pasta, 'cnh.png', self::PNG, mime: 'image/png', categoria: PastaDocumento::CATEGORIA_IDENTIFICACAO);
+        $this->documento($pasta, 'peticao.pdf', self::PDF, categoria: PastaDocumento::CATEGORIA_PECA);
+        $this->documento($pasta, 'outro.pdf', self::PDF);
+        $deOutraPasta = $this->documento($this->pasta(), 'rg-de-outra.pdf', self::PDF, categoria: PastaDocumento::CATEGORIA_IDENTIFICACAO);
+
+        $resposta = $this->executar('listar', $pasta, ['categoria' => 'IDENTIFICACAO']);
+
+        self::assertEqualsCanonicalizing([$rg->getId(), $cnh->getId()], array_column($resposta->dados['documentos'], 'id'));
+        self::assertSame([PastaDocumento::CATEGORIA_IDENTIFICACAO], array_values(array_unique(array_column($resposta->dados['documentos'], 'categoria'))));
+        self::assertSame(2, $resposta->dados['total']);
+        self::assertSame(4, $resposta->dados['total_na_pasta']);
+        self::assertNull($resposta->proximaPagina);
+        self::assertStringNotContainsString('rg-de-outra', json_encode($resposta->dados, \JSON_THROW_ON_ERROR));
+        self::assertNotContains($deOutraPasta->getId(), array_column($resposta->dados['documentos'], 'id'));
+    }
+
+    #[TestDox('listar: nome casa por trecho sem ligar para maiúsculas e acentos; tipo pela extensão ou pelo mime; subpasta_id só os direto nela, 0 os de fora; os filtros se somam')]
+    public function testListarFiltrosDeNomeTipoESubpasta(): void
+    {
+        $pasta = $this->pasta();
+        $secao = $this->secao($pasta, 'Procurações');
+        $procuracao = $this->documento($pasta, 'Procuração Maria.pdf', self::PDF, secao: $secao, categoria: PastaDocumento::CATEGORIA_PROCURACAO);
+        $foto = $this->documento($pasta, 'foto-procuracao.png', self::PNG, secao: $secao, mime: 'image/png');
+        $solto = $this->documento($pasta, 'contrato social.docx', 'PK', mime: 'application/vnd.openxmlformats-officedocument.wordprocessingml.document');
+
+        $ids = fn (array $extras): array => array_column($this->executar('listar', $pasta, $extras)->dados['documentos'], 'id');
+
+        self::assertEqualsCanonicalizing([$procuracao->getId(), $foto->getId()], $ids(['nome' => 'PROCURACAO']));
+        self::assertSame([$procuracao->getId()], $ids(['tipo' => 'pdf']));
+        self::assertSame([$procuracao->getId()], $ids(['tipo' => 'application/pdf']));
+        self::assertSame([$foto->getId()], $ids(['tipo' => 'image/']));
+        self::assertSame([$solto->getId()], $ids(['tipo' => '.docx']));
+        self::assertEqualsCanonicalizing([$procuracao->getId(), $foto->getId()], $ids(['subpasta_id' => $secao->getId()]));
+        self::assertSame([$solto->getId()], $ids(['subpasta_id' => 0]));
+        self::assertSame([$foto->getId()], $ids(['subpasta_id' => $secao->getId(), 'tipo' => 'png', 'nome' => 'foto']));
+        self::assertSame([], $ids(['subpasta_id' => 999_999_999]));
+    }
+
+    #[TestDox('listar: o filtro de nome casa só com o texto que sai (mascarado); um trecho do CPF não acha o arquivo com o CPF no nome')]
+    public function testListarFiltroDeNomeSoNoTextoMascarado(): void
+    {
+        $pasta = $this->pasta();
+        $comCpf = $this->documento($pasta, 'RG e CPF ' . self::CPF . '.pdf', self::PDF);
+
+        $ids = fn (array $extras): array => array_column($this->executar('listar', $pasta, $extras)->dados['documentos'], 'id');
+
+        self::assertSame([], $ids(['nome' => '123.4']));
+        self::assertSame([], $ids(['nome' => '529.982']), 'o CPF cru não casa: na resposta ele sai mascarado');
+        self::assertSame([$comCpf->getId()], $ids(['nome' => '[cpf]']), 'casa com o texto que sai');
+        self::assertSame([$comCpf->getId()], $ids(['nome' => 'rg e']));
+    }
+
+    #[TestDox('listar: no filtro de tipo, jpg e jpeg são o mesmo, e tif e tiff também (na extensão e no mime)')]
+    public function testListarTiposEquivalentes(): void
+    {
+        $pasta = $this->pasta();
+        $jpeg = $this->documento($pasta, 'foto.jpeg', "\xFF\xD8\xFFimagem", mime: 'image/jpeg');
+        $jpg = $this->documento($pasta, 'outra foto.JPG', "\xFF\xD8\xFFimagem", mime: 'image/jpeg');
+        $tiff = $this->documento($pasta, 'digitalizado.tiff', "II*\x00imagem", mime: 'image/tiff');
+        $tif = $this->documento($pasta, 'digitalizado 2.tif', "II*\x00imagem", mime: 'image/tiff');
+        $this->documento($pasta, 'peticao.pdf', self::PDF);
+
+        $ids = fn (array $extras): array => array_column($this->executar('listar', $pasta, $extras)->dados['documentos'], 'id');
+
+        self::assertEqualsCanonicalizing([$jpeg->getId(), $jpg->getId()], $ids(['tipo' => 'jpg']));
+        self::assertEqualsCanonicalizing([$jpeg->getId(), $jpg->getId()], $ids(['tipo' => 'jpeg']));
+        self::assertEqualsCanonicalizing([$jpeg->getId(), $jpg->getId()], $ids(['tipo' => 'image/jpg']));
+        self::assertEqualsCanonicalizing([$tiff->getId(), $tif->getId()], $ids(['tipo' => 'tif']));
+        self::assertEqualsCanonicalizing([$tiff->getId(), $tif->getId()], $ids(['tipo' => '.TIFF']));
+    }
+
+    #[TestDox('listar compacto: só id, nome e categoria, 100 por página (por_pagina até 200), e a página cabe no teto')]
+    public function testListarCompacto(): void
+    {
+        $pasta = $this->pasta();
+        for ($i = 1; $i <= 120; ++$i) {
+            $this->documento($pasta, 'Documento de identificação ' . str_repeat('x', 100) . ' ' . $i . '.pdf', self::PDF, categoria: PastaDocumento::CATEGORIA_IDENTIFICACAO);
+        }
+
+        $primeira = $this->executar('listar', $pasta, ['compacto' => true]);
+        self::assertCount(100, $primeira->dados['documentos']);
+        self::assertSame(['id', 'nome', 'categoria'], array_keys($primeira->dados['documentos'][0]));
+        self::assertSame(100, $primeira->dados['por_pagina']);
+        self::assertSame(120, $primeira->dados['total']);
+        self::assertSame(2, $primeira->proximaPagina);
+
+        $todos = $this->executar('listar', $pasta, ['compacto' => true, 'por_pagina' => 200, 'categoria' => 'IDENTIFICACAO']);
+        self::assertCount(120, $todos->dados['documentos']);
+        self::assertNull($todos->proximaPagina);
+        self::assertLessThan(45_000, mb_strlen(json_encode($todos->dados, \JSON_THROW_ON_ERROR | \JSON_UNESCAPED_UNICODE | \JSON_UNESCAPED_SLASHES)));
+    }
+
+    #[TestDox('listar com categoria CONTRATO e o Financeiro oculto: nada sai, o filtro corre sobre o que a pessoa vê')]
+    public function testListarFiltroNaoPassaDaVisibilidade(): void
+    {
+        $pasta = $this->pasta();
+        $this->documento($pasta, 'contrato-de-honorarios.pdf', self::PDF, categoria: PastaDocumento::CATEGORIA_CONTRATO);
+        $this->ocultar($pasta, AbaDaPasta::Financeiro);
+
+        $resposta = $this->executar('listar', $pasta, ['categoria' => 'CONTRATO', 'compacto' => true]);
+
+        self::assertSame([], $resposta->dados['documentos']);
+        self::assertSame(0, $resposta->dados['total']);
+        self::assertSame(0, $resposta->dados['total_na_pasta']);
+        self::assertStringNotContainsString('honorarios', json_encode($resposta->dados, \JSON_THROW_ON_ERROR));
+    }
+
+    #[TestDox('listar com filtro numa pasta em segredo de justiça: recusa com a frase do segredo, como sem filtro')]
+    public function testListarComFiltroEmSegredo(): void
+    {
+        $pasta = $this->pastaEmSegredo();
+        $this->documento($pasta, 'rg.pdf', self::PDF, categoria: PastaDocumento::CATEGORIA_IDENTIFICACAO);
+
+        $this->assertMotivo('listar', $pasta, ['categoria' => 'IDENTIFICACAO', 'compacto' => true], ErroDaFerramenta::MOTIVO_EM_SEGREDO);
+    }
+
     #[TestDox('listar: nome com CPF sai mascarado (nome pelo rótulo) e a resposta da primeira página cabe nos 50 mil')]
     public function testListarMascaraENaoPassaDoTeto(): void
     {
@@ -707,7 +828,7 @@ final class LerDocumentosEModelosFerramentaTest extends KernelTestCase
      */
     private function executar(string $acao, Pasta|int $pasta, array $extras = []): RespostaDaFerramenta
     {
-        $campos = ['listar' => ['pagina'], 'ler' => ['documento_id'], 'lixeira' => ['pagina'], 'modelos' => ['pagina', 'busca'], 'modelo' => ['modelo_id'], 'modelos_de_checklist' => ['pagina'], 'duplicados' => ['pagina']][$acao];
+        $campos = ['listar' => ['pagina', 'categoria', 'nome', 'tipo', 'subpasta_id', 'compacto', 'por_pagina'], 'ler' => ['documento_id'], 'lixeira' => ['pagina'], 'modelos' => ['pagina', 'busca'], 'modelo' => ['modelo_id'], 'modelos_de_checklist' => ['pagina'], 'duplicados' => ['pagina']][$acao];
         $argumentos = ['acao' => $acao, 'pasta_id' => $pasta instanceof Pasta ? $pasta->getId() : $pasta] + array_intersect_key($extras, array_flip($campos));
         static::getContainer()->get('services_resetter')->reset();
         $contexto = $this->portao()->abrir((int) $this->pessoa->getId(), (int) $this->escritorio->getId());
