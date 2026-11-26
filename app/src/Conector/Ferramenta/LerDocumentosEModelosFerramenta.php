@@ -283,14 +283,7 @@ final class LerDocumentosEModelosFerramenta implements FerramentaDoConector
             }
         }
         if (\array_key_exists('subpasta_id', $argumentos)) {
-            $subpasta = $argumentos['subpasta_id'];
-            if (\is_string($subpasta) && ctype_digit($subpasta) && \strlen($subpasta) <= 9) {
-                $subpasta = (int) $subpasta;
-            }
-            if (!\is_int($subpasta) || $subpasta < 0) {
-                throw ErroDaFerramenta::filtroInvalido('subpasta_id');
-            }
-            $filtros['subpasta_id'] = $subpasta;
+            $filtros['subpasta_id'] = self::subpastaIdValido($argumentos['subpasta_id']);
         }
         if (\array_key_exists('compacto', $argumentos)) {
             if (!\is_bool($argumentos['compacto'])) {
@@ -304,6 +297,23 @@ final class LerDocumentosEModelosFerramenta implements FerramentaDoConector
         }
 
         return $filtros;
+    }
+
+    /**
+     * O `subpasta_id` como inteiro não negativo (aceita string só de dígitos).
+     *
+     * @throws ErroDaFerramenta
+     */
+    private static function subpastaIdValido(mixed $subpasta): int
+    {
+        if (\is_string($subpasta) && ctype_digit($subpasta) && \strlen($subpasta) <= 9) {
+            $subpasta = (int) $subpasta;
+        }
+        if (!\is_int($subpasta) || $subpasta < 0) {
+            throw ErroDaFerramenta::filtroInvalido('subpasta_id');
+        }
+
+        return $subpasta;
     }
 
     /**

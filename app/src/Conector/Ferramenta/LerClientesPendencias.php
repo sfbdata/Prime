@@ -117,14 +117,7 @@ final class LerClientesPendencias
     private function clientesComPendencia(array $faltando, int $pagina, int $porPagina, ChamadaDoConector $chamada): RespostaDaFerramenta
     {
         $escritorio = $chamada->contexto->escritorio;
-        $achados = [];
-        foreach ($this->clientesQueAPessoaVe($chamada) as $cliente) {
-            $faltam = $this->quaisFaltam($cliente, $faltando);
-            if ($faltam !== []) {
-                $achados[] = [$cliente, $faltam];
-            }
-        }
-        usort($achados, static fn (array $a, array $b): int => [mb_strtoupper($a[0]->getNomeExibicao()), (int) $a[0]->getId()] <=> [mb_strtoupper($b[0]->getNomeExibicao()), (int) $b[0]->getId()]);
+        $achados = $this->achadosOrdenados($faltando, $chamada);
         $total = \count($achados);
         $daPagina = \array_slice($achados, ($pagina - 1) * $porPagina, $porPagina);
         $pastas = $this->pastasQueAPessoaAbre(array_map(static fn (array $a): int => (int) $a[0]->getId(), $daPagina), $chamada);
@@ -135,22 +128,7 @@ final class LerClientesPendencias
         foreach ($daPagina as [$cliente, $faltam]) {
             $doCliente = $pastas[(int) $cliente->getId()] ?? ['pastas' => [], 'em_segredo' => 0];
             $mostradas = \array_slice($doCliente['pastas'], 0, self::PASTAS_POR_CLIENTE);
-            $linha = [
-                'id' => (int) $cliente->getId(),
-                'nome' => $this->nome($escritorio, $cliente->getNomeExibicao(), 'sem nome'),
-                'tipo' => $cliente instanceof ClientePJ ? 'PJ' : 'PF',
-                'campos_que_faltam' => $faltam,
-                'pastas' => array_map(fn (Pasta $p): array => [
-                    'id' => (int) $p->getId(),
-                    'numero' => $this->protecao->rotulo($escritorio, (string) $p->getNup(), 'sem número'),
-                ], $mostradas),
-            ];
-            if (\count($doCliente['pastas']) > \count($mostradas)) {
-                $linha['pastas_a_mais'] = \count($doCliente['pastas']) - \count($mostradas);
-            }
-            if ($doCliente['em_segredo'] > 0) {
-                $linha['pastas_em_segredo'] = $doCliente['em_segredo'];
-            }
+            $linha = $this->linhaDoCliente($escritorio, $cliente, $faltam, $doCliente, $mostradas);
             $emSegredo += $doCliente['em_segredo'];
             array_push($pastaIds, ...array_map(static fn (Pasta $p): int => (int) $p->getId(), $mostradas));
             $linhas[] = $linha;
@@ -170,6 +148,50 @@ final class LerClientesPendencias
             contagens: ['clientes' => \count($linhas), 'total' => $total, 'em_segredo' => $emSegredo],
             ids: ['cliente' => array_column($linhas, 'id'), 'pasta' => array_values(array_unique($pastaIds))],
         );
+    }
+
+    /**
+     * Clientes com algum campo faltando, em ordem alfabética (desempate pelo id).
+     *
+     * @return list<array{0: Cliente, 1: list<string>}>
+     */
+    private function achadosOrdenados(array $faltando, ChamadaDoConector $chamada): array
+    {
+        $achados = [];
+        foreach ($this->clientesQueAPessoaVe($chamada) as $cliente) {
+            $faltam = $this->quaisFaltam($cliente, $faltando);
+            if ($faltam !== []) {
+                $achados[] = [$cliente, $faltam];
+            }
+        }
+        usort($achados, static fn (array $a, array $b): int => [mb_strtoupper($a[0]->getNomeExibicao()), (int) $a[0]->getId()] <=> [mb_strtoupper($b[0]->getNomeExibicao()), (int) $b[0]->getId()]);
+
+        return $achados;
+    }
+
+    /**
+     * A linha de um cliente na resposta, com as pastas mostradas e os contadores de excedentes.
+     */
+    private function linhaDoCliente(Tenant $escritorio, Cliente $cliente, array $faltam, array $doCliente, array $mostradas): array
+    {
+        $linha = [
+            'id' => (int) $cliente->getId(),
+            'nome' => $this->nome($escritorio, $cliente->getNomeExibicao(), 'sem nome'),
+            'tipo' => $cliente instanceof ClientePJ ? 'PJ' : 'PF',
+            'campos_que_faltam' => $faltam,
+            'pastas' => array_map(fn (Pasta $p): array => [
+                'id' => (int) $p->getId(),
+                'numero' => $this->protecao->rotulo($escritorio, (string) $p->getNup(), 'sem número'),
+            ], $mostradas),
+        ];
+        if (\count($doCliente['pastas']) > \count($mostradas)) {
+            $linha['pastas_a_mais'] = \count($doCliente['pastas']) - \count($mostradas);
+        }
+        if ($doCliente['em_segredo'] > 0) {
+            $linha['pastas_em_segredo'] = $doCliente['em_segredo'];
+        }
+
+        return $linha;
     }
 
     private function pastasSemCliente(int $pagina, int $porPagina, ChamadaDoConector $chamada): RespostaDaFerramenta
