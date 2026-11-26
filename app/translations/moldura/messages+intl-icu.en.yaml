@@ -166,6 +166,7 @@ moldura:
             armazenamento_reconciliar_espelho: R2 copy check
             armazenamento_limpar_replicacao: R2 upload queue cleanup
             blog_conferir_publicacoes: Blog article publishing
+            blog_publicar_agendados: Publishing of scheduled blog articles
             voto_executar_programacao: Scheduled opening and closing of Voting
             conector_faxinar: Cleanup of expired AI connector connections
             backup_vencer: Expired backups cleanup

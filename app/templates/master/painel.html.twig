@@ -61,6 +61,8 @@
     blogEditar: path('master_blog_artigos_editar', {id: 0}),
     blogDuplicar: path('master_blog_artigos_duplicar', {id: 0}),
     blogExcluir: path('master_blog_artigos_excluir', {id: 0}),
+    blogAgendar: path('master_blog_artigos_agendar', {id: 0}),
+    blogCancelarAgendamento: path('master_blog_artigos_cancelar_agendamento', {id: 0}),
     blogPublicacoes: path('master_blog_publicacoes'),
     blogToken: csrf_token('master_blog'),
     blogSite: 'https://bluejus.com.br',
@@ -260,6 +262,7 @@
     <script src="{{ asset('js/master/convenios.js') }}"></script>
     <script src="{{ asset('js/master/metas-divulgacao.js') }}"></script>
     <script src="{{ asset('js/master/revisao-oab.js') }}"></script>
+    <script src="{{ asset('js/master/blog-agendar.js') }}"></script>
     <script src="{{ asset('js/master/blog-artigos.js') }}"></script>
     <script src="{{ asset('js/master/painel.js') }}"></script>
     <script src="{{ asset('js/master/masters.js') }}"></script>

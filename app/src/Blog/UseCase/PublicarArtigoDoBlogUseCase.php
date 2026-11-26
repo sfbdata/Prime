@@ -19,7 +19,8 @@ use Symfony\Component\Messenger\MessageBusInterface;
 use Symfony\Component\Messenger\Stamp\DelayStamp;
 
 /**
- * "Publicar agora" (spec painel-artigos-blogs, seções 1, 2.2 e 6.1).
+ * "Publicar agora" e, com {@see MotivoDaPublicacao::Agendado} e sem ator, a publicação do agendador
+ * ({@see PublicarAgendadosDosBlogsUseCase}), pelo mesmo caminho (spec painel-artigos-blogs, seções 1, 2.2 e 6.1).
  *
  * Quem dispara: o Master, no editor (o controller exige ROLE_SUPER_ADMIN e o CSRF).
  * Objetivo: pôr o artigo no ar. Rascunho, agendado, despublicado ou publicado com alterações viram publicado.
@@ -50,7 +51,7 @@ final class PublicarArtigoDoBlogUseCase
     }
 
     /** @throws ArtigoDoBlogNaoPublicavel|\DomainException */
-    public function executar(int $id, ?User $ator): ArtigoPublicadoOutput
+    public function executar(int $id, ?User $ator, MotivoDaPublicacao $motivo = MotivoDaPublicacao::Publicar): ArtigoPublicadoOutput
     {
         $artigo = $this->artigos->porId($id) ?? throw ArtigoDoBlogNaoEncontrado::comId($id);
         $erros = $this->validador->validar($artigo, $this->artigos->slugsExistentes());
@@ -66,7 +67,7 @@ final class PublicarArtigoDoBlogUseCase
         $primeiraVez = $artigo->getPublicadoEm() === null;
         $artigo->publicar($agora);
         $this->versaoPublicada->congelar($artigo);
-        $publicacao = $this->pedir->pedir(MotivoDaPublicacao::Publicar, $ator, $agora);
+        $publicacao = $this->pedir->pedir($motivo, $ator, $agora);
         if ($primeiraVez) {
             $this->bus->dispatch(new EnviarArtigoPorEmail($id), [new DelayStamp(self::ATRASO_DO_EMAIL_MS)]);
         }

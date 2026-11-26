@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Blog\DTO;
 
 use App\Blog\Entity\ArtigoDoBlog;
+use App\Blog\Enum\SituacaoDoArtigo;
 use App\Blog\Service\CatalogoDoBlog;
 
 /** Uma linha da tabela "Artigos dos blogs" do Painel do Master. */
@@ -28,7 +29,12 @@ final readonly class ArtigoDaListaOutput
 
     public static function fromEntity(ArtigoDoBlog $artigo): self
     {
-        $data = $artigo->getPublicadoEm() ?? $artigo->getPublicarEm();
+        // A data só existe onde tem sentido: agendado (a marcada) e publicado/despublicado (a da ida ao ar); rascunho não tem.
+        $data = match ($artigo->getSituacao()) {
+            SituacaoDoArtigo::Agendado => $artigo->getPublicarEm(),
+            SituacaoDoArtigo::Publicado, SituacaoDoArtigo::Despublicado => $artigo->getPublicadoEm() ?? $artigo->getPublicarEm(),
+            SituacaoDoArtigo::Rascunho => null,
+        };
         $prefixo = $artigo->getBlogs()->value === 'gratis' ? '/gratis' : '/blog';
 
         return new self(

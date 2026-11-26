@@ -21,9 +21,9 @@ use Doctrine\Persistence\ManagerRegistry;
  */
 class ArtigoDoBlogRepository extends ServiceEntityRepository
 {
-    public function __construct(ManagerRegistry $registry)
+    public function __construct(private readonly ManagerRegistry $registro)
     {
-        parent::__construct($registry, ArtigoDoBlog::class);
+        parent::__construct($this->registro, ArtigoDoBlog::class);
     }
 
     public function salvar(ArtigoDoBlog $artigo, bool $flush = false): void
@@ -101,6 +101,43 @@ class ArtigoDoBlogRepository extends ServiceEntityRepository
             ->orderBy('a.slug', 'ASC')
             ->getQuery()
             ->getResult();
+    }
+
+    /**
+     * Ids dos artigos agendados cuja hora já chegou (publicarEm <= agora), do mais antigo ao mais novo.
+     *
+     * @return list<int>
+     */
+    public function idsAgendadosVencidos(\DateTimeImmutable $agora): array
+    {
+        $ids = $this->createQueryBuilder('a')
+            ->select('a.id')
+            ->andWhere('a.situacao = :agendado')
+            ->andWhere('a.publicarEm <= :agora')
+            ->setParameter('agendado', SituacaoDoArtigo::Agendado)
+            ->setParameter('agora', $agora)
+            ->orderBy('a.publicarEm', 'ASC')
+            ->addOrderBy('a.id', 'ASC')
+            ->getQuery()
+            ->getSingleColumnResult();
+
+        return array_values(array_map('intval', $ids));
+    }
+
+    /**
+     * Só para o agendador ({@see \App\Blog\UseCase\PublicarAgendadosDosBlogsUseCase}), que relê cada artigo por id:
+     * depois de uma publicação que falhou no meio, o estado do EntityManager não é confiável. Fechado (o flush
+     * falhou), ganha um novo ({@see ManagerRegistry::resetManager()}); aberto, esquece o que guardava, para a
+     * mudança pela metade do artigo que falhou não ir no flush do próximo.
+     */
+    public function recuperarDoErro(): void
+    {
+        if (!$this->getEntityManager()->isOpen()) {
+            $this->registro->resetManager();
+
+            return;
+        }
+        $this->getEntityManager()->clear();
     }
 
     /**

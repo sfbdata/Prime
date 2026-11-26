@@ -76,6 +76,24 @@ final class ArtigoDoBlogTest extends TestCase
         $artigo->cancelarAgendamento();
 
         self::assertSame(SituacaoDoArtigo::Rascunho, $artigo->getSituacao());
+        self::assertNull($artigo->getPublicarEm(), 'a data marcada cai com o agendamento');
+
+        $artigo->publicar(new \DateTimeImmutable('2026-11-12 08:00'));
+        self::assertEquals(new \DateTimeImmutable('2026-11-12 08:00'), $artigo->getPublicadoEm(), 'rascunho vai ao ar com a data de agora');
+    }
+
+    #[TestDox('Editar um artigo agendado mantém o agendamento (situação e data)')]
+    public function testEditarAgendadoMantemOAgendamento(): void
+    {
+        $artigo = $this->rascunho();
+        $artigo->agendar(new \DateTimeImmutable('2026-11-10 09:00'), new \DateTimeImmutable('2026-11-03'));
+
+        $artigo->editarTextos('Outro título', 'Curto', 'SEO', 'Descrição.', 'Linha.', 'Resumo.');
+        $artigo->registrarAlteracao(null, new \DateTimeImmutable('2026-11-04 10:00'));
+
+        self::assertSame(SituacaoDoArtigo::Agendado, $artigo->getSituacao());
+        self::assertEquals(new \DateTimeImmutable('2026-11-10 09:00'), $artigo->getPublicarEm());
+        self::assertFalse($artigo->temAlteracoesPendentes());
     }
 
     #[TestDox('Editar um publicado guarda o texto e marca alterações não publicadas; publicar de novo muda atualizadoEm (D7)')]

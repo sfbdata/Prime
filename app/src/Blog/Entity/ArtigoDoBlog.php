@@ -258,10 +258,11 @@ class ArtigoDoBlog implements Auditavel
     {
         $this->exigirSituacao([SituacaoDoArtigo::Agendado], 'Só um artigo agendado pode ter o agendamento cancelado.');
         $this->situacao = SituacaoDoArtigo::Rascunho;
+        $this->publicarEm = null;
     }
 
     /**
-     * Rascunho ou agendado: vai ao ar com a data marcada, se ela já passou, ou com a data de agora.
+     * Agendado: vai ao ar com a data marcada, se ela já passou; rascunho: com a data de agora.
      * Publicado com alterações ou despublicado: volta ao ar mantendo a data original; texto novo muda `atualizadoEm`.
      */
     public function publicar(\DateTimeImmutable $agora): void
@@ -273,7 +274,9 @@ class ArtigoDoBlog implements Auditavel
         }
 
         $this->exigirSituacao([SituacaoDoArtigo::Rascunho, SituacaoDoArtigo::Agendado], 'Este artigo não pode ser publicado.');
-        $this->publicadoEm = ($this->publicarEm !== null && $this->publicarEm <= $agora) ? $this->publicarEm : $agora;
+        // A data marcada só vale para o artigo agendado; o rascunho vai ao ar com a data de agora.
+        $honraAData = SituacaoDoArtigo::Agendado === $this->situacao && $this->publicarEm !== null && $this->publicarEm <= $agora;
+        $this->publicadoEm = $honraAData ? $this->publicarEm : $agora;
         $this->publicarEm = $this->publicadoEm;
         $this->situacao = SituacaoDoArtigo::Publicado;
         $this->alteracoesPendentes = false;
