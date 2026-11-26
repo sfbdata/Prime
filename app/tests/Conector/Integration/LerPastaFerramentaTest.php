@@ -189,7 +189,7 @@ final class LerPastaFerramentaTest extends KernelTestCase
         self::assertStringContainsString(self::CNJ, $processos['texto']);
     }
 
-    #[TestDox('resumo: com as abas Dados e Processo ocultas, os processos somem e o número do processo não sai')]
+    #[TestDox('resumo: com as abas Dados e Processo ocultas, os processos somem, o número do processo não sai e a resposta diz sem acesso, não "nenhum"')]
     public function testResumoComDadosEProcessoOcultosTiraOsProcessos(): void
     {
         $pasta = $this->pastaComProcesso();
@@ -198,7 +198,10 @@ final class LerPastaFerramentaTest extends KernelTestCase
 
         $resposta = $this->ler(['pasta_id' => $pasta->getId()]);
 
-        self::assertSame(0, $resposta->dados['resumo']['processos']['total']);
+        self::assertNull($resposta->dados['resumo']['processos']['total'], 'sem acesso não é zero');
+        self::assertTrue($resposta->dados['resumo']['processos']['sem_acesso']);
+        self::assertStringContainsString('sem acesso', $resposta->dados['resumo']['processos']['texto']);
+        self::assertStringNotContainsString('nenhum processo vinculado', $resposta->dados['resumo']['processos']['texto']);
         self::assertStringNotContainsString(self::CNJ, json_encode($resposta->dados, \JSON_THROW_ON_ERROR | \JSON_UNESCAPED_UNICODE));
     }
 

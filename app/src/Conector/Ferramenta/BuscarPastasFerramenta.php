@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Conector\Ferramenta;
 
 use App\ChatIa\Service\ProtecaoDoTextoDoChat;
+use App\Cliente\Entity\Cliente;
 use App\Cobranca\Service\ResolvedorIdentificadorDaPasta;
 use App\Conector\DTO\ChamadaDoConector;
 use App\Conector\DTO\RespostaDaFerramenta;
@@ -25,6 +26,7 @@ use App\Pasta\DTO\GrupoDaLixeiraDoEscritorio;
 use App\Pasta\DTO\OcorrenciaDaBuscaRapida;
 use App\Pasta\Entity\Pasta;
 use App\Pasta\Entity\PrioridadePasta;
+use App\Pasta\Repository\PastaRepository;
 use App\Pasta\UseCase\ListarLixeiraDoEscritorioUseCase;
 use App\Pasta\UseCase\ListarMinhasDemandasUseCase;
 use App\Service\PermissionChecker;
@@ -53,7 +55,9 @@ use App\Service\PermissionChecker;
  *    trancada que também está em segredo sai e conta em `omitidas_sem_acesso`, para não revelar o segredo;
  *  - filtro que o repositório ignoraria vira "filtro inválido" com o nome do campo, nunca o valor (6.2, regra 10);
  *  - campo que a ação não usa é recusado (6.2, regra 10); a página seguinte vai em `proxima_pagina`;
- *  - todo texto do banco sai pelo {@see ProtecaoDoTextoDoChat::rotulo()} (neutralizado e, no conector, mascarado).
+ *  - todo texto do banco sai pelo {@see ProtecaoDoTextoDoChat::rotulo()} (neutralizado e, no conector, mascarado);
+ *  - os clientes de cada pasta são os vínculos, como no resumo da `ler_pasta` ({@see clientesDaLinha()}): lista vazia
+ *    só quando a pasta não tem cliente; o que não foi carregado vem `nao_carregado`.
  */
 final class BuscarPastasFerramenta implements FerramentaDoConector
 {
@@ -84,6 +88,12 @@ final class BuscarPastasFerramenta implements FerramentaDoConector
 
     private const TAMANHO_MAXIMO_DO_NUMERO = 100;
 
+    /** Os clientes mostrados por pasta; o resto conta em `clientes_omitidos`. */
+    public const LIMITE_DE_CLIENTES = 10;
+
+    /** O campo que não foi carregado (M9 de 26/11/2026): nunca lista vazia, que quer dizer "não existe". */
+    public const NAO_CARREGADO = 'nao_carregado';
+
     public function __construct(
         private readonly GuardaDaAcaoDoConector $guarda,
         private readonly SegredoNasListas $segredo,
@@ -97,6 +107,7 @@ final class BuscarPastasFerramenta implements FerramentaDoConector
         private readonly BuscarRapidoUseCase $buscaRapida,
         private readonly ListarLixeiraDoEscritorioUseCase $lixeira,
         private readonly RelatoriosDoExpedienteNoConector $relatorios,
+        private readonly PastaRepository $pastasComClientes,
     ) {
     }
 
@@ -118,6 +129,8 @@ final class BuscarPastasFerramenta implements FerramentaDoConector
             . 'numero (procura pelo número da pasta, do processo ou pelo cliente) e minhas_demandas (as pastas em que a pessoa é a responsável). '
             . 'pastas_paradas (o relatório das pastas sem movimentação há mais de 30 dias, da mais parada para a menos, com a pré-análise e a sugestão, 20 por página) '
             . 'e pastas_sem_processo (o relatório das pastas que deveriam ter processo ou estão sem classificação, 20 por página; categoria filtra). '
+            . 'Em buscar e minhas_demandas, cada pasta traz clientes (os nomes de todos os clientes vinculados, o principal primeiro, até ' . self::LIMITE_DE_CLIENTES . '), '
+            . 'clientes_ids (os ids na mesma ordem) e cliente_principal (id e nome, ou null); clientes vazio quer dizer que a pasta não tem cliente vinculado, e nao_carregado que os vínculos não foram lidos. '
             . 'Pasta trancada aparece só com número, cliente e trancada: true. Pasta em segredo de justiça não aparece: a resposta diz quantas foram omitidas. '
             . 'Para continuar a lista, mande em pagina o valor de proxima_pagina.';
     }
@@ -238,7 +251,8 @@ final class BuscarPastasFerramenta implements FerramentaDoConector
         $foraDoSegredo = $this->semSegredo($visiveis, static fn (PastaDoAgenteOutput $l): int => $l->id, static fn (PastaDoAgenteOutput $l): bool => $l->oculta, $escritorio);
         $semAcesso = \count($linhas) - \count($visiveis) + $foraDoSegredo['trancados_em_segredo'];
 
-        $pastas = array_map(fn (PastaDoAgenteOutput $l): array => $this->linhaDaPasta($l, $escritorio), $foraDoSegredo['itens']);
+        $comClientes = $this->pastasComClientes->comClientesCarregados(array_map(static fn (PastaDoAgenteOutput $l): int => $l->id, $foraDoSegredo['itens']), $escritorio);
+        $pastas = array_map(fn (PastaDoAgenteOutput $l): array => $this->linhaDaPasta($l, $escritorio, $comClientes), $foraDoSegredo['itens']);
         $trancadas = \count(array_filter($foraDoSegredo['itens'], static fn (PastaDoAgenteOutput $l): bool => $l->oculta));
 
         return new RespostaDaFerramenta(
@@ -278,15 +292,18 @@ final class BuscarPastasFerramenta implements FerramentaDoConector
         return ['itens' => $fora['itens'], 'em_segredo' => $fora['em_segredo'] - $trancados, 'trancados_em_segredo' => $trancados];
     }
 
-    /** @return array<string, mixed> */
-    private function linhaDaPasta(PastaDoAgenteOutput $l, Tenant $escritorio): array
+    /**
+     * @param array<int, Pasta> $comClientes as pastas da página com os clientes vinculados carregados
+     *
+     * @return array<string, mixed>
+     */
+    private function linhaDaPasta(PastaDoAgenteOutput $l, Tenant $escritorio, array $comClientes): array
     {
         $linha = [
             'id' => $l->id,
             'numero' => $this->protecao->rotulo($escritorio, (string) $l->nup, 'sem número'),
             'identificador' => $l->identificador !== null ? $this->protecao->rotulo($escritorio, $l->identificador, '') : null,
-            'clientes' => array_map(fn (string $c): string => $this->protecao->rotulo($escritorio, $c, 'sem nome'), $l->clientes),
-        ];
+        ] + $this->clientesDaLinha($comClientes[$l->id] ?? null, $escritorio);
         if ($l->oculta) {
             return $linha + ['trancada' => true];
         }
@@ -301,6 +318,42 @@ final class BuscarPastasFerramenta implements FerramentaDoConector
             'na_lixeira' => $l->excluida,
             'trancada' => false,
         ];
+    }
+
+    /**
+     * Os clientes vinculados à pasta, como o resumo da `ler_pasta` (todos os vínculos do escritório, o principal
+     * marcado), e não a coluna da Lista: a Lista mostra só o identificador quando ele existe, e desde 27/10/2026 o
+     * identificador é o cliente principal, então a lista de nomes vinha sempre vazia em pasta COM cliente (M9 de
+     * 26/11/2026, item 4). Lista vazia aqui quer dizer "nenhum cliente vinculado"; se os vínculos não foram carregados,
+     * o campo diz `nao_carregado`, nunca lista vazia. Só o nome e o id: nada de documento nem contato (6.2, regra 4).
+     *
+     * @return array<string, mixed>
+     */
+    private function clientesDaLinha(?Pasta $pasta, Tenant $escritorio): array
+    {
+        if ($pasta === null) {
+            return ['clientes' => self::NAO_CARREGADO];
+        }
+        $principal = $pasta->getClientePrincipal();
+        $vinculados = array_values(array_filter(
+            $pasta->getClientes()->toArray(),
+            static fn (Cliente $c): bool => $c->getTenant()?->getId() === $escritorio->getId(),
+        ));
+        // O principal primeiro; os demais na ordem do id.
+        usort($vinculados, static fn (Cliente $a, Cliente $b): int => [$a !== $principal, (int) $a->getId()] <=> [$b !== $principal, (int) $b->getId()]);
+        $mostrados = \array_slice($vinculados, 0, self::LIMITE_DE_CLIENTES);
+        $nome = fn (Cliente $c): string => $this->protecao->rotulo($escritorio, $c->getNomeExibicao(), 'sem nome');
+        $temPrincipal = $principal !== null && \in_array($principal, $mostrados, true);
+        $linha = [
+            'clientes' => array_map($nome, $mostrados),
+            'clientes_ids' => array_map(static fn (Cliente $c): int => (int) $c->getId(), $mostrados),
+            'cliente_principal' => $temPrincipal ? ['id' => (int) $principal->getId(), 'nome' => $nome($principal)] : null,
+        ];
+        if (\count($vinculados) > \count($mostrados)) {
+            $linha['clientes_omitidos'] = \count($vinculados) - \count($mostrados);
+        }
+
+        return $linha;
     }
 
     private function opcoes(Tenant $escritorio): RespostaDaFerramenta

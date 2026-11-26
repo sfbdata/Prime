@@ -409,7 +409,10 @@ final class LerPastaFerramenta implements FerramentaDoConector
             'carteira' => CarteiraDaPasta::rotuloDe($pasta->getCarteira()),
             'marcadores' => $marcadores,
             'clientes' => self::secao($contexto, SecaoDoContexto::Clientes),
-            'processos' => ['texto' => self::bloco('processos_vinculados', $processos, 'nenhum processo vinculado'), 'total' => \count($processos)],
+            // Sem acesso não é "nenhum" (M9 de 26/11/2026): com as duas abas ocultas, o total não é dito e o texto diz por quê.
+            'processos' => $semProcessos
+                ? ['texto' => self::bloco('processos_vinculados', [], 'sem acesso: as abas Dados e Processo estão ocultas para você'), 'total' => null, 'sem_acesso' => true]
+                : ['texto' => self::bloco('processos_vinculados', $processos, 'nenhum processo vinculado'), 'total' => \count($processos)],
         ];
     }
 

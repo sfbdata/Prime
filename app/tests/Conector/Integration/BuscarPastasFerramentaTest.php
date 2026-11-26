@@ -9,6 +9,7 @@ use App\Conector\DTO\RespostaDaFerramenta;
 use App\Conector\Exception\ErroDaFerramenta;
 use App\Conector\Ferramenta\BuscarPastasFerramenta;
 use App\Conector\Ferramenta\DespachoDasFerramentas;
+use App\Conector\Ferramenta\LerPastaFerramenta;
 use App\Entity\Auth\User;
 use App\Entity\Auth\UserTenant;
 use App\Entity\Tenant\Tenant;
@@ -79,7 +80,7 @@ final class BuscarPastasFerramentaTest extends KernelTestCase
         self::assertSame(1, $resposta->dados['omitidas_em_segredo']);
         self::assertSame(0, $resposta->dados['omitidas_sem_acesso']);
         self::assertNull($resposta->proximaPagina);
-        self::assertSame(['id', 'numero', 'identificador', 'clientes', 'trancada'], array_keys($porId[$trancada->getId()]));
+        self::assertSame(['id', 'numero', 'identificador', 'clientes', 'clientes_ids', 'cliente_principal', 'trancada'], array_keys($porId[$trancada->getId()]));
         self::assertTrue($porId[$trancada->getId()]['trancada']);
 
         $linha = $porId[$comum->getId()];
@@ -90,6 +91,64 @@ final class BuscarPastasFerramentaTest extends KernelTestCase
         self::assertStringNotContainsString(self::CPF, json_encode($resposta->dados, \JSON_THROW_ON_ERROR | \JSON_UNESCAPED_UNICODE), 'no conector o CPF sai mascarado');
         self::assertStringNotContainsString((string) $deOutro->getNup(), json_encode($resposta->dados, \JSON_THROW_ON_ERROR));
         self::assertSame(['pasta' => array_column($resposta->dados['pastas'], 'id')], $resposta->ids);
+    }
+
+    #[TestDox('buscar: a pasta com cliente vinculado traz os clientes (o principal primeiro), os ids e o principal, os mesmos do resumo da ler_pasta; lista vazia só na pasta sem cliente (M9, item 4)')]
+    public function testClientesVinculadosNaLista(): void
+    {
+        $escritorio = $this->escritorio();
+        $vinculo = $this->vinculo($this->pessoa(), $escritorio, permissoes: self::LEITOR);
+        $principal = ClientePFFactory::createOne(['tenant' => $escritorio, 'nomeCompleto' => 'Zélia Principal', 'cpf' => self::CPF])->_real();
+        $outro = ClientePFFactory::createOne(['tenant' => $escritorio, 'nomeCompleto' => 'Ana Também Vinculada', 'cpf' => ''])->_real();
+        $comClientes = $this->pasta($escritorio, comProcesso: false);
+        $comClientes->addCliente($principal);
+        $comClientes->addCliente($outro);
+        $comClientes->setNomeCliente('Nome Antigo Escrito');
+        $semCliente = $this->pasta($escritorio, comProcesso: false);
+        $this->em()->flush();
+        static::getContainer()->get('services_resetter')->reset();
+        $this->em()->clear();
+
+        $resposta = $this->executar(['acao' => 'buscar'], $vinculo);
+
+        $porId = array_column($resposta->dados['pastas'], null, 'id');
+        $linha = $porId[$comClientes->getId()];
+        self::assertSame(['ZÉLIA PRINCIPAL', 'ANA TAMBÉM VINCULADA'], $linha['clientes'], 'o principal primeiro, mesmo com identificador');
+        self::assertSame([(int) $principal->getId(), (int) $outro->getId()], $linha['clientes_ids']);
+        self::assertSame(['id' => (int) $principal->getId(), 'nome' => 'ZÉLIA PRINCIPAL'], $linha['cliente_principal']);
+        self::assertNotNull($linha['identificador']);
+        self::assertSame([], $porId[$semCliente->getId()]['clientes'], 'vazio só quando não há cliente vinculado');
+        self::assertNull($porId[$semCliente->getId()]['cliente_principal']);
+        self::assertStringNotContainsString(self::CPF, json_encode($resposta->dados, \JSON_THROW_ON_ERROR | \JSON_UNESCAPED_UNICODE));
+        self::assertStringNotContainsString('52998224725', json_encode($resposta->dados, \JSON_THROW_ON_ERROR));
+
+        static::getContainer()->get('services_resetter')->reset();
+        $resumo = static::getContainer()->get(LerPastaFerramenta::class)->executar(['pasta_id' => $comClientes->getId()], $this->abrir($vinculo))->dados['resumo'];
+        self::assertStringContainsString('ZÉLIA PRINCIPAL · pessoa física · cliente principal', $resumo['clientes']['texto'], 'o resumo mostra o mesmo cliente principal');
+        self::assertStringContainsString('ANA TAMBÉM VINCULADA', $resumo['clientes']['texto']);
+    }
+
+    #[TestDox('buscar: a pasta trancada com cliente vinculado mostra o cliente (número e cliente, como a Lista) e nada do resto; a em segredo não revela o cliente')]
+    public function testClientesNaTrancadaENaEmSegredo(): void
+    {
+        $escritorio = $this->escritorio();
+        $vinculo = $this->vinculo($this->pessoa(), $escritorio, permissoes: self::LEITOR);
+        $cliente = ClientePFFactory::createOne(['tenant' => $escritorio, 'nomeCompleto' => 'Cliente Da Trancada', 'cpf' => ''])->_real();
+        $segredo = ClientePFFactory::createOne(['tenant' => $escritorio, 'nomeCompleto' => 'Cliente Do Segredo', 'cpf' => ''])->_real();
+        $trancada = $this->pasta($escritorio, comProcesso: false);
+        $trancada->addCliente($cliente);
+        $this->em()->persist(new CadeadoDaPasta($escritorio, $trancada, ModoDoCadeado::Todos, null, new \DateTimeImmutable()));
+        $secreta = $this->pasta($escritorio, nivelSigilo: 1);
+        $secreta->addCliente($segredo);
+        $this->em()->flush();
+
+        $resposta = $this->executar(['acao' => 'buscar'], $vinculo);
+
+        $linha = array_column($resposta->dados['pastas'], null, 'id')[$trancada->getId()];
+        self::assertTrue($linha['trancada']);
+        self::assertSame(['CLIENTE DA TRANCADA'], $linha['clientes']);
+        self::assertSame(1, $resposta->dados['omitidas_em_segredo']);
+        self::assertStringNotContainsString('CLIENTE DO SEGREDO', json_encode($resposta->dados, \JSON_THROW_ON_ERROR | \JSON_UNESCAPED_UNICODE));
     }
 
     #[TestDox('buscar: a trancada que também está em segredo sai e conta como sem acesso, não como em segredo')]

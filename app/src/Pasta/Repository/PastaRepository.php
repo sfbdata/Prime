@@ -2274,4 +2274,101 @@ class PastaRepository extends ServiceEntityRepository
 
         return array_values(array_map(static fn (array $l): string => (string) $l['nup'], $linhas));
     }
+
+    /**
+     * As pastas (sem lápide) ligadas a cada um dos clientes, numa consulta só: o relatório de pendências do cadastro
+     * do conector (`ler_clientes`, ação `pendencias`). O cliente só casa pelo vínculo de uma pasta do escritório; quem
+     * chama ainda confere o acesso da pessoa a cada pasta.
+     *
+     * @param list<int> $clienteIds
+     *
+     * @return array<int, list<Pasta>> clienteId => pastas, na ordem do número
+     */
+    public function pastasVivasDosClientes(array $clienteIds, Tenant $tenant): array
+    {
+        if ($clienteIds === []) {
+            return [];
+        }
+
+        $linhas = $this->createQueryBuilder('p')
+            ->select('p', 'c.id AS cliente_id')
+            ->join('p.clientes', 'c')
+            ->andWhere('c.id IN (:clientes)')
+            ->andWhere('c.tenant = :tenant')
+            ->andWhere('p.tenant = :tenant')
+            ->andWhere('p.excluidaEm IS NULL')
+            ->setParameter('clientes', $clienteIds)
+            ->setParameter('tenant', $tenant)
+            ->orderBy('p.nup', 'ASC')
+            ->addOrderBy('p.id', 'ASC')
+            ->getQuery()
+            ->getResult();
+
+        $porCliente = [];
+        foreach ($linhas as $linha) {
+            $porCliente[(int) $linha['cliente_id']][] = $linha[0];
+        }
+
+        return $porCliente;
+    }
+
+    /**
+     * As pastas ativas (sem lápide) do escritório sem nenhum cliente vinculado, na ordem do número: a visão inversa
+     * do relatório de pendências do conector. Quem chama confere o acesso da pessoa a cada pasta.
+     *
+     * @return list<Pasta>
+     */
+    public function ativasSemClienteVinculado(Tenant $tenant): array
+    {
+        /** @var list<Pasta> $pastas */
+        $pastas = $this->createQueryBuilder('p')
+            ->leftJoin('p.clientes', 'c')
+            ->andWhere('p.tenant = :tenant')
+            ->andWhere('p.excluidaEm IS NULL')
+            ->andWhere('p.situacao = :ativa')
+            ->andWhere('c.id IS NULL')
+            ->setParameter('tenant', $tenant)
+            ->setParameter('ativa', Pasta::SITUACAO_ATIVA)
+            ->orderBy('p.nup', 'ASC')
+            ->addOrderBy('p.id', 'ASC')
+            ->getQuery()
+            ->getResult();
+
+        return $pastas;
+    }
+
+    /**
+     * As pastas pedidas, do escritório, com os clientes vinculados já carregados (uma consulta para a página): o
+     * `buscar_pastas` do conector mostra os vínculos de cada linha, como o resumo da `ler_pasta`.
+     *
+     * @param list<int> $pastaIds
+     *
+     * @return array<int, Pasta> pastaId => pasta
+     */
+    public function comClientesCarregados(array $pastaIds, Tenant $tenant): array
+    {
+        if ($pastaIds === []) {
+            return [];
+        }
+
+        /** @var list<Pasta> $pastas */
+        $pastas = $this->createQueryBuilder('p')
+            ->select('p', 'c')
+            ->leftJoin('p.clientes', 'c')
+            ->andWhere('p.tenant = :tenant')
+            ->andWhere('p.id IN (:ids)')
+            ->setParameter('tenant', $tenant)
+            ->setParameter('ids', $pastaIds)
+            ->orderBy('p.id', 'ASC')
+            ->addOrderBy('c.id', 'ASC')
+            ->getQuery()
+            ->getResult();
+
+        $porId = [];
+        foreach ($pastas as $pasta) {
+            $porId[(int) $pasta->getId()] = $pasta;
+        }
+
+        return $porId;
+    }
 }
