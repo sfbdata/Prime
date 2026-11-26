@@ -40,7 +40,17 @@ final readonly class PautaNaCedulaOutput
         public bool $votoAberto = false,
         /** @var list<string> grupos aptos da pauta; vazio = todos */
         public array $grupos = [],
+        /** Unidades que já votaram nesta pauta (só a contagem, para a caixa "Acompanhar"). */
+        public int $votaram = 0,
+        /** Unidades aptas a votar nesta pauta (dos grupos dela). */
+        public int $aptas = 0,
     ) {
+    }
+
+    /** Percentual inteiro de 0 a 100 de quem já votou entre as aptas. */
+    public function percentualDeParticipacao(): int
+    {
+        return $this->aptas <= 0 ? 0 : min(100, intdiv($this->votaram * 100, $this->aptas));
     }
 
     public function variasVagas(): bool

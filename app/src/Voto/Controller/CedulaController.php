@@ -8,6 +8,7 @@ use App\Voto\DTO\RegistrarVotoInput;
 use App\Voto\Exception\CedulaNaoEncontradaException;
 use App\Voto\Exception\OperacaoInvalidaNaAssembleiaException;
 use App\Voto\UseCase\MontarCedulaUseCase;
+use App\Voto\UseCase\ObterParticipacaoDaPautaUseCase;
 use App\Voto\UseCase\RegistrarVotoUseCase;
 use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
 use Symfony\Component\HttpFoundation\JsonResponse;
@@ -41,6 +42,7 @@ final class CedulaController extends AbstractController
         private readonly RegistrarVotoUseCase $registrar,
         private readonly RateLimiterFactoryInterface $votoCedulaInvalidoLimiter,
         private readonly TranslatorInterface $tradutor,
+        private readonly ObterParticipacaoDaPautaUseCase $participacao,
     ) {
     }
 
@@ -56,6 +58,23 @@ final class CedulaController extends AbstractController
             'cedula' => $cedula,
             'token' => $token,
         ]));
+    }
+
+    /**
+     * Participação da pauta para a caixa "Acompanhar" (polling do js/voto-acompanhar.js): só "N de M" e o estado, nunca
+     * o voto por opção. Mesmo acesso da cédula: token inválido, pauta de outra assembleia ou retirada dão 404 em JSON.
+     */
+    #[Route('/pauta/{pauta}/participacao', name: 'voto_assembleia_cedula_participacao', requirements: ['pauta' => '\d+'], methods: ['GET'])]
+    public function participacao(Request $request, string $token, int $pauta): Response
+    {
+        $dados = $this->participacao->executar($token, $pauta);
+        if (null === $dados) {
+            $aceito = $this->votoCedulaInvalidoLimiter->create($request->getClientIp())->consume()->isAccepted();
+
+            return $this->protegida(new JsonResponse(['ok' => false], $aceito ? Response::HTTP_NOT_FOUND : Response::HTTP_TOO_MANY_REQUESTS));
+        }
+
+        return $this->protegida(new JsonResponse($dados->paraJson()));
     }
 
     #[Route('/pauta/{pauta}', name: 'voto_assembleia_cedula_votar', requirements: ['pauta' => '\d+'], methods: ['POST'])]

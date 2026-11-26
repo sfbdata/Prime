@@ -53,6 +53,9 @@
 
     {% for pauta in cedula.pautas %}
         {% include 'voto/cedula/_pauta.html.twig' with {pauta: pauta, cedula: cedula, token: token} only %}
+        {% if cedula.assembleiaPublicada %}
+            {% include 'voto/cedula/_acompanhar_pauta.html.twig' with {pauta: pauta, token: token} only %}
+        {% endif %}
     {% else %}
         <div class="vAviso" data-vc-vazio>{{ 'voto.assembleia.cedula.vazio'|trans }}</div>
     {% endfor %}
@@ -115,6 +118,7 @@
 
 {% block depois %}
     <script src="/js/voto-sala.js" defer></script>
+    <script src="/js/voto-acompanhar.js" defer></script>
     {# Toast do desenho (L281): verde no sucesso, vermelho no erro; some em 3600 ms. #}
     {% for mensagem in app.flashes('voto_cedula_ok') %}
         <div class="vcToast" role="status" data-vc-toast>{{ mensagem }}</div>

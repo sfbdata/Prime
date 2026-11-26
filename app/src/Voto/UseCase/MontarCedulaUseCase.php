@@ -132,6 +132,8 @@ final class MontarCedulaUseCase
             votoAberto: $pauta->votoAberto(),
             grupos: $pauta->getGrupos(),
             comprovante: null === $votouEm ? null : $this->comprovante->codigo((int) $unidade->getId(), (int) $pauta->getId(), $votouEm),
+            votaram: $presenca['unidades'] ?? 0,
+            aptas: $aptos['unidadesAptas'],
         );
     }
 
