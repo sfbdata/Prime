@@ -98,13 +98,32 @@ enum CenarioDaAssembleia: string
         return match ($this) {
             self::Condominio => 'Unidade',
             self::Classe => 'Número de inscrição',
-            self::Associacao => 'CPF',
+            self::Associacao => 'Unidade',
             self::Sindicato => 'Matrícula sindical',
             self::Cooperativa => 'Matrícula de cooperado',
             self::Sociedade => 'Identificação do sócio',
             self::Ensino, self::Consulta => 'Matrícula',
             self::Livre => 'Identificação',
         };
+    }
+
+    /** Quem vota, no plural, para os textos das regras prontas ("Dois terços dos votos dos associados"). */
+    public function votantes(): string
+    {
+        return match ($this) {
+            self::Condominio => 'condôminos',
+            self::Classe => 'inscritos',
+            self::Associacao, self::Sindicato => 'associados',
+            self::Cooperativa => 'cooperados',
+            self::Sociedade => 'sócios',
+            self::Ensino, self::Consulta, self::Livre => 'votantes',
+        };
+    }
+
+    /** O documento que fixa os quóruns, para o exemplo das regras prontas (convenção no condomínio, estatuto nos demais). */
+    public function documentoDasRegras(): string
+    {
+        return self::Condominio === $this ? 'convenção' : 'estatuto';
     }
 
     /**

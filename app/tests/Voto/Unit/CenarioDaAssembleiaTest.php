@@ -62,7 +62,7 @@ final class CenarioDaAssembleiaTest extends TestCase
     {
         yield 'condomínio' => [CenarioDaAssembleia::Condominio, 'Unidade', 'Bloco ou torre'];
         yield 'classe' => [CenarioDaAssembleia::Classe, 'Número de inscrição', 'Regional'];
-        yield 'associação' => [CenarioDaAssembleia::Associacao, 'CPF', 'Categoria'];
+        yield 'associação' => [CenarioDaAssembleia::Associacao, 'Unidade', 'Categoria'];
         yield 'sindicato' => [CenarioDaAssembleia::Sindicato, 'Matrícula sindical', 'Base ou categoria'];
         yield 'cooperativa' => [CenarioDaAssembleia::Cooperativa, 'Matrícula de cooperado', 'Núcleo'];
         yield 'sociedade' => [CenarioDaAssembleia::Sociedade, 'Identificação do sócio', 'Classe'];
@@ -89,6 +89,22 @@ final class CenarioDaAssembleiaTest extends TestCase
         self::assertSame('consulta', CenarioDaAssembleia::Consulta->modalidade(TipoDaPauta::Deliberacao));
         self::assertSame('pauta', CenarioDaAssembleia::Condominio->modalidade(TipoDaPauta::Deliberacao));
         self::assertSame('pauta', CenarioDaAssembleia::Classe->modalidade(TipoDaPauta::Deliberacao));
+    }
+
+    #[TestDox('Vocabulário das regras prontas: associados na associação, condôminos só no condomínio, estatuto fora dele')]
+    public function testVotantesEDocumentoDasRegras(): void
+    {
+        self::assertSame('condôminos', CenarioDaAssembleia::Condominio->votantes());
+        self::assertSame('convenção', CenarioDaAssembleia::Condominio->documentoDasRegras());
+        self::assertSame('associados', CenarioDaAssembleia::Associacao->votantes());
+        self::assertSame('estatuto', CenarioDaAssembleia::Associacao->documentoDasRegras());
+        foreach (CenarioDaAssembleia::cases() as $cenario) {
+            if (CenarioDaAssembleia::Condominio === $cenario) {
+                continue;
+            }
+            self::assertStringNotContainsString('condômin', $cenario->votantes());
+            self::assertSame('estatuto', $cenario->documentoDasRegras());
+        }
     }
 
     #[TestDox('São os 9 cenários do desenho, cada um com rótulo, aviso e ícone, e nenhum texto com travessão')]

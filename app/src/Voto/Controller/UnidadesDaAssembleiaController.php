@@ -64,15 +64,18 @@ final class UnidadesDaAssembleiaController extends AbstractController
     public function importar(int $id, Request $request, ImportarUnidadesUseCase $importar): RedirectResponse
     {
         $tenant = $this->guarda->exigir();
+        $tabela = $request->request->has('linha_unidade') ? self::linhasDaTabela($request) : null;
         $texto = (string) $request->request->get('lista', '');
         $arquivo = $request->files->get('arquivo');
-        $this->executar($request, $id, function () use ($importar, $tenant, $id, $texto, $arquivo): void {
+        $this->executar($request, $id, function () use ($importar, $tenant, $id, $texto, $arquivo, $tabela): void {
             if (null !== $arquivo && !$arquivo instanceof UploadedFile) {
                 throw new OperacaoInvalidaNaAssembleiaException('Selecione um arquivo .xlsx ou .csv.');
             }
-            $resultado = $arquivo instanceof UploadedFile
-                ? $importar->executarArquivo($tenant, $id, $arquivo)
-                : $importar->executar($tenant, $id, $texto);
+            $resultado = match (true) {
+                null !== $tabela => $importar->executarTabela($tenant, $id, $tabela),
+                $arquivo instanceof UploadedFile => $importar->executarArquivo($tenant, $id, $arquivo),
+                default => $importar->executar($tenant, $id, $texto),
+            };
             $this->avisos->guardarRelatorio(['invalidas' => $resultado->invalidas, 'duplicadas' => $resultado->duplicadas]);
             if (0 === $resultado->importadas) {
                 $this->avisos->erro($this->tradutor->trans('voto.assembleia.gestor.unidades.nenhuma_valida'));
@@ -85,6 +88,30 @@ final class UnidadesDaAssembleiaController extends AbstractController
         });
 
         return $this->redirectToRoute('voto_assembleia_unidades', ['id' => $id]);
+    }
+
+    /**
+     * A tabela simples da etapa "Lista de aptos" (Unidade, Nome, E-mail e, no peso por fração, Fração) vira as linhas da
+     * importação (`unidade; bloco; situação; fração; responsável; e-mail`), uma por linha da tela e na mesma ordem, para
+     * o número da linha nos erros ser o que a pessoa vê. Linha toda vazia segue vazia (o leitor a ignora, mas conta).
+     *
+     * @return list<list<string>>
+     */
+    private static function linhasDaTabela(Request $request): array
+    {
+        $coluna = static function (string $campo) use ($request): array {
+            return array_map(static fn (mixed $v): string => trim(\is_scalar($v) ? (string) $v : ''), array_values($request->request->all($campo)));
+        };
+        $unidades = $coluna('linha_unidade');
+        $nomes = $coluna('linha_nome');
+        $emails = $coluna('linha_email');
+        $fracoes = $coluna('linha_fracao');
+        $linhas = [];
+        foreach ($unidades as $i => $unidade) {
+            $linhas[] = [$unidade, '', '', $fracoes[$i] ?? '', $nomes[$i] ?? '', $emails[$i] ?? '', '', '', ''];
+        }
+
+        return $linhas;
     }
 
     #[Route('/modelo.xlsx', name: 'voto_assembleia_unidades_modelo', methods: ['GET'])]

@@ -1,23 +1,21 @@
 {#
-    Trilho dos 7 passos do assistente (desenho 18, L256-258: botões .vPas, os anteriores ao atual em .vPasOk, o atual em
+    Trilho dos 5 passos do assistente (desenho 18, L256-258: botões .vPas, os anteriores ao atual em .vPasOk, o atual em
     .vPasAt) e, logo abaixo, o título e a frase do passo. Cada passo grava pelo caminho que já existe e o clique leva ao passo:
-    dentro de um <form> (`em_form`: passos 1 e 2) o item é um botão que envia o formulário com `depois=passo-N`
+    dentro de um <form> (`em_form`: passo 1) o item é um botão que envia o formulário com `depois=passo-N`
     (grava e segue, como o edIr do desenho); fora dele é um link (no passo Cargos, o JS grava as pautas antes de sair).
     O Enter num campo usa o primeiro botão do formulário: um botão escondido antes do trilho faz o Enter valer "Continuar".
-    Contexto: `a` (AssembleiaNoPainel ou null, na criação), `passo` (1 a 7) e `em_form`.
+    Contexto: `a` (AssembleiaNoPainel ou null, na criação), `passo` (1 a 5) e `em_form`.
 #}
 {% set destinos = a is null ? {} : {
     1: path('voto_assembleia_editar', {id: a.id}),
-    2: path('voto_assembleia_passo', {id: a.id, passo: 2}),
-    3: path('voto_assembleia_passo', {id: a.id, passo: 3}),
-    4: path('voto_assembleia_pautas', {id: a.id}),
-    5: path('voto_assembleia_unidades', {id: a.id}),
-    6: path('voto_assembleia_passo', {id: a.id, passo: 6}),
-    7: path('voto_assembleia_conferir_publicacao', {id: a.id}),
+    2: path('voto_assembleia_pautas', {id: a.id}),
+    3: path('voto_assembleia_unidades', {id: a.id}),
+    4: path('voto_assembleia_passo', {id: a.id, passo: 4}),
+    5: path('voto_assembleia_conferir_publicacao', {id: a.id}),
 } %}
 {% if em_form|default(false) %}<button type="submit" name="depois" value="passo-{{ passo + 1 }}" hidden tabindex="-1" aria-hidden="true"></button>{% endif %}
 <nav class="voto-trilho" aria-label="{{ 'voto.assembleia.gestor.assistente.rotulo'|trans }}" data-voto-trilho>
-    {% for n in 1..7 %}
+    {% for n in 1..5 %}
         {% set classe = 'vPas' ~ (n < passo ? ' vPasOk' : (n == passo ? ' vPasAt' : '')) %}
         {% set rotulo = n ~ '. ' ~ ('voto.assembleia.gestor.assistente.passo_' ~ n)|trans %}
         {% if em_form|default(false) %}
