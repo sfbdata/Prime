@@ -28,8 +28,8 @@ final class VotoController extends AbstractController
 {
     private const MODULO = 'voto';
 
-    /** Abas do desenho, na ordem da barra: Votar, Resultados, Gestão eleitoral, Acompanhar. */
-    public const ABAS = ['ele', 'tra', 'ges', 'aco'];
+    /** Abas do desenho, na ordem da barra: Gestão eleitoral (padrão), Acompanhar, Votar, Resultados. */
+    public const ABAS = ['ges', 'aco', 'ele', 'tra'];
 
     public function __construct(
         private readonly TenantContext $tenantContext,
@@ -43,10 +43,10 @@ final class VotoController extends AbstractController
     public function index(Request $request): Response
     {
         $this->assertAcesso();
-        $aba = (string) $request->query->get('aba', 'ele');
+        $aba = (string) $request->query->get('aba', 'ges');
 
         return $this->render('voto/index.html.twig', [
-            'aba' => in_array($aba, self::ABAS, true) ? $aba : 'ele',
+            'aba' => in_array($aba, self::ABAS, true) ? $aba : 'ges',
         ]);
     }
 

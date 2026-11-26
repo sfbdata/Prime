@@ -164,16 +164,16 @@ final class VotoTelaTest extends JusPrimeWebTestCase
         self::assertSame('Voto', $crawler->filter('.voto-tela > h1.voto-titulo')->text());
         self::assertCount(0, $crawler->filter('.voto-tela > .vAviso.voto-demonstracao'));
         $abas = $crawler->filter('.voto-tela > nav.vC.voto-abas > a.vTab');
-        self::assertSame(['Votar', 'Resultados', 'Gestão eleitoral', 'Acompanhar'], $abas->each(static fn ($a) => trim($a->text())));
+        self::assertSame(['Gestão eleitoral', 'Acompanhar', 'Votar', 'Resultados'], $abas->each(static fn ($a) => trim($a->text())));
         self::assertSame(
-            ['bi-check2-square', 'bi-shield-check', 'bi-gear', 'bi-broadcast'],
+            ['bi-gear', 'bi-broadcast', 'bi-check2-square', 'bi-shield-check'],
             $abas->each(static fn ($a) => trim(str_replace('bi ', '', (string) $a->filter('i')->attr('class')))),
         );
         self::assertCount(0, $crawler->filter('.voto-tela .card, .voto-tela .btn'), 'componentes do AdminLTE não entram');
     }
 
-    #[TestDox('sem aba na URL abre Votar, com o aviso de lista vazia do desenho')]
-    public function testAbaPadraoEVotar(): void
+    #[TestDox('sem aba na URL abre Gestão eleitoral (a primeira aba)')]
+    public function testAbaPadraoEGestaoEleitoral(): void
     {
         $this->ligar();
         $this->liberarOEscritorio();
@@ -181,8 +181,21 @@ final class VotoTelaTest extends JusPrimeWebTestCase
 
         $crawler = $this->client->request('GET', '/voto');
 
-        self::assertSame('Votar', trim($crawler->filter('.voto-abas > a.vTab.vTabOn[aria-current="page"]')->text()));
+        self::assertSame('Gestão eleitoral', trim($crawler->filter('.voto-abas > a.vTab.vTabOn[aria-current="page"]')->text()));
         self::assertCount(1, $crawler->filter('.voto-abas > a.vTabOn'));
+        self::assertCount(1, $crawler->filter('.voto-tela > .voto-painel[data-aba="ges"]'));
+    }
+
+    #[TestDox('aba Votar continua abrindo com o aviso de lista vazia do desenho')]
+    public function testAbaVotarVazia(): void
+    {
+        $this->ligar();
+        $this->liberarOEscritorio();
+        $this->entrar($this->usuario(['ROLE_USER'], 'sistema', false));
+
+        $crawler = $this->client->request('GET', '/voto?aba=ele');
+
+        self::assertSame('Votar', trim($crawler->filter('.voto-abas > a.vTabOn')->text()));
         self::assertSame(
             'Nenhuma votação publicada ainda. Crie e publique em Gestão eleitoral.',
             $crawler->filter('.voto-tela > .voto-painel[data-aba="ele"] > .vAviso')->text(),
@@ -209,8 +222,8 @@ final class VotoTelaTest extends JusPrimeWebTestCase
         self::assertSame('Nenhuma votação publicada.', $caixa->filter('.vLin.voto-aco-vazio')->text());
     }
 
-    #[TestDox('aba desconhecida na URL cai em Votar')]
-    public function testAbaDesconhecidaCaiEmVotar(): void
+    #[TestDox('aba desconhecida na URL cai em Gestão eleitoral')]
+    public function testAbaDesconhecidaCaiEmGestao(): void
     {
         $this->ligar();
         $this->liberarOEscritorio();
@@ -219,8 +232,8 @@ final class VotoTelaTest extends JusPrimeWebTestCase
         $crawler = $this->client->request('GET', '/voto?aba=xyz');
 
         self::assertResponseIsSuccessful();
-        self::assertSame('Votar', trim($crawler->filter('.voto-abas > a.vTabOn')->text()));
-        self::assertCount(1, $crawler->filter('.voto-tela > .voto-painel[data-aba="ele"]'));
+        self::assertSame('Gestão eleitoral', trim($crawler->filter('.voto-abas > a.vTabOn')->text()));
+        self::assertCount(1, $crawler->filter('.voto-tela > .voto-painel[data-aba="ges"]'));
     }
 
     #[TestDox('Resultados sem pauta encerrada: nenhum painel vazio na coluna (Gestão eleitoral: AssembleiaGestorTest)')]

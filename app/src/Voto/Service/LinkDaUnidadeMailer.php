@@ -53,19 +53,53 @@ final class LinkDaUnidadeMailer
             UrlGeneratorInterface::ABSOLUTE_URL,
         );
         $assembleia = $unidade->getAssembleia()->getTitulo();
-        $html = $this->twig->render('email/voto_assembleia_link.html.twig', [
-            'assembleia' => $assembleia,
-            'unidade' => '' === $unidade->getBloco() ? $unidade->getIdentificacao() : $unidade->getBloco() . ' · ' . $unidade->getIdentificacao(),
-            'responsavel' => $unidade->getResponsavel(),
-            'link' => $link,
-        ]);
+        $html = $this->renderizar(
+            $assembleia,
+            '' === $unidade->getBloco() ? $unidade->getIdentificacao() : $unidade->getBloco() . ' · ' . $unidade->getIdentificacao(),
+            $unidade->getResponsavel(),
+            $link,
+        );
         $email = (new Email())->to((string) $unidade->getEmail())->html($html);
-        $this->identidadeDeEmail->aplicar($email, $this->tradutor->trans('voto.assembleia.gestor.email.assunto', ['assembleia' => $assembleia]));
+        $this->identidadeDeEmail->aplicar($email, $this->assunto($assembleia));
 
         try {
             $this->mailer->send($email);
         } catch (TransportExceptionInterface $e) {
             throw new \RuntimeException('Falha ao enviar o link da assembleia: ' . $e->getMessage(), previous: $e);
         }
+    }
+
+    /**
+     * Prévia da janela de confirmação do envio: o mesmo modelo do e-mail, com dados de exemplo da assembleia. Nada é
+     * enviado e nenhum token é gerado: o link aparece como o texto "link individual de cada pessoa".
+     *
+     * @return array{assunto: string, html: string}
+     */
+    public function previa(string $tituloDaAssembleia): array
+    {
+        return $this->idiomaDoEmail->runWithLocale('pt_BR', fn (): array => [
+            'assunto' => (string) $this->identidadeDeEmail->aplicar(new Email(), $this->assunto($tituloDaAssembleia))->getSubject(),
+            'html' => $this->renderizar(
+                $tituloDaAssembleia,
+                $this->tradutor->trans('voto.assembleia.gestor.links.previa_unidade'),
+                $this->tradutor->trans('voto.assembleia.gestor.links.previa_responsavel'),
+                $this->tradutor->trans('voto.assembleia.gestor.links.previa_link'),
+            ),
+        ]);
+    }
+
+    private function assunto(string $assembleia): string
+    {
+        return $this->tradutor->trans('voto.assembleia.gestor.email.assunto', ['assembleia' => $assembleia]);
+    }
+
+    private function renderizar(string $assembleia, string $unidade, ?string $responsavel, string $link): string
+    {
+        return $this->twig->render('email/voto_assembleia_link.html.twig', [
+            'assembleia' => $assembleia,
+            'unidade' => $unidade,
+            'responsavel' => $responsavel,
+            'link' => $link,
+        ]);
     }
 }

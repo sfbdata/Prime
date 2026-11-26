@@ -1,0 +1,28 @@
+{#
+    Janela de confirmação de "Enviar links por e-mail" (pedido do dono, 26/11): antes de disparar, mostra para quantas
+    pessoas o lote vai (`faltam`, as unidades aptas com e-mail que ainda não receberam) e a prévia do e-mail. É a
+    .vModAbrir do Voto (voto-janela.js), nunca confirm() nem modal do Bootstrap. O envio só acontece no POST do botão
+    "Enviar" desta janela. Contexto: `a` (assembleia), `token` (CSRF), `faltam`, `previa` ({assunto, html}).
+#}
+<div class="vModAbrir" id="janela-enviar-links" data-voto-janela-raiz hidden>
+    <div class="vModC voto-enviar-links" role="dialog" aria-modal="true" aria-labelledby="janela-enviar-links-titulo">
+        <div class="vH"><i class="bi bi-envelope"></i><span id="janela-enviar-links-titulo">{{ 'voto.assembleia.gestor.links.confirmar_titulo'|trans }}</span></div>
+        <div class="vModCorpo">
+            {% if faltam > 0 %}
+                <b>{{ 'voto.assembleia.gestor.links.confirmar_pergunta'|trans({n: faltam}) }}</b>
+                <div class="voto-enviar-assunto"><span>{{ 'voto.assembleia.gestor.links.previa_assunto'|trans }}</span> {{ previa.assunto }}</div>
+                <iframe class="voto-enviar-previa" sandbox="" title="{{ 'voto.assembleia.gestor.links.previa_titulo'|trans }}" srcdoc="{{ previa.html|e('html_attr') }}"></iframe>
+                <div class="voto-enviar-dica">{{ 'voto.assembleia.gestor.links.previa_dica'|trans }}</div>
+            {% else %}
+                <b>{{ 'voto.assembleia.gestor.links.ninguem'|trans }}</b>
+            {% endif %}
+            <form method="post" action="{{ path('voto_assembleia_unidades_enviar', {id: a.id}) }}" class="voto-enviar-form">
+                <input type="hidden" name="_token" value="{{ token }}">
+                <div class="vModRodape">
+                    <button type="button" class="vB" data-voto-janela-fechar>{{ 'voto.assembleia.gestor.links.cancelar'|trans }}</button>
+                    {% if faltam > 0 %}<button type="submit" class="vB vP"><i class="bi bi-envelope"></i>{{ 'voto.assembleia.gestor.links.confirmar_enviar'|trans }}</button>{% endif %}
+                </div>
+            </form>
+        </div>
+    </div>
+</div>

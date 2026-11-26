@@ -81,6 +81,10 @@
 .voto-tela .voto-mesa, .voto-tela .voto-mesa-encerrar { display: flex; gap: 7px; flex-wrap: wrap; align-items: center; flex: 1 1 100%; margin: 0; }
 .voto-tela .voto-mesa-conv { width: 150px; }
 .voto-tela .voto-mesa-min { width: 82px; }
+.voto-tela .voto-mesa-outro, .voto-tela .voto-mesa-prontos { display: inline-flex; gap: 7px; flex-wrap: wrap; align-items: center; }
+.voto-tela .voto-mesa-prontos { order: 1; }
+.voto-tela .voto-mesa-outro { order: 2; }
+.voto-tela .voto-mesa [name="modo"][value="sem"] { order: 3; }
 .voto-tela .voto-mesa-rotulo { font-size: 13px; color: #34505f; }
 .voto-tela .voto-cron { font-size: 14px; color: #1e7b45; min-width: 150px; }
 .voto-tela .voto-mesa-motivo { flex: 1 1 220px; width: auto; }
@@ -88,7 +92,7 @@
 .voto-tela .voto-decisao-ok { color: #1e7b45; }
 
 /* Assistente (L209-227): corpo, título da etapa, rodapé, erro */
-.voto-tela .voto-assistente-corpo { padding: 16px; display: flex; flex-direction: column; gap: 14px; margin: 0; }
+.voto-tela .voto-assistente-corpo { padding: 16px 16px 88px; display: flex; flex-direction: column; gap: 14px; margin: 0; }
 .voto-tela .voto-etapa-titulo { font-size: 18px; color: #0b3550; }
 .voto-tela .voto-etapa-sub { font-size: 13.5px; color: #34505f; margin-top: 2px; }
 .voto-tela .voto-rodape { display: flex; gap: 8px; flex-wrap: wrap; border-top: 1px solid #e3ecf2; padding-top: 12px; }
