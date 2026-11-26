@@ -119,7 +119,7 @@ voto:
                 encerrada: Votação encerrada
         acompanhar:
             titulo: Acompanhar
-            participacao: '{votaram} de {aptas} já votaram'
+            participacao: '{votaram} de {aptas} unidades já votaram'
             percentual: '{pct}% de participação'
             nota: Enquanto a votação está aberta, só a participação é mostrada. O resultado aparece depois do encerramento.
             estado:

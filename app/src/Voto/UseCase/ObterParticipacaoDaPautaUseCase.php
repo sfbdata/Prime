@@ -6,6 +6,7 @@ namespace App\Voto\UseCase;
 
 use App\Voto\DTO\ParticipacaoDaPautaOutput;
 use App\Voto\Entity\PautaDaAssembleia;
+use App\Voto\Enum\EstadoDaAssembleia;
 use App\Voto\Enum\EstadoDaPauta;
 use App\Voto\Repository\ParticipacaoNaPautaRepository;
 use App\Voto\Repository\UnidadeDaAssembleiaRepository;
@@ -13,11 +14,13 @@ use App\Voto\Service\UnidadeDoLink;
 use Psr\Clock\ClockInterface;
 
 /**
- * Participação de uma pauta pelo link pessoal `/votar/{token}`, para a caixa "Acompanhar" se atualizar sozinha.
+ * Participação das pautas visíveis à unidade do link pessoal `/votar/{token}`, para a caixa "Acompanhar" se atualizar
+ * sozinha com UMA requisição por cédula.
  *
- * Mesmo acesso da cédula: o token localiza a unidade e só as pautas da assembleia dela existem; pauta de outra
- * assembleia, retirada ou fora dos grupos da unidade devolve null (404). Devolve só contagens, nunca voto por opção.
- * Não encerra pauta com prazo vencido (isso é da cédula): só informa "encerrada" para a tela recarregar.
+ * Mesmo acesso da cédula: o token localiza a unidade e só as pautas da assembleia dela existem; retirada ou fora dos
+ * grupos da unidade não entram. Assembleia não publicada, token inválido ou escritório sem o Voto liberado: null (404).
+ * Devolve só contagens de unidades aptas, nunca voto por opção. Não encerra pauta com prazo vencido (isso é da cédula):
+ * só informa "encerrada" para a tela recarregar.
  */
 final class ObterParticipacaoDaPautaUseCase
 {
@@ -29,24 +32,27 @@ final class ObterParticipacaoDaPautaUseCase
     ) {
     }
 
-    public function executar(string $token, int $pautaId): ?ParticipacaoDaPautaOutput
+    /** @return list<ParticipacaoDaPautaOutput>|null */
+    public function executar(string $token): ?array
     {
         $unidade = $this->link->localizar($token);
-        if (null === $unidade) {
+        $assembleia = $unidade?->getAssembleia();
+        if (null === $unidade || null === $assembleia || EstadoDaAssembleia::Publicada !== $assembleia->getEstado()) {
             return null;
         }
-        $assembleia = $unidade->getAssembleia();
+        $votaram = $this->participacoes->contarAptasPorPauta($assembleia);
+        $aptosPorGrupos = [];
+        $lista = [];
         foreach ($assembleia->getPautas() as $pauta) {
-            if ((int) $pauta->getId() !== $pautaId || $pauta->retirada() || !$pauta->aceitaBloco($unidade->getBloco())) {
+            if ($pauta->retirada() || !$pauta->aceitaBloco($unidade->getBloco())) {
                 continue;
             }
-            $votaram = $this->participacoes->contarPorPauta($assembleia)[$pautaId]['unidades'] ?? 0;
-            $aptas = $this->unidades->totaisAptos($assembleia, $pauta->getGrupos())['unidadesAptas'];
-
-            return new ParticipacaoDaPautaOutput($this->estado($pauta), $votaram, $aptas);
+            $aptas = $aptosPorGrupos[implode('|', $pauta->getGrupos())] ??= $this->unidades->totaisAptos($assembleia, $pauta->getGrupos())['unidadesAptas'];
+            $id = (int) $pauta->getId();
+            $lista[] = new ParticipacaoDaPautaOutput($id, $this->estado($pauta), min($votaram[$id] ?? 0, $aptas), $aptas);
         }
 
-        return null;
+        return $lista;
     }
 
     private function estado(PautaDaAssembleia $pauta): string

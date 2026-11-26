@@ -6,6 +6,7 @@ namespace App\Tests\Voto\Functional;
 
 use App\Entity\Tenant\Tenant;
 use App\Master\Entity\RecursoEstado;
+use App\Tests\Auth\Doubles\RateLimiterFactoryEspiao;
 use App\Tests\Factory\Tenant\TenantFactory;
 use App\Tests\Factory\Voto\AssembleiaFactory;
 use App\Tests\Factory\Voto\ParticipacaoNaPautaFactory;
@@ -57,52 +58,89 @@ final class AcompanharAoVivoNaCedulaTest extends JusPrimeWebTestCase
         $this->unidade = UnidadeDaAssembleiaFactory::createOne(['assembleia' => $this->assembleia, 'identificacao' => 'A-1'])->_real();
     }
 
-    #[TestDox('A participação conta quem votou e as aptas, sem nada por opção')]
+    #[TestDox('Uma requisição traz todas as pautas da unidade, contando só unidades aptas (nunca "6 de 5")')]
     public function testContagemCerta(): void
     {
         $outra = UnidadeDaAssembleiaFactory::createOne(['assembleia' => $this->assembleia, 'identificacao' => 'A-2'])->_real();
-        UnidadeDaAssembleiaFactory::new()->inapta()->create(['assembleia' => $this->assembleia, 'identificacao' => 'A-3']);
+        $inapta = UnidadeDaAssembleiaFactory::new()->inapta()->create(['assembleia' => $this->assembleia, 'identificacao' => 'A-3'])->_real();
         ParticipacaoNaPautaFactory::createOne(['unidade' => $outra, 'pauta' => $this->pauta]);
+        ParticipacaoNaPautaFactory::createOne(['unidade' => $inapta, 'pauta' => $this->pauta]);
 
-        $dados = $this->consultar($this->unidade, $this->pauta);
+        $pautas = $this->consultar($this->unidade);
 
         self::assertResponseStatusCodeSame(200);
-        self::assertSame(['aptas', 'estado', 'percentual', 'terminou', 'votaram'], $this->chaves($dados));
-        self::assertSame(['estado' => 'aberta', 'votaram' => 1, 'aptas' => 2, 'percentual' => 50, 'terminou' => false], $dados);
+        self::assertSame([['id' => $this->pauta->getId(), 'estado' => 'aberta', 'votaram' => 1, 'aptas' => 2, 'percentual' => 50, 'terminou' => false]], $pautas);
         self::assertStringContainsString('no-store', (string) $this->client->getResponse()->headers->get('Cache-Control'));
     }
 
-    #[TestDox('Pauta encerrada devolve terminou verdadeiro para o JavaScript parar de perguntar')]
+    #[TestDox('Pauta encerrada devolve terminou verdadeiro; as duas pautas vêm na mesma resposta')]
     public function testEncerradaTermina(): void
     {
-        $encerrada = PautaDaAssembleiaFactory::new()->comOpcoesPadrao()->encerrada()->create(['assembleia' => $this->assembleia])->_real();
+        $encerrada = PautaDaAssembleiaFactory::new()->comOpcoesPadrao()->encerrada()->create(['assembleia' => $this->assembleia, 'ordem' => 2])->_real();
 
-        $dados = $this->consultar($this->unidade, $encerrada);
+        $pautas = $this->consultar($this->unidade);
 
-        self::assertSame('encerrada', $dados['estado']);
-        self::assertTrue($dados['terminou']);
+        self::assertCount(2, $pautas);
+        self::assertSame(['encerrada', true], [$pautas[1]['estado'], $pautas[1]['terminou']]);
+        self::assertSame($encerrada->getId(), $pautas[1]['id']);
     }
 
-    #[TestDox('Pauta de outra assembleia, token inexistente ou pauta que não existe dão 404 em JSON')]
-    public function testSemAcessoDa404(): void
+    #[TestDox('Com votos registrados, o JSON só tem as chaves de participação e nada por opção')]
+    public function testNaoVazaVotoPorOpcao(): void
     {
-        $outroEscritorio = TenantFactory::createOne(['name' => 'Outro ' . uniqid()])->_real();
-        $liberacao = new LiberacaoDoVoto($outroEscritorio);
-        $liberacao->liberar();
-        $this->em->persist($liberacao);
-        $this->em->flush();
-        $alheia = AssembleiaFactory::new()->publicada()->create(['tenant' => $outroEscritorio])->_real();
-        $pautaAlheia = PautaDaAssembleiaFactory::new()->comOpcoesPadrao()->aberta()->create(['assembleia' => $alheia])->_real();
+        $outra = UnidadeDaAssembleiaFactory::createOne(['assembleia' => $this->assembleia, 'identificacao' => 'A-2'])->_real();
+        ParticipacaoNaPautaFactory::createOne(['unidade' => $outra, 'pauta' => $this->pauta]);
+        $this->em->getConnection()->executeStatement('UPDATE voto.assembleia_opcao SET total_unidades = 7, total_peso = 7 WHERE pauta_id = ?', [$this->pauta->getId()]);
 
-        $this->consultar($this->unidade, $pautaAlheia);
+        $pautas = $this->consultar($this->unidade);
+
+        self::assertSame(['aptas', 'estado', 'id', 'percentual', 'terminou', 'votaram'], $this->chaves($pautas[0]));
+        $bruto = (string) $this->client->getResponse()->getContent();
+        foreach (['opcao', 'Sim', 'Não', 'Abstenção', 'total', 'peso', 'resultado'] as $proibido) {
+            self::assertStringNotContainsString($proibido, $bruto);
+        }
+    }
+
+    #[TestDox('404 para token inexistente, pauta retirada some da lista e pauta fora do grupo da unidade também')]
+    public function testSemAcessoEPautasInvisiveis(): void
+    {
+        $this->client->request('GET', '/votar/' . str_repeat('a', 40) . '/participacao');
         self::assertResponseStatusCodeSame(404);
         self::assertSame(['ok' => false], json_decode((string) $this->client->getResponse()->getContent(), true));
 
-        $this->client->request('GET', '/votar/' . str_repeat('a', 40) . '/pauta/' . $this->pauta->getId() . '/participacao');
+        $retirada = PautaDaAssembleiaFactory::new()->comOpcoesPadrao()->create(['assembleia' => $this->assembleia, 'ordem' => 2])->_real();
+        $retirada->retirarDePauta('Teste', 'Fulano');
+        $doGrupo = PautaDaAssembleiaFactory::new()->comOpcoesPadrao()->aberta()->create(['assembleia' => $this->assembleia, 'ordem' => 3])->_real();
+        (new \ReflectionProperty(PautaDaAssembleia::class, 'grupos'))->setValue($doGrupo, ['Bloco Z']);
+        $this->em->flush();
+
+        $ids = array_column($this->consultar($this->unidade), 'id');
+
+        self::assertSame([$this->pauta->getId()], $ids);
+    }
+
+    #[TestDox('Voto desligado para o escritório e assembleia não publicada dão 404')]
+    public function testLiberacaoEPublicacao(): void
+    {
+        $rascunho = AssembleiaFactory::new()->create(['tenant' => $this->escritorio])->_real();
+        $deRascunho = UnidadeDaAssembleiaFactory::createOne(['assembleia' => $rascunho])->_real();
+        $this->client->request('GET', '/votar/' . UnidadeDaAssembleiaFactory::tokenDe($deRascunho) . '/participacao');
         self::assertResponseStatusCodeSame(404);
 
-        $this->client->request('GET', '/votar/' . UnidadeDaAssembleiaFactory::tokenDe($this->unidade) . '/pauta/999999999/participacao');
+        $this->em->getRepository(LiberacaoDoVoto::class)->findOneBy(['tenant' => $this->escritorio])?->bloquear();
+        $this->em->flush();
+        $this->client->request('GET', '/votar/' . UnidadeDaAssembleiaFactory::tokenDe($this->unidade) . '/participacao');
         self::assertResponseStatusCodeSame(404);
+    }
+
+    #[TestDox('Passou do limite por token, responde 429 mesmo com token válido')]
+    public function testLimitePorToken(): void
+    {
+        static::getContainer()->set('limiter.voto_cedula_participacao', new RateLimiterFactoryEspiao(aceita: false));
+
+        $this->client->request('GET', '/votar/' . UnidadeDaAssembleiaFactory::tokenDe($this->unidade) . '/participacao');
+
+        self::assertResponseStatusCodeSame(429);
     }
 
     #[TestDox('A cédula mostra a caixa Acompanhar abaixo do cartão da pauta, com "N de M já votaram" e a barra')]
@@ -114,9 +152,9 @@ final class AcompanharAoVivoNaCedulaTest extends JusPrimeWebTestCase
 
         $caixa = $tela->filter('.vcMain > .vC.vcPauta + .vC.vcAcomp[data-vc-acomp="' . $this->pauta->getId() . '"]');
         self::assertCount(1, $caixa);
-        self::assertSame('1 de 1 já votaram', trim($caixa->filter('[data-vc-acomp-texto]')->text()));
+        self::assertSame('1 de 1 unidades já votaram', trim($caixa->filter('[data-vc-acomp-texto]')->text()));
         self::assertSame('100', $caixa->filter('[role=progressbar]')->attr('aria-valuenow'));
-        self::assertStringContainsString('/participacao', (string) $caixa->attr('data-vc-acomp-url'));
+        self::assertStringEndsWith('/participacao', (string) $caixa->attr('data-vc-acomp-url'));
         self::assertSame('Votação aberta', trim($caixa->filter('[data-vc-acomp-chip]')->text()));
         self::assertCount(1, $tela->filter('script[src="/js/voto-acompanhar.js"]'));
     }
@@ -125,19 +163,22 @@ final class AcompanharAoVivoNaCedulaTest extends JusPrimeWebTestCase
     public function testJavaScriptECss(): void
     {
         $js = (string) file_get_contents(__DIR__ . '/../../../public/js/voto-acompanhar.js');
-        self::assertStringContainsString('INTERVALO = 10000', $js);
+        self::assertStringContainsString('BASE = 10000', $js);
         self::assertStringContainsString('document.hidden', $js);
         self::assertStringContainsString('d.terminou', $js);
+        self::assertStringContainsString('TETO = 60000', $js);
+        self::assertStringContainsString('r.status === 404', $js);
+        self::assertStringContainsString('clearTimeout(timer)', $js);
         $css = (string) file_get_contents(__DIR__ . '/../../../public/css/voto-cedula.css');
         self::assertMatchesRegularExpression('/prefers-reduced-motion: reduce\)\s*\{[^}]*vcAcompBarra[^}]*transition:none/s', $css);
     }
 
-    /** @return array<string, mixed> */
-    private function consultar(UnidadeDaAssembleia $unidade, PautaDaAssembleia $pauta): array
+    /** @return list<array<string, mixed>> */
+    private function consultar(UnidadeDaAssembleia $unidade): array
     {
-        $this->client->request('GET', '/votar/' . UnidadeDaAssembleiaFactory::tokenDe($unidade) . '/pauta/' . $pauta->getId() . '/participacao');
+        $this->client->request('GET', '/votar/' . UnidadeDaAssembleiaFactory::tokenDe($unidade) . '/participacao');
 
-        return json_decode((string) $this->client->getResponse()->getContent(), true) ?? [];
+        return json_decode((string) $this->client->getResponse()->getContent(), true)['pautas'] ?? [];
     }
 
     /** @param array<string, mixed> $dados @return list<string> */

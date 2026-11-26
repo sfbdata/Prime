@@ -11,6 +11,7 @@ namespace App\Voto\DTO;
 final readonly class ParticipacaoDaPautaOutput
 {
     public function __construct(
+        public int $id,
         /** aguardando, aberta, suspensa, encerrada ou cancelada. */
         public string $estado,
         public int $votaram,
@@ -30,9 +31,9 @@ final readonly class ParticipacaoDaPautaOutput
         return \in_array($this->estado, ['encerrada', 'cancelada'], true);
     }
 
-    /** @return array{estado: string, votaram: int, aptas: int, percentual: int, terminou: bool} */
+    /** @return array{id: int, estado: string, votaram: int, aptas: int, percentual: int, terminou: bool} */
     public function paraJson(): array
     {
-        return ['estado' => $this->estado, 'votaram' => $this->votaram, 'aptas' => $this->aptas, 'percentual' => $this->percentual(), 'terminou' => $this->terminou()];
+        return ['id' => $this->id, 'estado' => $this->estado, 'votaram' => $this->votaram, 'aptas' => $this->aptas, 'percentual' => $this->percentual(), 'terminou' => $this->terminou()];
     }
 }

@@ -43,6 +43,7 @@ final class CedulaController extends AbstractController
         private readonly RateLimiterFactoryInterface $votoCedulaInvalidoLimiter,
         private readonly TranslatorInterface $tradutor,
         private readonly ObterParticipacaoDaPautaUseCase $participacao,
+        private readonly RateLimiterFactoryInterface $votoCedulaParticipacaoLimiter,
     ) {
     }
 
@@ -61,20 +62,24 @@ final class CedulaController extends AbstractController
     }
 
     /**
-     * Participação da pauta para a caixa "Acompanhar" (polling do js/voto-acompanhar.js): só "N de M" e o estado, nunca
-     * o voto por opção. Mesmo acesso da cédula: token inválido, pauta de outra assembleia ou retirada dão 404 em JSON.
+     * Participação das pautas da unidade para a caixa "Acompanhar" (polling do js/voto-acompanhar.js, uma requisição por
+     * cédula): só "N de M" e o estado, nunca o voto por opção. Mesmo acesso da cédula: token inválido, escritório sem o
+     * Voto ou assembleia não publicada dão 404 em JSON. Limite próprio por token (12 por minuto), 429 acima dele.
      */
-    #[Route('/pauta/{pauta}/participacao', name: 'voto_assembleia_cedula_participacao', requirements: ['pauta' => '\d+'], methods: ['GET'])]
-    public function participacao(Request $request, string $token, int $pauta): Response
+    #[Route('/participacao', name: 'voto_assembleia_cedula_participacao', methods: ['GET'])]
+    public function participacao(Request $request, string $token): Response
     {
-        $dados = $this->participacao->executar($token, $pauta);
+        if (!$this->votoCedulaParticipacaoLimiter->create(hash('sha256', $token))->consume()->isAccepted()) {
+            return $this->protegida(new JsonResponse(['ok' => false], Response::HTTP_TOO_MANY_REQUESTS));
+        }
+        $dados = $this->participacao->executar($token);
         if (null === $dados) {
             $aceito = $this->votoCedulaInvalidoLimiter->create($request->getClientIp())->consume()->isAccepted();
 
             return $this->protegida(new JsonResponse(['ok' => false], $aceito ? Response::HTTP_NOT_FOUND : Response::HTTP_TOO_MANY_REQUESTS));
         }
 
-        return $this->protegida(new JsonResponse($dados->paraJson()));
+        return $this->protegida(new JsonResponse(['pautas' => array_map(static fn ($p): array => $p->paraJson(), $dados)]));
     }
 
     #[Route('/pauta/{pauta}', name: 'voto_assembleia_cedula_votar', requirements: ['pauta' => '\d+'], methods: ['POST'])]

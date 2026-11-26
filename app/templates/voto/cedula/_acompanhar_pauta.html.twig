@@ -1,10 +1,10 @@
 {#
     Caixa "Acompanhar" logo abaixo do cartão de cada pauta da cédula: estado da votação e "N de M já votaram" com barra de
-    progresso, que js/voto-acompanhar.js atualiza sozinho (GET voto_assembleia_cedula_participacao). Só participação,
+    progresso, que js/voto-acompanhar.js atualiza sozinho com uma requisição só por cédula (GET voto_assembleia_cedula_participacao). Só participação,
     nunca voto por opção. Os botões da sala virtual ficam na faixa "Acompanhar" do fim da página. Recebe `pauta` e `token`.
 #}
 {%- set estado = pauta.cancelada() ? 'cancelada' : (pauta.encerrada() ? 'encerrada' : (pauta.suspensa() ? 'suspensa' : (pauta.aberta() ? 'aberta' : 'aguardando'))) -%}
-<div class="vC vcAcomp" data-vc-acomp="{{ pauta.id }}" data-vc-acomp-url="{{ path('voto_assembleia_cedula_participacao', {token: token, pauta: pauta.id}) }}" data-vc-acomp-estado="{{ estado }}"
+<div class="vC vcAcomp" data-vc-acomp="{{ pauta.id }}" data-vc-acomp-url="{{ path('voto_assembleia_cedula_participacao', {token: token}) }}" data-vc-acomp-estado="{{ estado }}"
      data-vc-acomp-modelo-participacao="{{ 'voto.assembleia.cedula.acompanhar.participacao'|trans({votaram: '{votaram}', aptas: '{aptas}'}) }}"
      data-vc-acomp-modelo-percentual="{{ 'voto.assembleia.cedula.acompanhar.percentual'|trans({pct: '{pct}'}) }}"
      data-vc-acomp-estados="{{ {aguardando: 'voto.assembleia.cedula.acompanhar.estado.aguardando'|trans, aberta: 'voto.assembleia.cedula.acompanhar.estado.aberta'|trans, suspensa: 'voto.assembleia.cedula.acompanhar.estado.suspensa'|trans, encerrada: 'voto.assembleia.cedula.acompanhar.estado.encerrada'|trans, cancelada: 'voto.assembleia.cedula.acompanhar.estado.cancelada'|trans}|json_encode|e('html_attr') }}">

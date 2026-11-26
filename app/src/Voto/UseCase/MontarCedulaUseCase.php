@@ -92,6 +92,7 @@ final class MontarCedulaUseCase
         $votouEm = $this->participacoes->horariosDaUnidade($unidade);
         $aptosPorGrupos = [];
         $presencas = $this->participacoes->contarPorPauta($unidade->getAssembleia());
+        $votaramAptas = $this->participacoes->contarAptasPorPauta($unidade->getAssembleia());
         $pautas = [];
         foreach ($unidade->getAssembleia()->getPautas() as $pauta) {
             // Retirada da ordem do dia some da cédula; fora dos grupos aptos da pauta a unidade nem a vê.
@@ -103,7 +104,7 @@ final class MontarCedulaUseCase
                 $this->pautas->relerContadores($pauta);
             }
             $horario = $votouEm[(int) $pauta->getId()] ?? null;
-            $pautas[] = $this->pautaNaCedula($pauta, $unidade, $agora, $horario, $aptos, $presencas[(int) $pauta->getId()] ?? null);
+            $pautas[] = $this->pautaNaCedula($pauta, $unidade, $agora, $horario, $aptos, $presencas[(int) $pauta->getId()] ?? null, $votaramAptas[(int) $pauta->getId()] ?? 0);
         }
 
         return $pautas;
@@ -113,7 +114,7 @@ final class MontarCedulaUseCase
      * @param array{pesoApto: string, unidadesAptas: int}   $aptos     o peso apto dos grupos da pauta
      * @param array{unidades: int, peso: string}|null       $presenca
      */
-    private function pautaNaCedula(PautaDaAssembleia $pauta, UnidadeDaAssembleia $unidade, \DateTimeImmutable $agora, ?\DateTimeImmutable $votouEm, array $aptos, ?array $presenca): PautaNaCedulaOutput
+    private function pautaNaCedula(PautaDaAssembleia $pauta, UnidadeDaAssembleia $unidade, \DateTimeImmutable $agora, ?\DateTimeImmutable $votouEm, array $aptos, ?array $presenca, int $votaramAptas = 0): PautaNaCedulaOutput
     {
         return new PautaNaCedulaOutput(
             id: (int) $pauta->getId(),
@@ -132,7 +133,7 @@ final class MontarCedulaUseCase
             votoAberto: $pauta->votoAberto(),
             grupos: $pauta->getGrupos(),
             comprovante: null === $votouEm ? null : $this->comprovante->codigo((int) $unidade->getId(), (int) $pauta->getId(), $votouEm),
-            votaram: $presenca['unidades'] ?? 0,
+            votaram: min($votaramAptas, $aptos['unidadesAptas']),
             aptas: $aptos['unidadesAptas'],
         );
     }

@@ -65,6 +65,12 @@ framework:
             policy: sliding_window
             limit: 20
             interval: '1 minute'
+        # Polling da caixa "Acompanhar" (GET /votar/{token}/participacao): chave = token. A tela pergunta a cada 10 s
+        # (6 por minuto); 12 dá folga para duas abas e barra quem martela o endpoint.
+        voto_cedula_participacao:
+            policy: sliding_window
+            limit: 12
+            interval: '1 minute'
         # Folha do ponto em PDF (GET /ponto/exportar-folha-pdf, "Ver PDF" e "Baixar PDF"): chave = usuário. Cada PDF
         # desenha a página no GD (cerca de 1 s de CPU e 50 MB de memória) e, com o segredo do HMAC, grava uma folha
         # emitida com código próprio (E16, decisão 2); 10 por minuto cobre ver e baixar de novo e põe teto no laço.

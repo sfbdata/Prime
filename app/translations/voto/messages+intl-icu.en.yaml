@@ -108,7 +108,7 @@ voto:
                 encerrada: Voting closed
         acompanhar:
             titulo: Follow along
-            participacao: '{votaram} of {aptas} have voted'
+            participacao: '{votaram} of {aptas} units have voted'
             percentual: '{pct}% participation'
             nota: While voting is open, only participation is shown. The result appears after voting closes.
             estado:
