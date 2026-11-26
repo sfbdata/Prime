@@ -49,6 +49,7 @@ final class BarreiraDaEquipeListener
         'voto_assembleia_cedula_votar' => 'tela pública do eleitor, sem login: chega pelo token da unidade, que não é a equipe.',
         'voto_assembleia_cedula_comprovante_email' => 'tela pública do eleitor, sem login: chega pelo token da unidade, que não é a equipe.',
         'voto_assembleia_cedula_foto' => 'tela pública do eleitor, sem login: chega pelo token da unidade, que não é a equipe.',
+        'voto_assembleia_cedula_participacao' => 'contagem pública de participação da cédula, sem login: chega pelo token da unidade, que não é a equipe.',
         'voto_assembleia_portal' => 'portal público do evento, sem login: chega pelo código público, que não é a equipe.',
         'voto_assembleia_portal_localizar' => 'portal público do evento, sem login: chega pelo código público, que não é a equipe.',
         'voto_assembleia_portal_escolher' => 'portal público do evento, sem login: chega pelo código público, que não é a equipe.',

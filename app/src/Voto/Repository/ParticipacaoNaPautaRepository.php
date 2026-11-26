@@ -65,6 +65,31 @@ class ParticipacaoNaPautaRepository extends ServiceEntityRepository
     }
 
     /**
+     * Por pauta da assembleia, numa consulta só: quantas unidades APTAS já votaram (mesmo filtro de `totaisAptos`, para
+     * nunca passar do total apto). Só contagem de unidades; sem peso e sem opção. Chave: id da pauta (só as com voto).
+     *
+     * @return array<int, int>
+     */
+    public function contarAptasPorPauta(Assembleia $assembleia): array
+    {
+        $linhas = $this->getEntityManager()->getConnection()->fetchAllAssociative(
+            'SELECT pp.pauta_id AS pauta_id, COUNT(pp.id) AS unidades
+               FROM voto.assembleia_participacao pp
+               JOIN voto.assembleia_pauta p ON p.id = pp.pauta_id AND p.tenant_id = pp.tenant_id
+               JOIN voto.assembleia_unidade u ON u.id = pp.unidade_id AND u.tenant_id = pp.tenant_id AND u.apta = TRUE
+              WHERE p.assembleia_id = :assembleia AND p.tenant_id = :tenant
+           GROUP BY pp.pauta_id',
+            ['assembleia' => $assembleia->getId(), 'tenant' => $assembleia->getTenant()->getId()],
+        );
+        $contagem = [];
+        foreach ($linhas as $linha) {
+            $contagem[(int) $linha['pauta_id']] = (int) $linha['unidades'];
+        }
+
+        return $contagem;
+    }
+
+    /**
      * Lista nominal de quem votou na pauta, por bloco e identificação, com a unidade junto. Só quem e quando; nunca o
      * voto.
      *

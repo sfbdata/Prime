@@ -47,6 +47,18 @@ a.vB { text-decoration:none; }
 .vcSalaTitulo { font-weight:700; font-size:14px; color:#243845; margin-right:auto; }
 .vcSalaAviso { flex-basis:100%; }
 .vcSalaAviso[hidden] { display:none; }
+/* Caixa "Acompanhar" abaixo de cada pauta: participação ao vivo, com número e barra que mudam suavemente. */
+.vcAcomp { padding:12px 16px; display:flex; flex-direction:column; gap:7px; }
+.vcAcompTopo { display:flex; align-items:center; gap:10px; flex-wrap:wrap; }
+.vcAcompTitulo { font-weight:700; font-size:14px; color:#243845; margin-right:auto; }
+.vcAcompNumero { font-size:15px; font-weight:700; color:#12242f; transition:color .4s ease; }
+.vcAcompNumero.vcAcompMudou { color:#1e7b45; }
+.vcAcompBarra { height:10px; background:#e3ebf0; border-radius:5px; overflow:hidden; }
+.vcAcompBarra > u { display:block; height:100%; background:#1e7b45; border-radius:5px; text-decoration:none; transition:width .8s ease; }
+.vcAcompPct, .vcAcompNota { font-size:12.5px; color:#34505f; }
+@media (prefers-reduced-motion: reduce) {
+    .vcAcompNumero, .vcAcompBarra > u { transition:none; }
+}
 .vcUnidadeTx { flex:1 1 200px; min-width:0; }
 .vcUnidadeTx > b { font-size:14.5px; }
 .vcUnidadeTx > div { font-size:13.5px; color:#34505f; margin-top:3px; }

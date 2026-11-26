@@ -117,6 +117,17 @@ voto:
                 aguardando: Votação ainda não aberta
                 aberta: Votação aberta
                 encerrada: Votação encerrada
+        acompanhar:
+            titulo: Acompanhar
+            participacao: '{votaram} de {aptas} unidades já votaram'
+            percentual: '{pct}% de participação'
+            nota: Enquanto a votação está aberta, só a participação é mostrada. O resultado aparece depois do encerramento.
+            estado:
+                aguardando: Votação ainda não aberta
+                aberta: Votação aberta
+                suspensa: Votação suspensa
+                encerrada: Votação encerrada
+                cancelada: Votação cancelada
         grupos: Todos os grupos
         grupos_da_pauta: 'Grupos: {grupos}'
         aviso_voto_aberto: 'VOTO ABERTO: seu nome e seu voto ficarão visíveis'
