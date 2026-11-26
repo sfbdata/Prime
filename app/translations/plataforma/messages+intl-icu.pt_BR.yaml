@@ -83,6 +83,6 @@ plataforma:
         oab_confirmada: OAB confirmada.
         oab_destino_invalido: Destino inválido.
         oab_revertida: OAB revertida.
-        oab_verificada_sem_automatico: Verificação executada. Backend automático indisponível, o status permanece não verificado.
+        oab_verificada_sem_automatico: Verificação executada. Backend automático indisponível, a situação registrada não mudou.
         oab_verificada: Verificação executada.
         oab_inscricao_mudou: A inscrição mudou depois que a fila foi aberta. Confira de novo.

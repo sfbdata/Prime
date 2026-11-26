@@ -1,0 +1,29 @@
+{#
+    Aviso da OAB Divergente da própria pessoa (pedido do dono, 26/11/2026), no topo das telas do sistema, uma vez por
+    sessão: aviso_da_oab() (App\Profile\Twig\AvisoDaOabExtension) devolve a inscrição com o motivo (não encontrada no
+    CNA, nome ou situação, formato) e null nas telas públicas, no Meu Perfil e depois de mostrado. A marca da sessão só
+    é gravada aqui, depois do aviso desenhado (marcar_aviso_da_oab_mostrado). Componente .ae-aviso do desenho 08 (o
+    mesmo do espaço), na moldura de atenção. O botão abre a inscrição no Meu Perfil (/perfil#corrigir-oab-<id>,
+    meu-perfil.js); o × só esconde, porque o aviso não volta nesta sessão.
+#}
+{% set aviso_oab = aviso_da_oab() %}
+{% if aviso_oab %}
+    {% set _oab = {numero: aviso_oab.numero, uf: aviso_oab.uf} %}
+    <link rel="stylesheet" href="{{ asset('css/aviso-espaco.css') }}">
+    <script src="{{ asset('js/aviso-oab.js') }}" defer></script>
+    <div class="ae-aviso" data-aviso-oab="{{ aviso_oab.motivo }}" data-print="hide" role="status">
+        <span class="ae-icone" aria-hidden="true">⚠️</span>
+        <div class="ae-texto">
+            {% if aviso_oab.motivo == 'nome' %}
+                <div>{{ 'moldura.aviso_oab.texto.nome'|trans(_oab) }}</div>
+            {% elseif aviso_oab.motivo == 'formato' %}
+                <div>{{ 'moldura.aviso_oab.texto.formato'|trans(_oab) }}</div>
+            {% else %}
+                <div>{{ 'moldura.aviso_oab.texto.nao_encontrada'|trans(_oab) }}</div>
+            {% endif %}
+        </div>
+        <a class="ae-aumentar" href="{{ path('app_profile') }}{{ aviso_oab.id ? '#corrigir-oab-' ~ aviso_oab.id : '' }}">{{ aviso_oab.motivo == 'nome' ? 'moldura.aviso_oab.conferir'|trans : 'moldura.aviso_oab.corrigir'|trans }}</a>
+        <button type="button" class="ae-fechar" data-fechar-aviso-oab title="{{ 'moldura.aviso_oab.fechar'|trans }}" aria-label="{{ 'moldura.aviso_oab.fechar'|trans }}">×</button>
+    </div>
+    {% do marcar_aviso_da_oab_mostrado() %}
+{% endif %}

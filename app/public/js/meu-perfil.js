@@ -63,6 +63,35 @@
     formOab.elements.numero.value = d.numero || ''; formOab.elements.uf.value = d.uf || ''; tipoOab(d.tipo === 'principal' ? 'principal' : 'suplementar');
     const erro = formOab.querySelector('[data-mp-oab-erro]'); if (erro) { erro.querySelector('span').textContent = d.erro || ''; erro.hidden = false; }
   }
+  /* "Corrigir o número" do aviso do CNA, aqui ou no aviso do topo das outras telas (/perfil#corrigir-oab-<id>):
+     abre a inscrição no mesmo modal do lápis. Salvar o número novo roda a validação de novo no servidor. */
+  function corrigirOab(id) {
+    const linha = document.querySelector('[data-mp-oab-editar="' + CSS.escape(String(id)) + '"]');
+    if (!linha) return;
+    abrirOab(linha);
+    if (formOab) setTimeout(() => { formOab.elements.numero.focus(); formOab.elements.numero.select(); }, 350);
+  }
+  function corrigirPeloEndereco() {
+    const m = /^#corrigir-oab-(\d+)$/.exec(location.hash);
+    if (!m) return false;
+    history.replaceState(null, '', location.pathname + location.search);
+    setTimeout(() => corrigirOab(m[1]), 200);
+
+    return true;
+  }
+  /* Selo "OAB validada": a animação curta só na primeira vez que a pessoa o vê depois de confirmar. A marca leva a
+     pessoa, a inscrição e a data da confirmação; uma confirmação nova anima de novo. Sem localStorage, não anima. */
+  function animarSeloNovo() {
+    document.querySelectorAll('[data-mp-oab-validada]').forEach(selo => {
+      const chave = 'bj-oab-validada-' + selo.dataset.mpOabValidada;
+      try {
+        if (localStorage.getItem(chave)) return;
+        localStorage.setItem(chave, '1');
+      } catch (e) { return; }
+      selo.classList.add('anima');
+    });
+  }
+  animarSeloNovo();
   function removerOab(botao) {
     if (!window.confirm(BJ_T.t('perfil.js.confirmar_remover_oab', { uf: botao.dataset.uf }))) return;
     const f = document.getElementById('formOabRemover');
@@ -123,6 +152,8 @@
       (navigator.clipboard ? navigator.clipboard.writeText(texto) : Promise.reject()).then(() => aviso(BJ_T.t('perfil.js.codigo_compartilhar_copiado')), () => {});
       return;
     }
+    const corrigir = t.closest('[data-mp-oab-corrigir]');
+    if (corrigir) return corrigirOab(corrigir.dataset.mpOabCorrigir);
     if (t.closest('[data-mp-oab-nova]')) return abrirOab(null);
     const linhaOab = t.closest('[data-mp-oab-editar]');
     if (linhaOab) return abrirOab(linhaOab);
@@ -140,5 +171,6 @@
   });
 
   if (formOab && formOab.dataset.reabrir) setTimeout(reabrirOabComErro, 200);
+  else if (corrigirPeloEndereco()) { /* o modal da OAB abre pelo atalho do aviso */ }
   else if (revisaoPendente()) setTimeout(() => { if (!document.querySelector('.modal.show, #modalAlertaPonto.show')) { const m = modal('modalRevisao'); if (m) m.show(); } }, 1200);
 })();

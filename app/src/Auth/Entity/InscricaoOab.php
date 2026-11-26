@@ -143,6 +143,16 @@ class InscricaoOab implements Auditavel
         $this->verificadaEm = $status === StatusOab::NaoVerificada ? null : ($quando ?? new \DateTimeImmutable());
     }
 
+    /**
+     * O CNA não tem este número nesta UF: Divergente, sem nome oficial e COM data (resultado registrado, diferente de
+     * "ainda não consultada" e de "a consulta falhou", que ficam Não verificada e sem data). Sem nome oficial é o que
+     * distingue "não existe" de "existe, mas o nome ou a situação não confere" (docs/specs/validacao-oab.md, regra 5).
+     */
+    public function registrarNaoEncontrada(?\DateTimeImmutable $quando = null): void
+    {
+        $this->registrarVerificacao(StatusOab::Divergente, null, $quando);
+    }
+
     /** Copia esta inscrição para os campos User.oab* (o espelho da principal). */
     public function espelharNoUsuario(): void
     {

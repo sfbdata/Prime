@@ -5,9 +5,11 @@ declare(strict_types=1);
 namespace App\Profile\UseCase;
 
 use App\Auth\Entity\InscricaoOab;
+use App\Auth\Enum\StatusOab;
 use App\Auth\Enum\TipoInscricaoOab;
 use App\Auth\Repository\InscricaoOabRepository;
 use App\Auth\Service\EspelhoDaOabPrincipal;
+use App\Auth\Service\ValidadorOab;
 use App\Entity\Auth\User;
 use App\Profile\DTO\InscricaoOabInput;
 
@@ -19,7 +21,9 @@ use App\Profile\DTO\InscricaoOabInput;
  * User.oab_numero, chk_user_oab_numero; em produção, 19/10/2026, a maior tinha 5); UF de uma das 27 seccionais; no máximo uma
  * inscrição por UF; sempre exatamente uma principal (a primeira nasce principal; escolher outra rebaixa a
  * atual a suplementar; não dá para deixar a pessoa sem principal). Inscrição nova ou com número/UF
- * mudados volta a Pendente. A principal é copiada para User.oab* (espelho). Toda recusa vem antes de qualquer
+ * mudados volta a Pendente e a validação roda de novo na hora ({@see ValidadorOab::verificar()}, a mesma do cadastro):
+ * se o CNA responder, o resultado fica registrado (Confirmada, ou Divergente se não achou o número ou o nome não
+ * confere); se a consulta falhar (o CNA está dormente), fica Pendente para o Master. A principal é copiada para User.oab* (espelho). Toda recusa vem antes de qualquer
  * mudança; a troca de principal grava na ordem certa (InscricaoOabRepository::gravarComNovaPrincipal).
  *
  * @throws \DomainException com a mensagem do desenho
@@ -32,11 +36,15 @@ final class SalvarInscricaoOabUseCase
     public function __construct(
         private readonly InscricaoOabRepository $inscricoes,
         private readonly EspelhoDaOabPrincipal $espelho,
+        private readonly ValidadorOab $validador,
     ) {
     }
 
-    /** @return bool true quando a inscrição ficou Pendente (nova ou com número/UF mudados) */
-    public function executar(User $usuario, InscricaoOabInput $input): bool
+    /**
+     * @return StatusOab|null a situação depois da validação, quando a inscrição é nova ou teve número/UF mudados;
+     *                        null quando nada mudou (mesmo número e UF: situação e data ficam)
+     */
+    public function executar(User $usuario, InscricaoOabInput $input): ?StatusOab
     {
         [$numero, $uf] = $this->exigirFormato($input);
         $todas         = $this->espelho->inscricoesDe($usuario);
@@ -46,15 +54,27 @@ final class SalvarInscricaoOabUseCase
         $this->exigirQueFiquePrincipal($alvo, $tipo);
 
         // Daqui em diante só gravação: toda recusa já aconteceu acima.
-        $pendente = $alvo === null || $alvo->getNumero() !== $numero || $alvo->getUf() !== $uf;
+        $mudou = $alvo === null || $alvo->getNumero() !== $numero || $alvo->getUf() !== $uf;
         if ($alvo === null) {
             $alvo = new InscricaoOab($usuario, $numero, $uf, TipoInscricaoOab::Suplementar);
         } else {
             $alvo->alterar($numero, $uf);
         }
+        if ($mudou) {
+            $this->validarDeNovo($usuario, $alvo);
+        }
         $this->gravar($usuario, $todas, $alvo, $tipo);
 
-        return $pendente;
+        return $mudou ? $alvo->getStatus() : null;
+    }
+
+    /** A consulta que falha não grava nada: a inscrição fica Pendente (o `alterar` já limpou situação e data). */
+    private function validarDeNovo(User $usuario, InscricaoOab $alvo): void
+    {
+        $resultado = $this->validador->verificar($alvo->getNumero(), $alvo->getUf(), (string) $usuario->getFullName());
+        if ($resultado->houveResposta()) {
+            $alvo->registrarVerificacao($resultado->status, $resultado->nomeOficial);
+        }
     }
 
     /** @param list<InscricaoOab> $todas */

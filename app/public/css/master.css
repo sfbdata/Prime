@@ -656,6 +656,9 @@
 .mp .roab-st-div { color: #a3232b; background: #fdecee; border-color: #f3c4ca; }
 .mp .roab-st-nao { color: #8a6200; background: #fff6dc; border-color: #f0dba3; }
 .mp .roab-em { font-size: 12.5px; color: #5b7383; }
+.mp .roab-janela-nome { letter-spacing: normal; }
+/* Motivo da Divergente embaixo da pílula (não encontrada no CNA, nome ou situação, formato): pedido do dono, 26/11. */
+.mp .roab-motivo { display: block; margin-top: 3px; font-size: 11.5px; color: #a3232b; }
 .mp .roab-acoes { display: flex; gap: 5px; justify-content: flex-end; }
 .mp .roab-confirmar { width: 32px; height: 30px; border: none; border-radius: 3px; background: #1e7b45; color: #fff; cursor: pointer; }
 .mp .roab-confirmar:hover { background: #17633a; }

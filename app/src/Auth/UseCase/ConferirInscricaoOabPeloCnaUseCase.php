@@ -14,7 +14,9 @@ use App\Auth\Service\ValidadorOab;
  * "Verificar de novo (nome no CNA)" da Revisão de OAB). Enquanto a consulta automática ao CNA está dormente, é o
  * Master quem consulta o site da OAB e digita o nome que consta lá.
  *
- * Nome em branco: o Master não localizou a inscrição, ela volta a Não verificada. Nome informado: bate com o nome da
+ * Nome em branco: o Master não localizou a inscrição no CNA. Vira o resultado registrado "não encontrada no CNA"
+ * ({@see InscricaoOab::registrarNaoEncontrada()}: Divergente, sem nome oficial, com a data), para não se confundir com
+ * "ainda não consultada" (antes voltava a Não verificada e sem data, como se ninguém tivesse olhado). Nome informado: bate com o nome da
  * pessoa pelo mesmo matcher tolerante da consulta automática ({@see ValidadorOab::nomesBatem()}, decisão do dono em
  * docs/specs/validacao-oab.md) e vira Confirmada; não bate, Divergente. O nome lido fica como nome oficial.
  * Quando a inscrição é a principal, o espelho User.oab* acompanha. Auditado pelo AuditLogSubscriber.
@@ -35,7 +37,7 @@ final class ConferirInscricaoOabPeloCnaUseCase
         $nomeNoCna = trim((string) preg_replace('/\s+/u', ' ', $nomeNoCna));
 
         if ($nomeNoCna === '') {
-            $inscricao->registrarVerificacao(StatusOab::NaoVerificada, null);
+            $inscricao->registrarNaoEncontrada();
         } else {
             $bate = $this->validador->nomesBatem((string) $inscricao->getUsuario()->getFullName(), $nomeNoCna);
             $inscricao->registrarVerificacao($bate ? StatusOab::Confirmada : StatusOab::Divergente, mb_substr($nomeNoCna, 0, 255));

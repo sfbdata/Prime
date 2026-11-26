@@ -78,6 +78,6 @@ plataforma:
         oab_confirmada: OAB confirmed.
         oab_destino_invalido: Invalid destination.
         oab_revertida: OAB reverted.
-        oab_verificada_sem_automatico: Check run. Automatic backend unavailable, the status stays not verified.
+        oab_verificada_sem_automatico: Check run. Automatic backend unavailable, the recorded status did not change.
         oab_verificada: Check run.
         oab_inscricao_mudou: The registration changed after the queue was opened. Check again.

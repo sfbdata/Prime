@@ -47,6 +47,34 @@ final class VerificarOabUseCaseTest extends TestCase
         self::assertNull($user->getOabVerificadaEm());
     }
 
+    #[TestDox('dormente não sobrescreve o resultado registrado: Divergente com data continua, sem flush')]
+    public function testDormenteNaoSobrescreveResultado(): void
+    {
+        $user = $this->usuarioComOab();
+        $quando = new \DateTimeImmutable('2026-11-03 10:00');
+        $user->setOabStatus(StatusOab::Divergente);
+        $user->setOabVerificadaEm($quando);
+        $em = $this->createMock(EntityManagerInterface::class);
+        $em->expects(self::never())->method('flush');
+
+        $resultado = (new VerificarOabUseCase(new ValidadorOab((new OabWebServiceClientFake())->indisponivel()), $em, $this->espelho()))->executar($user);
+
+        self::assertFalse($resultado?->houveResposta());
+        self::assertSame([StatusOab::Divergente, $quando], [$user->getOabStatus(), $user->getOabVerificadaEm()]);
+    }
+
+    #[TestDox('dormente também não derruba uma Confirmada')]
+    public function testDormenteNaoDerrubaConfirmada(): void
+    {
+        $user = $this->usuarioComOab();
+        $user->setOabStatus(StatusOab::Confirmada);
+        $user->setOabNomeOficial('JOAO DA SILVA');
+
+        (new VerificarOabUseCase(new ValidadorOab((new OabWebServiceClientFake())->indisponivel()), $this->createStub(EntityManagerInterface::class), $this->espelho()))->executar($user);
+
+        self::assertSame([StatusOab::Confirmada, 'JOAO DA SILVA'], [$user->getOabStatus(), $user->getOabNomeOficial()]);
+    }
+
     #[TestDox('confirmando grava Confirmada, nome oficial e verificadaEm')]
     public function testConfirmadaGravaTudo(): void
     {

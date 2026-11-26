@@ -182,6 +182,15 @@ moldura:
         texto_pausadas: 'Campaigns are paused and will resume sending around {hora} on {data}. Account and invitation emails keep going out.'
         dispensar: Dismiss
     # Scheduled maintenance notice (layout/_globais/aviso_manutencao; text written by the Master in Global settings)
+    # Notice of an OAB not found in the CNA (layout/_globais/aviso_oab), once per session for the person
+    aviso_oab:
+        texto:
+            nao_encontrada: 'We could not find OAB no. {numero}/{uf} in the National Registry of Lawyers. Please check the number.'
+            nome: 'OAB no. {numero}/{uf} has a different name or status in the CNA. Check your details or contact support.'
+            formato: 'The OAB number {numero}/{uf} has an invalid format.'
+        corrigir: Fix the number
+        conferir: Check the OAB
+        fechar: Close the notice
     aviso_manutencao:
         titulo: Scheduled maintenance
     # BlueJus AI legal issues notice (layout/_globais/aviso_questoes_juridicas), Master only
