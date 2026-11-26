@@ -131,8 +131,32 @@ class PastaDocumentoRepository extends ServiceEntityRepository
      */
     public function linhasDeDuplicadosDoEscritorio(Tenant $tenant, ?int $pastaId = null): array
     {
-        $porPasta = $pastaId === null ? '' : ' AND d.pasta_id = :pasta';
-        $sql = <<<SQL
+        $parametros = ['tenant' => $tenant->getId()];
+        if ($pastaId !== null) {
+            $parametros['pasta'] = $pastaId;
+        }
+
+        $linhas = [];
+        foreach ($this->getEntityManager()->getConnection()->fetchAllAssociative(self::sqlDosDuplicados($pastaId !== null), $parametros) as $linha) {
+            $linhas[] = [
+                'pasta_id' => (int) $linha['pasta_id'],
+                'criterio' => (string) $linha['criterio'],
+                'chave' => (string) $linha['chave'],
+                'categoria' => (string) $linha['categoria'],
+                'total' => (int) $linha['total'],
+                'ids' => array_map('intval', explode(',', (string) $linha['ids'])),
+            ];
+        }
+
+        return $linhas;
+    }
+
+    /** O SQL de {@see linhasDeDuplicadosDoEscritorio()}: chaveia cada documento vivo e fica com os grupos de 2 ou mais. */
+    private static function sqlDosDuplicados(bool $porPasta): string
+    {
+        $daPasta = $porPasta ? ' AND d.pasta_id = :pasta' : '';
+
+        return <<<SQL
             WITH chaveados AS (
                 SELECT d.id, d.pasta_id, d.categoria, d.uploaded_at,
                        CASE WHEN d.sha256 IS NOT NULL THEN 'conteudo' ELSE 'provavel' END AS criterio,
@@ -141,7 +165,7 @@ class PastaDocumentoRepository extends ServiceEntityRepository
                   JOIN pasta p ON p.id = d.pasta_id
                  WHERE d.tenant_id = :tenant AND p.tenant_id = :tenant
                    AND d.excluido_em IS NULL AND p.excluida_em IS NULL
-                   AND d.tamanho_bytes > 0{$porPasta}
+                   AND d.tamanho_bytes > 0{$daPasta}
             ), contados AS (
                 SELECT pasta_id, criterio, chave, categoria,
                        string_agg(id::text, ',' ORDER BY uploaded_at, id) AS ids,
@@ -154,25 +178,6 @@ class PastaDocumentoRepository extends ServiceEntityRepository
              WHERE total > 1
              ORDER BY pasta_id, criterio, chave, categoria
             SQL;
-
-        $parametros = ['tenant' => $tenant->getId()];
-        if ($pastaId !== null) {
-            $parametros['pasta'] = $pastaId;
-        }
-
-        $linhas = [];
-        foreach ($this->getEntityManager()->getConnection()->fetchAllAssociative($sql, $parametros) as $linha) {
-            $linhas[] = [
-                'pasta_id' => (int) $linha['pasta_id'],
-                'criterio' => (string) $linha['criterio'],
-                'chave' => (string) $linha['chave'],
-                'categoria' => (string) $linha['categoria'],
-                'total' => (int) $linha['total'],
-                'ids' => array_map('intval', explode(',', (string) $linha['ids'])),
-            ];
-        }
-
-        return $linhas;
     }
 
     /**

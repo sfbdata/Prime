@@ -85,45 +85,9 @@ final class LerDocumentosDuplicados
         $soSemHash = $this->pastasDoRecorte(array_values(array_diff(array_keys($semHash), $comRepetidos)), $chamada)['pastas'];
         $ocultasPorPasta = $this->abasOcultasPorPasta($chamada);
 
-        /** @var array<int, list<array{pasta_id: int, criterio: string, chave: string, categoria: string, total: int, ids: list<int>}>> $porPasta */
-        $porPasta = [];
-        foreach ($linhas as $linha) {
-            if (isset($recorte['pastas'][$linha['pasta_id']])) {
-                $porPasta[$linha['pasta_id']][] = $linha;
-            }
-        }
-
-        $itens = [];
-        $totais = ['conteudo' => ['grupos' => 0, 'copias_a_mais' => 0, 'pastas' => 0], 'provavel' => ['grupos' => 0, 'copias_a_mais' => 0, 'pastas' => 0]];
-        foreach ($porPasta as $pastaId => $daPasta) {
-            $grupos = self::grupos($daPasta, $ocultasPorPasta[$pastaId] ?? []);
-            $resumo = self::resumo($grupos);
-            if ($resumo['conteudo']['grupos'] + $resumo['provavel']['grupos'] === 0) {
-                continue;
-            }
-            foreach (['conteudo', 'provavel'] as $criterio) {
-                $totais[$criterio]['grupos'] += $resumo[$criterio]['grupos'];
-                $totais[$criterio]['copias_a_mais'] += $resumo[$criterio]['copias_a_mais'];
-                $totais[$criterio]['pastas'] += $resumo[$criterio]['grupos'] > 0 ? 1 : 0;
-            }
-            $itens[] = [
-                'pasta_id' => $pastaId,
-                'numero' => $this->numero($escritorio, $recorte['pastas'][$pastaId]),
-                'conteudo' => $resumo['conteudo'],
-                'provavel' => $resumo['provavel'],
-            ];
-        }
-        usort($itens, static fn (array $a, array $b): int => [self::copias($b), $a['pasta_id']] <=> [self::copias($a), $b['pasta_id']]);
-
-        $semHashVisivel = 0;
-        foreach ($semHash as $pastaId => $porCategoria) {
-            if (isset($recorte['pastas'][$pastaId]) || isset($soSemHash[$pastaId])) {
-                $semHashVisivel += self::semHashVisivel($porCategoria, $ocultasPorPasta[$pastaId] ?? []);
-            }
-        }
-
-        $daPagina = \array_slice($itens, ($pagina - 1) * self::PASTAS_POR_PAGINA, self::PASTAS_POR_PAGINA);
-        $proxima = \count($itens) > $pagina * self::PASTAS_POR_PAGINA ? $pagina + 1 : null;
+        [$itens, $totais] = $this->pastasComRepetidos($linhas, $recorte['pastas'], $ocultasPorPasta, $escritorio);
+        $semHashVisivel = self::semHashNasPastas($semHash, $recorte['pastas'] + $soSemHash, $ocultasPorPasta);
+        [$daPagina, $proxima] = self::pagina($itens, $pagina, self::PASTAS_POR_PAGINA);
 
         return new RespostaDaFerramenta(
             [
@@ -155,33 +119,8 @@ final class LerDocumentosDuplicados
         $pastaId = (int) $pasta->getId();
         $grupos = self::grupos($this->documentos->linhasDeDuplicadosDoEscritorio($escritorio, $pastaId), $abasOcultas);
         $semHash = self::semHashVisivel($this->documentos->semSha256PorPasta($escritorio, $pastaId)[$pastaId] ?? [], $abasOcultas);
-
-        $daPagina = \array_slice($grupos, ($pagina - 1) * self::GRUPOS_POR_PAGINA, self::GRUPOS_POR_PAGINA);
-        $proxima = \count($grupos) > $pagina * self::GRUPOS_POR_PAGINA ? $pagina + 1 : null;
-
-        $idsDaPagina = array_merge([], ...array_map(static fn (array $g): array => \array_slice($g['ids'], 0, self::DOCUMENTOS_POR_GRUPO), $daPagina));
-        $porId = [];
-        if ($idsDaPagina !== []) {
-            foreach ($this->documentos->findBy(['id' => $idsDaPagina, 'tenant' => $escritorio, 'pasta' => $pasta]) as $documento) {
-                $porId[(int) $documento->getId()] = $documento;
-            }
-        }
-
-        $itens = [];
-        foreach ($daPagina as $grupo) {
-            $documentos = [];
-            foreach (\array_slice($grupo['ids'], 0, self::DOCUMENTOS_POR_GRUPO) as $id) {
-                if (isset($porId[$id])) {
-                    $documentos[] = $this->documento($escritorio, $porId[$id]);
-                }
-            }
-            $itens[] = [
-                'criterio' => $grupo['criterio'],
-                'documentos_no_grupo' => \count($grupo['ids']),
-                'copias_a_mais' => \count($grupo['ids']) - 1,
-                'documentos' => $documentos,
-            ];
-        }
+        [$daPagina, $proxima] = self::pagina($grupos, $pagina, self::GRUPOS_POR_PAGINA);
+        [$itens, $idsDosDocumentos] = $this->gruposComDocumentos($daPagina, $pasta, $escritorio);
 
         return new RespostaDaFerramenta(
             [
@@ -195,8 +134,111 @@ final class LerDocumentosDuplicados
             ],
             $proxima,
             contagens: ['grupos' => \count($itens)],
-            ids: ['pasta' => [$pastaId], 'documento' => array_keys($porId)],
+            ids: ['pasta' => [$pastaId], 'documento' => $idsDosDocumentos],
         );
+    }
+
+    /**
+     * O item de cada pasta liberada que tem repetidos (da que tem mais cópias para a que tem menos) e os totais.
+     *
+     * @param list<array{pasta_id: int, criterio: string, chave: string, categoria: string, total: int, ids: list<int>}> $linhas
+     * @param array<int, Pasta>        $liberadas
+     * @param array<int, list<string>> $ocultasPorPasta
+     *
+     * @return array{0: list<array<string, mixed>>, 1: array<string, array{grupos: int, copias_a_mais: int, pastas: int}>}
+     */
+    private function pastasComRepetidos(array $linhas, array $liberadas, array $ocultasPorPasta, Tenant $escritorio): array
+    {
+        $porPasta = [];
+        foreach ($linhas as $linha) {
+            if (isset($liberadas[$linha['pasta_id']])) {
+                $porPasta[$linha['pasta_id']][] = $linha;
+            }
+        }
+
+        $itens = [];
+        $totais = ['conteudo' => ['grupos' => 0, 'copias_a_mais' => 0, 'pastas' => 0], 'provavel' => ['grupos' => 0, 'copias_a_mais' => 0, 'pastas' => 0]];
+        foreach ($porPasta as $pastaId => $daPasta) {
+            $resumo = self::resumo(self::grupos($daPasta, $ocultasPorPasta[$pastaId] ?? []));
+            if ($resumo['conteudo']['grupos'] + $resumo['provavel']['grupos'] === 0) {
+                continue;
+            }
+            foreach (['conteudo', 'provavel'] as $criterio) {
+                $totais[$criterio]['grupos'] += $resumo[$criterio]['grupos'];
+                $totais[$criterio]['copias_a_mais'] += $resumo[$criterio]['copias_a_mais'];
+                $totais[$criterio]['pastas'] += $resumo[$criterio]['grupos'] > 0 ? 1 : 0;
+            }
+            $itens[] = ['pasta_id' => $pastaId, 'numero' => $this->numero($escritorio, $liberadas[$pastaId]), 'conteudo' => $resumo['conteudo'], 'provavel' => $resumo['provavel']];
+        }
+        usort($itens, static fn (array $a, array $b): int => [self::copias($b), $a['pasta_id']] <=> [self::copias($a), $b['pasta_id']]);
+
+        return [$itens, $totais];
+    }
+
+    /**
+     * Os grupos da página com até {@see DOCUMENTOS_POR_GRUPO} documentos cada (os mais antigos), e os ids que saíram.
+     *
+     * @param list<array{criterio: string, ids: list<int>}> $grupos
+     *
+     * @return array{0: list<array<string, mixed>>, 1: list<int>}
+     */
+    private function gruposComDocumentos(array $grupos, Pasta $pasta, Tenant $escritorio): array
+    {
+        $ids = array_merge([], ...array_map(static fn (array $g): array => \array_slice($g['ids'], 0, self::DOCUMENTOS_POR_GRUPO), $grupos));
+        $porId = [];
+        if ($ids !== []) {
+            foreach ($this->documentos->findBy(['id' => $ids, 'tenant' => $escritorio, 'pasta' => $pasta]) as $documento) {
+                $porId[(int) $documento->getId()] = $documento;
+            }
+        }
+
+        $itens = [];
+        foreach ($grupos as $grupo) {
+            $documentos = [];
+            foreach (\array_slice($grupo['ids'], 0, self::DOCUMENTOS_POR_GRUPO) as $id) {
+                if (isset($porId[$id])) {
+                    $documentos[] = $this->documento($escritorio, $porId[$id]);
+                }
+            }
+            $itens[] = ['criterio' => $grupo['criterio'], 'documentos_no_grupo' => \count($grupo['ids']), 'copias_a_mais' => \count($grupo['ids']) - 1, 'documentos' => $documentos];
+        }
+
+        return [$itens, array_keys($porId)];
+    }
+
+    /**
+     * Os documentos sem hash que a pessoa vê, nas pastas que passaram pela porta.
+     *
+     * @param array<int, array<string, int>> $semHash
+     * @param array<int, Pasta>              $liberadas
+     * @param array<int, list<string>>       $ocultasPorPasta
+     */
+    private static function semHashNasPastas(array $semHash, array $liberadas, array $ocultasPorPasta): int
+    {
+        $n = 0;
+        foreach ($semHash as $pastaId => $porCategoria) {
+            if (isset($liberadas[$pastaId])) {
+                $n += self::semHashVisivel($porCategoria, $ocultasPorPasta[$pastaId] ?? []);
+            }
+        }
+
+        return $n;
+    }
+
+    /**
+     * Uma página da lista e o número da seguinte, se houver.
+     *
+     * @template T
+     *
+     * @param list<T> $itens
+     *
+     * @return array{0: list<T>, 1: ?int}
+     */
+    private static function pagina(array $itens, int $pagina, int $porPagina): array
+    {
+        $daPagina = \array_slice($itens, ($pagina - 1) * $porPagina, $porPagina);
+
+        return [$daPagina, \count($itens) > $pagina * $porPagina ? $pagina + 1 : null];
     }
 
     /**
