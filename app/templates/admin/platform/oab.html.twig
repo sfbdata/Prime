@@ -103,6 +103,9 @@
                                     </ul>
                                 </div>
                             {% endif %}
+                            <a href="https://cna.oab.org.br/" target="_blank" rel="noopener noreferrer" class="bjp-ico bjp-btn--secundario" data-cna-oab title="{{ 'plataforma.oab.conferir_site_dica'|trans({numero: item.oabNumero ~ '/' ~ item.oabUf}) }}" aria-label="{{ 'plataforma.oab.conferir_site'|trans }}" data-bs-toggle="tooltip">
+                                <i class="bi bi-box-arrow-up-right"></i>
+                            </a>
                             <form method="post" action="{{ path('admin_platform_oab_reverificar', ctx|merge({id: item.id})) }}" class="d-inline">
                                 <input type="hidden" name="_token" value="{{ csrf_token('oab_reverificar_' ~ item.id) }}">
                                 <button class="bjp-ico bjp-btn--secundario" title="{{ 'plataforma.oab.reverificar_dica'|trans }}" data-bs-toggle="tooltip">

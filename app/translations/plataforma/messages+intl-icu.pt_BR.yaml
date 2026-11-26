@@ -68,6 +68,8 @@ plataforma:
         reverter_para: Reverter para…
         nao_verificada: Não verificada
         divergente: Divergente
+        conferir_site: Conferir no site da OAB
+        conferir_site_dica: "Conferir no site da OAB (inscrição {numero}, o site pede captcha)"
         reverificar_dica: Re-verificar (automático indisponível)
         vazio_titulo: Nenhuma inscrição nesta fila
         vazio_com_busca: Ajuste a busca ou troque o filtro.
