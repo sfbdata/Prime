@@ -42,6 +42,11 @@ a.vB { text-decoration:none; }
 /* Cartão da pessoa identificada (L144) com a assembleia e a unidade. */
 .vcUnidade { padding:11px 16px; display:flex; align-items:center; gap:10px; flex-wrap:wrap; }
 .vcUnidade > i { color:#1e7b45; font-size:20px; }
+/* Faixa "Acompanhar" (sala virtual do debate), logo abaixo dos cartões das pautas. */
+.vcSala { padding:10px 16px; display:flex; align-items:center; gap:10px; flex-wrap:wrap; }
+.vcSalaTitulo { font-weight:700; font-size:14px; color:#243845; margin-right:auto; }
+.vcSalaAviso { flex-basis:100%; }
+.vcSalaAviso[hidden] { display:none; }
 .vcUnidadeTx { flex:1 1 200px; min-width:0; }
 .vcUnidadeTx > b { font-size:14.5px; }
 .vcUnidadeTx > div { font-size:13.5px; color:#34505f; margin-top:3px; }

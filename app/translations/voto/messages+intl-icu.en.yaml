@@ -98,6 +98,14 @@ voto:
             encerrada: Closed
             suspensa: Suspended
             cancelada: Canceled
+        sala:
+            titulo: Follow along
+            abrir: Open room
+            sem_link: The virtual room has not been provided by the organizers yet.
+            estado:
+                aguardando: Voting not open yet
+                aberta: Voting open
+                encerrada: Voting closed
         grupos: All groups
         grupos_da_pauta: 'Groups: {grupos}'
         aviso_voto_aberto: 'OPEN VOTE: your name and your vote will be visible'

@@ -28,6 +28,7 @@ final class CriarAssembleiaUseCase
         $assembleia->definirSimulacao($input->simulacao);
         $assembleia->identificarEntidade($input->entidade, $this->cnpjs->normalizar($input->cnpj));
         $assembleia->definirRotulos($input->rotuloUnidade, $input->rotuloBloco);
+        $assembleia->definirLinkDaSalaVirtual($input->linkSalaVirtual);
         $this->assembleias->salvar($assembleia, flush: true);
 
         return (int) $assembleia->getId();

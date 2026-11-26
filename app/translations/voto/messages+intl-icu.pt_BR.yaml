@@ -109,6 +109,14 @@ voto:
             encerrada: Encerrada
             suspensa: Suspensa
             cancelada: Cancelada
+        sala:
+            titulo: Acompanhar
+            abrir: Abrir sala
+            sem_link: A sala virtual ainda não foi informada pela organização.
+            estado:
+                aguardando: Votação ainda não aberta
+                aberta: Votação aberta
+                encerrada: Votação encerrada
         grupos: Todos os grupos
         grupos_da_pauta: 'Grupos: {grupos}'
         aviso_voto_aberto: 'VOTO ABERTO: seu nome e seu voto ficarão visíveis'
@@ -358,6 +366,8 @@ voto:
                 rotulo_unidade: Nome do campo Unidade
                 rotulo_bloco: Nome do campo Bloco
                 rotulo_dica: 'Opcional, até 40 caracteres. Serve para outras eleições (ex.: Matrícula, Seção). Aparece no portal do eleitor e na lista.'
+                sala_virtual: Sala virtual (link do Meet, Zoom, Teams...)
+                sala_virtual_dica: 'Opcional. Cole o link da reunião onde será o debate. O eleitor o abre pelo botão Abrir sala, no portal do eleitor.'
                 peso: Peso do voto
                 peso_fracao: Fração ideal
                 peso_unidade: Uma unidade, um voto
@@ -891,17 +901,26 @@ voto:
                 rascunho_excluido: Rascunho excluído.
                 simulacao_reiniciada: 'Simulação reiniciada: votos apagados, de volta a rascunho.'
                 simulacao_apagada: Simulação apagada.
+                votacao_apagada: Votação apagada para sempre.
+                sala_virtual_salva: Link da sala virtual salvo.
             # ---- Voto redesign F1-2b e F1-3: telas do ciclo de vida da votação (desenho 18, 16/11).
             chip_ciclo:
                 arquivada: Arquivada
                 cancelada: Cancelada
                 suspensa: Suspensa
+            sala_virtual:
+                rotulo: 'Sala virtual:'
+                menu: Sala virtual
+                titulo: Sala virtual da votação
+                dica: 'Cole o link da reunião (Meet, Zoom, Teams...). Deixe vazio para tirar o link. O eleitor o abre pelo botão Abrir sala.'
+                salvar: Salvar link
             menu_ciclo:
                 retirar_ou_cancelar: Retirar de pauta ou cancelar
                 suspender: Suspender votação
                 retomar: Retomar votação
                 cancelar: Cancelar votação
                 excluir_rascunho: Excluir rascunho
+                apagar: Apagar votação
                 reiniciar_simulacao: Reiniciar simulação
                 apagar_simulacao: Apagar simulação
                 arquivar: Arquivar
@@ -962,6 +981,13 @@ voto:
                 faixa: 'Arquivada em {em}{sem}. Motivo: {motivo}. Dados e evidências preservados; não aparece em Votar, Resultados e Acompanhar.'
                 sem_deliberacao: ', sem deliberação'
                 retirada_motivo: 'Retirada de pauta: {motivo}'
+                apagar_titulo: Apagar votação
+                apagar_aviso: 'Votos, unidades, candidaturas, edital e ata desta votação somem para sempre. Não há como desfazer.'
+                apagar_digite: 'Para confirmar, digite o nome da votação ({nome}) ou APAGAR:'
+                apagar_campo: Nome da votação ou APAGAR
+                apagar_cancelar: Manter votação
+                apagar_sim: Apagar para sempre
+                apagar_confirmacao_curta: Digite o nome da votação ou APAGAR para confirmar.
                 excluir_pergunta: Excluir este rascunho? Ele nunca foi publicado e a exclusão fica registrada na auditoria.
                 excluir_manter: Manter
                 excluir_sim: Excluir rascunho

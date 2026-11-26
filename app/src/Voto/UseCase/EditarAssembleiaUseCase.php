@@ -38,6 +38,7 @@ final class EditarAssembleiaUseCase
         $assembleia->definirSimulacao($input->simulacao);
         $assembleia->identificarEntidade($input->entidade, $cnpj);
         $assembleia->definirRotulos($input->rotuloUnidade, $input->rotuloBloco);
+        $assembleia->definirLinkDaSalaVirtual($input->linkSalaVirtual);
         $this->assembleias->salvar($assembleia, flush: true);
     }
 }

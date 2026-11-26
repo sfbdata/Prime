@@ -82,6 +82,10 @@ class Assembleia implements TenantAware, Auditavel
     #[ORM\Column(length: 40, nullable: true)]
     private ?string $rotuloBloco = null;
 
+    /** Link da sala virtual (Meet, Zoom, Teams...) onde o debate acontece; opcional, só http ou https, até 500 caracteres. */
+    #[ORM\Column(length: 500, nullable: true)]
+    private ?string $linkSalaVirtual = null;
+
     /**
      * Simulação (desenho 18, "Votação de simulação"): treino da mesa e teste do link. Marca só em rascunho; pode ser
      * reiniciada e apagada, não se arquiva e fica fora das estatísticas. Entra no hash da configuração só quando verdadeira.
@@ -194,6 +198,33 @@ class Assembleia implements TenantAware, Auditavel
         }
         $this->rotuloUnidade = '' === $unidade ? null : $unidade;
         $this->rotuloBloco = '' === $bloco ? null : $bloco;
+    }
+
+    /**
+     * Link da sala virtual do debate. Vazio apaga. Só http ou https e até 500 caracteres. É informação de apoio (fora das
+     * regras e do hash), por isso não depende do estado da assembleia.
+     */
+    public function definirLinkDaSalaVirtual(?string $link): void
+    {
+        $link = trim((string) $link);
+        if ('' === $link) {
+            $this->linkSalaVirtual = null;
+
+            return;
+        }
+        if (mb_strlen($link) > 500) {
+            throw new OperacaoInvalidaNaAssembleiaException('O link da sala virtual tem no máximo 500 caracteres.');
+        }
+        $esquema = strtolower((string) parse_url($link, PHP_URL_SCHEME));
+        if (!\in_array($esquema, ['http', 'https'], true) || false === filter_var($link, FILTER_VALIDATE_URL) || '' === (string) parse_url($link, PHP_URL_HOST)) {
+            throw new OperacaoInvalidaNaAssembleiaException('O link da sala virtual deve começar com http:// ou https://.');
+        }
+        $this->linkSalaVirtual = $link;
+    }
+
+    public function getLinkSalaVirtual(): ?string
+    {
+        return $this->linkSalaVirtual;
     }
 
     public function getRotuloUnidade(): string
@@ -355,6 +386,23 @@ class Assembleia implements TenantAware, Auditavel
     {
         if (EstadoDaAssembleia::Rascunho !== $this->estado || null !== $this->publicadaEm) {
             throw new OperacaoInvalidaNaAssembleiaException('Só rascunho nunca publicado pode ser excluído. Votação publicada pode ser arquivada.');
+        }
+    }
+
+    /**
+     * Apagar a votação (prova inclusive): vale para toda votação que não está ativa (teste, irrelevante, arquivada, nunca
+     * aberta ou sem pauta). Só recusa com pauta aberta (nem suspensa) ou programada para abrir (publicada e não arquivada).
+     */
+    public function exigirApagavel(): void
+    {
+        foreach ($this->pautas as $pauta) {
+            if (EstadoDaPauta::Aberta === $pauta->getEstado()) {
+                throw new OperacaoInvalidaNaAssembleiaException('Só votação sem pauta aberta ou programada pode ser apagada.');
+            }
+            if (EstadoDaPauta::Aguardando === $pauta->getEstado() && $pauta->programada() && !$pauta->retirada()
+                && EstadoDaAssembleia::Publicada === $this->estado && !$this->arquivada()) {
+                throw new OperacaoInvalidaNaAssembleiaException('Só votação sem pauta aberta ou programada pode ser apagada.');
+            }
         }
     }
 
