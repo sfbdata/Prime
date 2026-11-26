@@ -153,15 +153,63 @@ emails:
             clique: Click the button below to confirm your email. The link is valid for 7 days.
             botao: Confirm my email
             nao_funcionar: 'If the button does not work, copy and paste this address into your browser:'
+        ativacao_2:
+            texto: 'The matter is the heart of BlueJus: it holds the client, the case, the documents and the deadlines. Creating the first one takes a few minutes.'
+            item1_titulo: '1. Register the client'
+            item1_resumo: 'Name, tax ID and one contact are enough to start.'
+            item2_titulo: '2. Click New matter'
+            item2_resumo: 'Choose the client and the system numbers the matter for you.'
+            item3_titulo: '3. Link the case'
+            item3_resumo: 'With the case number, the updates start arriving in the matter.'
+            botao: 'Create my first matter'
+        ativacao_3:
+            texto: 'With the documents inside the matter, you and your team find everything in seconds, on the computer or on the phone.'
+            item1_titulo: '1. Open the client matter'
+            item1_resumo: 'Search by the client name or by the matter number.'
+            item2_titulo: '2. Click Attach file'
+            item2_resumo: 'Choose the petition, the contract or another document.'
+            item3_titulo: '3. Done'
+            item3_resumo: 'The file is stored in the matter, at hand for the whole team.'
+            botao: 'Attach a document'
+        ativacao_4:
+            texto: 'An organized matter shows at a glance what has been done and what is left.'
+            item1_titulo: 'Deadlines in the notes'
+            item1_resumo: 'Write the date in the matter note and it becomes a deadline automatically.'
+            item2_titulo: 'Case details'
+            item2_resumo: 'The case number and the updates stay in the matter itself.'
+            item3_titulo: 'Tags'
+            item3_resumo: 'Group the matters your way, by area, stage or owner.'
+            botao: 'Organize my matters'
+        ativacao_5:
+            item1_titulo: 'Case Push'
+            item1_resumo: 'Updates arrive on their own, with a summary by artificial intelligence.'
+            item2_titulo: 'Calendar'
+            item2_resumo: 'The team deadlines and hearings in a single calendar.'
+            item3_titulo: 'AI Chat'
+            item3_resumo: 'Ask what is due today or which matters are stalled.'
+            botao: 'Try it now'
+        ativacao_6:
+            texto: |-
+                We noticed that your office has not created any matter in BlueJus yet. If something got in the way, let us know.
+
+                Reply to this email saying where you stopped, and our team will help you step by step.
+            botao: 'Open BlueJus'
+        ativacao_7:
+            texto: |-
+                Thank you for using BlueJus during this first week. The system is built with the help of the people who use it every day.
+
+                What would help your office the most? Send us your suggestion: our team reads every one.
+            botao: 'Send a suggestion'
         boas_vindas:
             texto: Your email has been confirmed and your account is ready. From now on, deadlines, cases, documents and team are in one place.
-            comece: Start here
-            pasta_titulo: 1. Open your first matter
-            pasta_resumo: Register the client and the system numbers the matter automatically.
-            processo_titulo: 2. Link the case
-            processo_resumo: Case Push starts following the updates.
+            comece: 'Your first matter, step by step'
+            pasta_titulo: '1. Click New matter'
+            pasta_resumo: 'Choose the client or register a new one. The system numbers the matter automatically.'
+            processo_titulo: '2. Link the case'
+            processo_resumo: 'Enter the case number and Case Push starts following the updates.'
             equipe_titulo: 3. Invite your team
             equipe_resumo: Each person joins as a secondary user and you set the permissions.
+            video: 'Watch the video (1 minute)'
             botao: Open BlueJus
         espaco_100:
             texto: Storage reached 100%. Your files remain stored and available to view and download, but new uploads are paused until you add more space.

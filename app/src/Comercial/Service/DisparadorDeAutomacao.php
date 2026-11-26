@@ -12,7 +12,7 @@ use App\Comercial\Repository\AutomacaoDeEmailRepository;
 
 /**
  * Monta o modelo de uma automação e entrega ao Carteiro, se ela está ligada (spec §3.5). Todas transacionais, exceto
- * a `dica`, que é lista (`comercial_dicas`) e respeita o descadastro. Escopo plataforma.
+ * a `dica` e os dias 2 a 7 da ativação, que são lista (`comercial_dicas`) e respeitam o descadastro. Escopo plataforma.
  */
 final class DisparadorDeAutomacao
 {
@@ -41,18 +41,18 @@ final class DisparadorDeAutomacao
             return false;
         }
         $modelo = $this->modelos->montar($automacao, $nomeCompleto, $variaveis);
-        $ehDica = $automacao === Automacao::Dica;
+        $ehDeLista = $automacao->ehDeLista();
         $this->carteiro->enviar(new MensagemDeEmail(
             para: $para,
             assunto: $modelo->assunto,
             corpoHtml: $modelo->corpoHtml,
-            tipo: $ehDica ? TipoDeEnvio::Lista : TipoDeEnvio::Transacional,
+            tipo: $ehDeLista ? TipoDeEnvio::Lista : TipoDeEnvio::Transacional,
             origem: $automacao->origem(),
-            lista: $ehDica ? self::LISTA_DICAS : null,
+            lista: $ehDeLista ? self::LISTA_DICAS : null,
             nome: $nomeCompleto,
             selo: $modelo->selo,
             titulo: $modelo->titulo,
-            rastrear: $ehDica,
+            rastrear: $ehDeLista,
             layout: $modelo->layout,
         ));
 

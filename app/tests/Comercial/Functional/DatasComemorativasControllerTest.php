@@ -107,7 +107,7 @@ final class DatasComemorativasControllerTest extends JusPrimeWebTestCase
         self::assertSame('obrigado', array_column($dados['datas'], null, 'chave')['natal']['modelo']);
         self::assertNull(array_column($dados['datas'], null, 'chave')['pascoa']['modelo']);
         self::assertSame(['convite', 'vagas'], \array_slice(array_column($dados['modelos'], 'chave'), 0, 2));
-        self::assertCount(11, $dados['modelos'], 'os 11 padrões; as 17 mensagens das datas ficam de fora');
+        self::assertCount(17, $dados['modelos'], 'os 17 padrões; as 17 mensagens das datas ficam de fora');
 
         $this->postar($client, '/master/comercial/datas/natal', ['ligada' => true, 'antecedencia' => 0, 'publico' => 'todos', 'modelo' => '']);
         self::assertNull($this->json($client)['modelo']);
@@ -124,7 +124,7 @@ final class DatasComemorativasControllerTest extends JusPrimeWebTestCase
         $this->postar($client, '/master/comercial/datas/natal', ['ligada' => true, 'antecedencia' => 0, 'publico' => 'todos', 'modelo' => $proprio]);
         self::assertResponseIsSuccessful();
         $client->request('GET', '/master/comercial/datas');
-        self::assertSame([$proprio, true], [array_column($this->json($client)['modelos'], 'chave')[11], array_column($this->json($client)['modelos'], 'proprio')[11]]);
+        self::assertSame([$proprio, true], [array_column($this->json($client)['modelos'], 'chave')[17], array_column($this->json($client)['modelos'], 'proprio')[17]]);
 
         foreach ([['zzz', AlterarDataComemorativaUseCase::MODELO_INVALIDO], ['cu99999', AlterarDataComemorativaUseCase::MODELO_INVALIDO], [5, self::INCOMPLETO]] as [$modelo, $erro]) {
             $this->postar($client, '/master/comercial/datas/pascoa', ['ligada' => true, 'antecedencia' => 0, 'publico' => 'todos', 'modelo' => $modelo]);

@@ -1,0 +1,5 @@
+{# Plano de ativação, dia 7 (pedido do Farlei de 26/11/2026): `at7`, o botão leva às sugestões do Contribua. Mesmo
+   texto da cópia `ativ7` da Central. #}
+{% import 'email/comercial/automacao/_blocos.html.twig' as b %}
+{{ b.texto('emails.comercial.ativacao_7.texto'|trans) }}
+{{ b.botao('emails.comercial.ativacao_7.botao'|trans, urlDaSugestao) }}

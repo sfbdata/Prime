@@ -17,7 +17,8 @@ use Symfony\Component\Messenger\Attribute\AsMessageHandler;
 /**
  * Uma volta da varredura (spec comercial-e-emails.md §3.4). Quem a dispara, a cada 15 min, é o schedule `cadeias`
  * ({@see \App\Shared\Scheduler\AgendaDasCadeias}); o handler não se reagenda. Reivindica a vez na linha 1 de
- * `comercial_varredura` (zero linhas = outra volta acabou de passar, e esta não faz nada) e roda a `dica`, a
+ * `comercial_varredura` (zero linhas = outra volta acabou de passar, e esta não faz nada) e roda a `dica`, o plano de
+ * ativação de 7 dias, a
  * recuperação de envios parados e as datas comemorativas (§13, F4: a campanha do dia, depois das 9h, com a chave
  * geral ligada) e o aviso de troca do serviço de e-mail (acima de 2.000 em 24 h, no máximo 1 por dia).
  */
@@ -52,6 +53,7 @@ final class VarrerAutomacoesHandler
         }
         // Cada passo isolado: uma falha na dica não pula a recuperação dos envios.
         $this->passo('dica', fn () => $this->varredura->mandarDicas($agora));
+        $this->passo('ativacao', fn () => $this->varredura->mandarAtivacao($agora));
         $this->passo('recuperacao', fn () => $this->recuperacao->recuperar($agora));
         $this->passo('datas', fn () => $this->datas->disparar($agora));
         $this->passo('troca', fn () => $this->troca->avisarSePreciso($agora));

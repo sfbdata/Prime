@@ -9,7 +9,8 @@ namespace App\Comercial\Campanha;
  * MODELOS`, dc L.504-515), na ordem do dc:
  *  - os simples (corpo, itens, botão e link): `convite`, `vagas`, `obrigado`, `novidades`;
  *  - o `news` em blocos;
- *  - as cópias em blocos dos 6 modelos de automação (dc L.508-513). São independentes dos templates Twig das
+ *  - as cópias em blocos dos 6 modelos de automação (dc L.508-513) e dos dias 2 a 7 do plano de ativação (`ativ2` a
+ *    `ativ7`, pedido do Farlei de 26/11/2026). São independentes dos templates Twig das
  *    automações da 1a enquanto o Master não os edita; editados (M5.8), as automações correspondentes passam a enviar a
  *    versão do Master ({@see \App\Comercial\Service\ModelosDeAutomacao}). Do `validar` sai a frase "Ou use o código
  *    482 917 na tela de confirmação." (Q5, o código é da frente do desenho 10), e o botão `validar` vira `app` no
@@ -44,13 +45,40 @@ final class ModelosDeCampanha
         ]],
         'boasvindas' => ['chave' => 'boasvindas', 'nome' => 'Boas-vindas', 'icone' => 'bi-emoji-smile', 'modo' => 'blocos', 'assunto' => 'Bem-vindo ao BlueJus, seu escritório digital', 'selo' => 'BEM-VINDO(A)', 'titulo' => 'Seja bem-vindo(a), {nome}!', 'blocos' => [
             ['t' => 'texto', 'a' => 'Seu e-mail foi confirmado e a sua conta está pronta. A partir de agora, prazos, processos, documentos e equipe ficam em um só lugar.'],
-            ['t' => 'titulo', 'a' => 'Comece por aqui'],
-            ['t' => 'noticias', 'a' => "1. Abra sua primeira pasta|Cadastre o cliente e o sistema numera a pasta automaticamente.\n2. Vincule o processo|O Push processual passa a acompanhar os andamentos.\n3. Convide sua equipe|Cada pessoa entra como secundária e você define as permissões."],
+            ['t' => 'titulo', 'a' => 'Sua primeira pasta, passo a passo'],
+            ['t' => 'noticias', 'a' => "1. Clique em Nova pasta|Escolha o cliente ou cadastre um novo. O sistema numera a pasta automaticamente.\n2. Vincule o processo|Informe o número do processo e o Push processual passa a acompanhar os andamentos.\n3. Convide sua equipe|Cada pessoa entra como secundária e você define as permissões."],
             ['t' => 'botao', 'a' => 'Abrir o BlueJus', 'b' => 'app'],
         ]],
         'primeiros' => ['chave' => 'primeiros', 'nome' => 'Primeiros passos (7 dias)', 'icone' => 'bi-signpost-2', 'modo' => 'blocos', 'assunto' => 'Uma semana de BlueJus: dicas para render mais', 'selo' => 'DICAS', 'titulo' => '{nome}, veja o que mais o BlueJus faz por você', 'blocos' => [
             ['t' => 'noticias', 'a' => "Prazos lidos das pastas|Escreva a data no registro e ela vira prazo automaticamente.\nChat I.A|Pergunte quais pastas estão paradas ou o que vence hoje.\nMeu Perfil|Cadastre sua OAB principal e as suplementares."],
             ['t' => 'botao', 'a' => 'Continuar no BlueJus', 'b' => 'app'],
+        ]],
+        'ativ2' => ['chave' => 'ativ2', 'nome' => 'Ativação, dia 2: primeira pasta', 'icone' => 'bi-folder-plus', 'modo' => 'blocos', 'assunto' => 'Sua primeira pasta no BlueJus em 3 passos', 'selo' => 'PRIMEIRA PASTA', 'titulo' => '{nome}, vamos criar a sua primeira pasta?', 'blocos' => [
+            ['t' => 'texto', 'a' => 'A pasta é o centro do BlueJus: nela ficam o cliente, o processo, os documentos e os prazos. Criar a primeira leva poucos minutos.'],
+            ['t' => 'noticias', 'a' => "1. Cadastre o cliente|Nome, CPF ou CNPJ e um contato já bastam para começar.\n2. Clique em Nova pasta|Escolha o cliente e o sistema numera a pasta sozinho.\n3. Vincule o processo|Com o número do processo, os andamentos passam a chegar na pasta."],
+            ['t' => 'botao', 'a' => 'Criar minha primeira pasta', 'b' => 'app'],
+        ]],
+        'ativ3' => ['chave' => 'ativ3', 'nome' => 'Ativação, dia 3: primeiro documento', 'icone' => 'bi-file-earmark-arrow-up', 'modo' => 'blocos', 'assunto' => 'Guarde a petição e o contrato dentro da pasta', 'selo' => 'PRIMEIRO DOCUMENTO', 'titulo' => '{nome}, anexe o seu primeiro documento', 'blocos' => [
+            ['t' => 'texto', 'a' => 'Com os documentos dentro da pasta, você e a sua equipe encontram tudo em segundos, no computador ou no celular.'],
+            ['t' => 'noticias', 'a' => "1. Abra a pasta do cliente|Use a busca pelo nome do cliente ou pelo número da pasta.\n2. Clique em Anexar arquivo|Escolha a petição, o contrato ou outro documento.\n3. Pronto|O arquivo fica guardado na pasta, à mão de toda a equipe."],
+            ['t' => 'botao', 'a' => 'Anexar um documento', 'b' => 'app'],
+        ]],
+        'ativ4' => ['chave' => 'ativ4', 'nome' => 'Ativação, dia 4: organização', 'icone' => 'bi-kanban', 'modo' => 'blocos', 'assunto' => 'Documentos, prazos e processo organizados no BlueJus', 'selo' => 'ORGANIZAÇÃO', 'titulo' => '{nome}, deixe cada pasta em ordem', 'blocos' => [
+            ['t' => 'texto', 'a' => 'Uma pasta organizada mostra de relance o que já foi feito e o que falta fazer.'],
+            ['t' => 'noticias', 'a' => "Prazos nos registros|Escreva a data no registro da pasta e ela vira prazo automaticamente.\nDados do processo|O número do processo e os andamentos ficam na própria pasta.\nMarcadores|Separe as pastas do seu jeito, por área, fase ou responsável."],
+            ['t' => 'botao', 'a' => 'Organizar minhas pastas', 'b' => 'app'],
+        ]],
+        'ativ5' => ['chave' => 'ativ5', 'nome' => 'Ativação, dia 5: produtividade', 'icone' => 'bi-lightning-charge', 'modo' => 'blocos', 'assunto' => 'Funções do BlueJus que economizam tempo', 'selo' => 'PRODUTIVIDADE', 'titulo' => '{nome}, ganhe tempo na rotina do escritório', 'blocos' => [
+            ['t' => 'noticias', 'a' => "Push processual|Os andamentos chegam sozinhos, com um resumo por inteligência artificial.\nAgenda|Prazos e audiências da equipe em um só calendário.\nChat I.A|Pergunte o que vence hoje ou quais pastas estão paradas."],
+            ['t' => 'botao', 'a' => 'Experimentar agora', 'b' => 'app'],
+        ]],
+        'ativ6' => ['chave' => 'ativ6', 'nome' => 'Ativação, dia 6: oferta de ajuda', 'icone' => 'bi-life-preserver', 'modo' => 'blocos', 'assunto' => 'Podemos ajudar você a começar no BlueJus?', 'selo' => 'PRECISA DE AJUDA?', 'titulo' => '{nome}, a gente ajuda você a começar', 'blocos' => [
+            ['t' => 'texto', 'a' => "Vimos que o seu escritório ainda não criou nenhuma pasta no BlueJus. Se algo travou no caminho, conte para a gente.\n\nResponda a este e-mail dizendo onde parou, e a nossa equipe ajuda você passo a passo."],
+            ['t' => 'botao', 'a' => 'Abrir o BlueJus', 'b' => 'app'],
+        ]],
+        'ativ7' => ['chave' => 'ativ7', 'nome' => 'Ativação, dia 7: sugestões', 'icone' => 'bi-chat-heart', 'modo' => 'blocos', 'assunto' => 'Uma semana de BlueJus: conte o que achou', 'selo' => 'SUA OPINIÃO', 'titulo' => '{nome}, obrigado pela primeira semana', 'blocos' => [
+            ['t' => 'texto', 'a' => "Obrigado por usar o BlueJus nesta primeira semana. O sistema é feito com a ajuda de quem trabalha com ele todos os dias.\n\nO que ajudaria mais na rotina do seu escritório? Mande a sua sugestão: cada uma é lida pela nossa equipe."],
+            ['t' => 'botao', 'a' => 'Enviar uma sugestão', 'b' => 'contribua'],
         ]],
         'espaco90' => ['chave' => 'espaco90', 'nome' => 'Espaço em 90%', 'icone' => 'bi-hdd', 'modo' => 'blocos', 'assunto' => 'Seu espaço no BlueJus está quase cheio', 'selo' => 'AVISO DE ESPAÇO', 'titulo' => '{nome}, sua conta chegou a 90% do espaço', 'blocos' => [
             ['t' => 'texto', 'a' => 'O armazenamento do seu escritório no BlueJus está com 90% ocupado. Quando chegar a 100%, o envio de novos documentos fica pausado (consultar e baixar continua liberado).'],
