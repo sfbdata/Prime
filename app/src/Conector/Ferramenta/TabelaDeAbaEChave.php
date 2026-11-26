@@ -108,6 +108,8 @@ final class TabelaDeAbaEChave
             'modelos' => ['modulos' => self::PASTAS, 'abas' => self::DETALHES, 'chaves' => self::EXPEDIENTES],
             'modelo' => ['modulos' => self::PASTAS, 'abas' => self::DETALHES, 'chaves' => self::EXPEDIENTES],
             'modelos_de_checklist' => ['modulos' => self::PASTAS, 'abas' => self::DOCUMENTOS, 'chaves' => self::EXPEDIENTES],
+            // Relatório de repetidos (M9 de 26/11): sem pasta, só chave e módulo; com pasta (ou em cada pasta do escritório), a aba Documentos.
+            'duplicados' => ['modulos' => self::PASTAS, 'abas' => self::DOCUMENTOS, 'chaves' => self::EXPEDIENTES],
         ],
         'ler_processos' => [
             'buscar' => ['modulos' => self::PROCESSOS, 'abas' => [], 'chaves' => self::NENHUMA],

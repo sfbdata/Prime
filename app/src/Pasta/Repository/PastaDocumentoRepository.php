@@ -113,6 +113,98 @@ class PastaDocumentoRepository extends ServiceEntityRepository
     }
 
     /**
+     * Os documentos repetidos DENTRO de cada pasta do escritório (pedido do dono de 26/11/2026, M9 item 3), agrupados por
+     * pasta, critério, chave e categoria: a base do relatório de duplicados do conector. Só leitura.
+     *
+     * Dois critérios, nunca misturados:
+     *  - `conteudo`: o mesmo `sha256` (arquivo idêntico, byte a byte);
+     *  - `provavel`: documentos ainda SEM `sha256` (o acervo anterior ao `app:documentos:calcular-hash`) com o mesmo
+     *    nome original e o mesmo tamanho. É indício, não prova; some quando o hash for calculado.
+     *
+     * Ficam de fora: documento na lixeira, pasta com lápide e arquivo de 0 byte (o "Vazio" da limpeza, não uma cópia).
+     * A linha vem por categoria para a ferramenta tirar o que a aba Financeiro oculta esconde; `total` é o tamanho do
+     * grupo inteiro (todas as categorias), `ids` os documentos desta categoria, do mais antigo ao mais novo. A chave do
+     * `provavel` é um md5 interno, nunca o nome. Filtro de tenant EXPLÍCITO, nos dois lados do JOIN. A permissão por
+     * pasta e o segredo de justiça NÃO são daqui: são da ferramenta.
+     *
+     * @return list<array{pasta_id: int, criterio: string, chave: string, categoria: string, total: int, ids: list<int>}>
+     */
+    public function linhasDeDuplicadosDoEscritorio(Tenant $tenant, ?int $pastaId = null): array
+    {
+        $porPasta = $pastaId === null ? '' : ' AND d.pasta_id = :pasta';
+        $sql = <<<SQL
+            WITH chaveados AS (
+                SELECT d.id, d.pasta_id, d.categoria, d.uploaded_at,
+                       CASE WHEN d.sha256 IS NOT NULL THEN 'conteudo' ELSE 'provavel' END AS criterio,
+                       CASE WHEN d.sha256 IS NOT NULL THEN d.sha256::text ELSE md5(d.nome_original || '|' || d.tamanho_bytes::text) END AS chave
+                  FROM pasta_documento d
+                  JOIN pasta p ON p.id = d.pasta_id
+                 WHERE d.tenant_id = :tenant AND p.tenant_id = :tenant
+                   AND d.excluido_em IS NULL AND p.excluida_em IS NULL
+                   AND d.tamanho_bytes > 0{$porPasta}
+            ), contados AS (
+                SELECT pasta_id, criterio, chave, categoria,
+                       string_agg(id::text, ',' ORDER BY uploaded_at, id) AS ids,
+                       SUM(COUNT(*)) OVER (PARTITION BY pasta_id, criterio, chave) AS total
+                  FROM chaveados
+                 GROUP BY pasta_id, criterio, chave, categoria
+            )
+            SELECT pasta_id, criterio, chave, categoria, total, ids
+              FROM contados
+             WHERE total > 1
+             ORDER BY pasta_id, criterio, chave, categoria
+            SQL;
+
+        $parametros = ['tenant' => $tenant->getId()];
+        if ($pastaId !== null) {
+            $parametros['pasta'] = $pastaId;
+        }
+
+        $linhas = [];
+        foreach ($this->getEntityManager()->getConnection()->fetchAllAssociative($sql, $parametros) as $linha) {
+            $linhas[] = [
+                'pasta_id' => (int) $linha['pasta_id'],
+                'criterio' => (string) $linha['criterio'],
+                'chave' => (string) $linha['chave'],
+                'categoria' => (string) $linha['categoria'],
+                'total' => (int) $linha['total'],
+                'ids' => array_map('intval', explode(',', (string) $linha['ids'])),
+            ];
+        }
+
+        return $linhas;
+    }
+
+    /**
+     * Quantos documentos vivos de cada pasta do escritório ainda estão sem `sha256` (pasta com lápide fora). É o
+     * tamanho do que o relatório de duplicados só compara pelo critério `provavel`.
+     *
+     * @return array<int, int> id da pasta => documentos sem hash (só pastas com algum)
+     */
+    public function semSha256PorPasta(Tenant $tenant, ?int $pastaId = null): array
+    {
+        $qb = $this->createQueryBuilder('d')
+            ->select('IDENTITY(d.pasta) AS pasta_id', 'COUNT(d.id) AS n')
+            ->innerJoin('d.pasta', 'p')
+            ->andWhere('d.tenant = :tenant')
+            ->andWhere('d.sha256 IS NULL')
+            ->andWhere('d.excluidoEm IS NULL')
+            ->andWhere('p.excluidaEm IS NULL')
+            ->setParameter('tenant', $tenant)
+            ->groupBy('d.pasta');
+        if ($pastaId !== null) {
+            $qb->andWhere('IDENTITY(d.pasta) = :pasta')->setParameter('pasta', $pastaId);
+        }
+
+        $porPasta = [];
+        foreach ($qb->getQuery()->getArrayResult() as $linha) {
+            $porPasta[(int) $linha['pasta_id']] = (int) $linha['n'];
+        }
+
+        return $porPasta;
+    }
+
+    /**
      * Ids dos documentos ainda sem hash, do mais antigo ao mais novo — a fila de
      * `app:documentos:calcular-hash`. Só ids (escalar) para o comando percorrer em lotes sem
      * hidratar o acervo inteiro.

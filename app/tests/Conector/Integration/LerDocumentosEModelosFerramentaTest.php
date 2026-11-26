@@ -707,7 +707,7 @@ final class LerDocumentosEModelosFerramentaTest extends KernelTestCase
      */
     private function executar(string $acao, Pasta|int $pasta, array $extras = []): RespostaDaFerramenta
     {
-        $campos = ['listar' => ['pagina'], 'ler' => ['documento_id'], 'lixeira' => ['pagina'], 'modelos' => ['pagina', 'busca'], 'modelo' => ['modelo_id'], 'modelos_de_checklist' => ['pagina']][$acao];
+        $campos = ['listar' => ['pagina'], 'ler' => ['documento_id'], 'lixeira' => ['pagina'], 'modelos' => ['pagina', 'busca'], 'modelo' => ['modelo_id'], 'modelos_de_checklist' => ['pagina'], 'duplicados' => ['pagina']][$acao];
         $argumentos = ['acao' => $acao, 'pasta_id' => $pasta instanceof Pasta ? $pasta->getId() : $pasta] + array_intersect_key($extras, array_flip($campos));
         static::getContainer()->get('services_resetter')->reset();
         $contexto = $this->portao()->abrir((int) $this->pessoa->getId(), (int) $this->escritorio->getId());

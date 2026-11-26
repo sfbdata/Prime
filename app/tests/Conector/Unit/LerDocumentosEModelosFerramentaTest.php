@@ -29,8 +29,9 @@ final class LerDocumentosEModelosFerramentaTest extends TestCase
 
         self::assertSame('ler_documentos_e_modelos', $this->ferramenta()->nome());
         self::assertSame(CatalogoFechadoDoConector::TITULOS['ler_documentos_e_modelos'], $this->ferramenta()->titulo());
-        self::assertSame(['listar', 'ler', 'lixeira', 'modelos', 'modelo', 'modelos_de_checklist'], $esquema['properties']['acao']['enum']);
-        self::assertSame(['acao', 'pasta_id'], $esquema['required']);
+        self::assertSame(['listar', 'ler', 'lixeira', 'modelos', 'modelo', 'modelos_de_checklist', 'duplicados'], $esquema['properties']['acao']['enum']);
+        // pasta_id saiu do `required` só por causa de duplicados (o relatório do escritório); as outras ações o exigem na entrada.
+        self::assertSame(['acao'], $esquema['required']);
         self::assertFalse($esquema['additionalProperties']);
         self::assertSame('integer', $esquema['properties']['documento_id']['type']);
         self::assertSame('integer', $esquema['properties']['modelo_id']['type']);
@@ -67,6 +68,8 @@ final class LerDocumentosEModelosFerramentaTest extends TestCase
         yield 'página zero' => [['acao' => 'listar', 'pasta_id' => 1, 'pagina' => 0]];
         yield 'página acima do teto' => [['acao' => 'listar', 'pasta_id' => 1, 'pagina' => 10_001]];
         yield 'campo fora do esquema' => [['acao' => 'listar', 'pasta_id' => 1, 'caminho' => '/etc/passwd']];
+        yield 'duplicados com pasta zero' => [['acao' => 'duplicados', 'pasta_id' => 0]];
+        yield 'duplicados com documento' => [['acao' => 'duplicados', 'documento_id' => 3]];
     }
 
     /** @param array<string, mixed> $argumentos */

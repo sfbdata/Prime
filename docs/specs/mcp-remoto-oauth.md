@@ -860,6 +860,14 @@ Todas: `readOnlyHint: true`, escopo `mcp:leitura`, sem confirmação.
 - Ações: `listar` (documentos e subpastas da pasta, sem conteúdo: id, nome, categoria, subpasta, data, tamanho, tipo),
   `ler` (`documento_id`: o conteúdo, pela tabela da 6.5), `lixeira` (o que está na lixeira da pasta,
   `ListarLixeiraDaPastaUseCase`), `modelos` (modelos de peça do escritório) e `modelo` (corpo de um modelo, **sem preencher**).
+- `duplicados` (M9 do dono de 26/11/2026, item 3; só leitura, nada é excluído): sem `pasta_id` (a única ação em que ele
+  é opcional), os totais do escritório e as pastas com documentos repetidos, 100 por página; com `pasta_id`, os grupos da
+  pasta com os documentos de cada um, 30 por página. Critério `conteudo` = mesmo `sha256`; `provavel` = mesmo nome original
+  e tamanho entre documentos ainda sem hash (o acervo anterior ao `app:documentos:calcular-hash`). Lixeira, pasta com lápide
+  e arquivo de 0 byte ficam fora. Acesso: `SegredoNasListas` e a guarda da linha por pasta (contadas como omitidas) e o
+  contrato com a aba Financeiro oculta (`LerDocumentosDuplicados`, consulta em
+  `PastaDocumentoRepository::linhasDeDuplicadosDoEscritorio`). A `copiar` da `documentos_e_pecas` passou a devolver um
+  `aviso` de que a cópia deixa o arquivo repetido na pasta (aviso, não bloqueio; o conector não envia arquivo, 14.j).
 - Reusa:
   - lista: `ListarDocumentosDaPastaDoAgenteUseCase::executar(int, User, Tenant)`
     (`app/src/Inteligencia/UseCase/ListarDocumentosDaPastaDoAgenteUseCase.php:41`), que tira a lixeira e o contrato quando o
@@ -1291,7 +1299,7 @@ clientes, mas não os processos, `app/src/Pasta/UseCase/DuplicarPastaUseCase.php
 | `ler_pasta`: checklist | `pasta_show` | Documentos | `expedientes` |
 | `ler_pasta`: financeiro | `pasta_show` | Financeiro | `expedientes` |
 | `ler_pasta`: publicacoes | `pasta_push_texto` | Push | `expedientes` |
-| `ler_documentos_e_modelos`: listar, ler, lixeira | `pasta_documento*`, `inteligencia_agente_pastas_documentos` | Documentos | `expedientes` |
+| `ler_documentos_e_modelos`: listar, ler, lixeira, duplicados | `pasta_documento*`, `inteligencia_agente_pastas_documentos` | Documentos | `expedientes` |
 | `ler_documentos_e_modelos`: modelos, modelo | `pasta_modelos_listar` | Detalhes | `expedientes` |
 | `ler_processos`: buscar, detalhar | `processo_index`, `processo_show` | nenhuma (não é rota de pasta) | nenhuma |
 | `ler_processos`: para_vincular, cnj | `pasta_buscar_processos`, `pasta_processo_buscar_cnj` | Processo | `expedientes` |
