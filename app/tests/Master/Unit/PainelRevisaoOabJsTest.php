@@ -168,6 +168,16 @@ final class PainelRevisaoOabJsTest extends TestCase
         self::assertStringContainsString("(f === 'cadastro' ? '' : ' disabled title=\"' + esc(T('freq_sem_cna')) + '\"')", $js);
     }
 
+    #[TestDox('cada linha tem o link para o site da OAB em nova aba, com a inscrição no title')]
+    public function testLinkParaOSiteDaOab(): void
+    {
+        $js = self::js();
+
+        self::assertStringContainsString('href="https://cna.oab.org.br/" target="_blank" rel="noopener noreferrer"', $js);
+        self::assertStringContainsString("T('conferir_site', { inscricao: l.inscricao })", $js);
+        self::assertSame(1, substr_count($js, 'class="roab-site"'));
+    }
+
     #[TestDox('ações: Confirmar sempre na linha, Verificar de novo pela janela da página (mp-conf) com nomeCna ou nome, sem prompt do navegador, POST com X-CSRF-Token e recarga')]
     public function testAcoes(): void
     {

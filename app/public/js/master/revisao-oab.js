@@ -98,7 +98,8 @@
       + (MOTIVOS.includes(l.motivo) ? '<small class="roab-motivo">' + T('motivo.' + l.motivo) + '</small>' : '') + '</span>'
       + '<span class="roab-em">' + esc(em) + '</span>'
       + '<span class="roab-acoes"><button type="button" class="roab-confirmar" data-roab-confirmar="' + l.id + '" title="' + esc(T('confirmar')) + '" aria-label="' + esc(T('confirmar')) + '"><i class="bi bi-check-lg"></i></button>'
-      + '<button type="button" class="roab-reverif" data-roab-reverif="' + l.id + '" title="' + esc(T('verificar')) + '" aria-label="' + esc(T('verificar')) + '"><i class="bi bi-arrow-repeat"></i></button></span></div>';
+      + '<button type="button" class="roab-reverif" data-roab-reverif="' + l.id + '" title="' + esc(T('verificar')) + '" aria-label="' + esc(T('verificar')) + '"><i class="bi bi-arrow-repeat"></i></button>'
+      + '<a class="roab-site" href="https://cna.oab.org.br/" target="_blank" rel="noopener noreferrer" title="' + esc(T('conferir_site', { inscricao: l.inscricao })) + '" aria-label="' + esc(T('conferir_site_rotulo')) + '"><i class="bi bi-box-arrow-up-right"></i></a></span></div>';
   }
 
   function desenharLinhas() {
