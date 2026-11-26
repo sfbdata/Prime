@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Master\UseCase;
 
+use App\Auth\Entity\InscricaoOab as InscricaoOabDaPessoa;
 use App\Auth\Enum\StatusOab;
 use App\Auth\Repository\InscricaoOabRepository;
 use App\Master\Repository\ConfiguracaoGlobalRepository;
@@ -60,24 +61,32 @@ final class ConsultarRevisaoOabUseCase
                 $contagens['pend']++;
             }
 
-            $inscricao = InscricaoOab::normalizar($i->getNumero(), $i->getUf());
-            $linhas[] = [
-                'id'           => (int) $i->getId(),
-                'nome'         => (string) $usuario->getFullName(),
-                'email'        => (string) $usuario->getEmail(),
-                'escritorio'   => $contaPorPessoa[(int) $usuario->getId()] ?? 'Conta não identificada',
-                'numero'       => $i->getNumero(),
-                'uf'           => $i->getUf(),
-                'inscricao'    => $inscricao,
-                'principal'    => $i->ehPrincipal(),
-                'nomeCna'      => $i->getNomeOficial(),
-                'status'       => $status->value,
-                'motivo'       => self::motivo($status, $inscricao, $i->getNomeOficial()),
-                'verificadaEm' => $i->getVerificadaEm()?->format(\DateTimeInterface::ATOM),
-            ];
+            $linhas[] = self::linha($i, $contaPorPessoa[(int) $usuario->getId()] ?? 'Conta não identificada');
         }
 
         return ['contagens' => $contagens, 'linhas' => $linhas, 'auto' => $this->auto()];
+    }
+
+    /** @return array{id: int, nome: string, email: string, escritorio: string, numero: string, uf: string, inscricao: string, principal: bool, nomeCna: ?string, status: string, motivo: ?string, verificadaEm: ?string} */
+    private static function linha(InscricaoOabDaPessoa $i, string $escritorio): array
+    {
+        $usuario   = $i->getUsuario();
+        $inscricao = InscricaoOab::normalizar($i->getNumero(), $i->getUf());
+
+        return [
+            'id'           => (int) $i->getId(),
+            'nome'         => (string) $usuario->getFullName(),
+            'email'        => (string) $usuario->getEmail(),
+            'escritorio'   => $escritorio,
+            'numero'       => $i->getNumero(),
+            'uf'           => $i->getUf(),
+            'inscricao'    => $inscricao,
+            'principal'    => $i->ehPrincipal(),
+            'nomeCna'      => $i->getNomeOficial(),
+            'status'       => $i->getStatus()->value,
+            'motivo'       => self::motivo($i->getStatus(), $inscricao, $i->getNomeOficial()),
+            'verificadaEm' => $i->getVerificadaEm()?->format(\DateTimeInterface::ATOM),
+        ];
     }
 
     /** Motivo da Divergente: formato, nao_encontrada ou nome; null nas demais situações. */
