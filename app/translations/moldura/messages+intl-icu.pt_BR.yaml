@@ -181,6 +181,11 @@ moldura:
         texto_pausadas: 'As campanhas estão pausadas e voltam a enviar por volta das {hora} de {data}. E-mails de conta e convite continuam saindo.'
         dispensar: Dispensar
     # Aviso de manutenção programada (layout/_globais/aviso_manutencao; texto escrito pelo Master em Configurações globais)
+    # Aviso da OAB não achada no CNA (layout/_globais/aviso_oab), uma vez por sessão para a própria pessoa
+    aviso_oab:
+        texto: 'Não achamos a OAB nº {numero}/{uf} no Cadastro Nacional dos Advogados. Confira o número.'
+        corrigir: Corrigir o número
+        fechar: Fechar o aviso
     aviso_manutencao:
         titulo: Manutenção programada
     # Aviso das questões jurídicas da BlueJus IA (layout/_globais/aviso_questoes_juridicas), só para o Master

@@ -142,7 +142,10 @@ final class PainelRevisaoOabJsTest extends TestCase
             'status.pend' => 'Pendente',
             'confirmar' => 'Confirmar inscrição',
             'verificar' => 'Verificar de novo (nome no CNA)',
-            'prompt' => 'Nome que consta no CNA para a OAB {inscricao} (deixe em branco se não localizar):',
+            'prompt' => 'Nome que consta no CNA para a OAB {inscricao} (deixe em branco se não localizar: fica registrada como não encontrada no CNA):',
+            'motivo.nao_encontrada' => 'Não encontrada no CNA',
+            'motivo.nome' => 'Nome ou situação não confere',
+            'motivo.formato' => 'Formato inválido',
         ];
         foreach ($esperado as $chave => $texto) {
             self::assertSame($texto, self::catalogo('master.js.revisao_oab.' . $chave), $chave);

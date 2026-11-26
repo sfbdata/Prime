@@ -24,6 +24,8 @@
   const PILULA = { conf: 'bi-patch-check-fill', div: 'bi-exclamation-triangle-fill', nao: 'bi-clock', pend: 'bi-hourglass-split' };
   const ABAS = ['pend', 'div', 'nao', 'conf', 'todas'];
   const FREQS = ['cadastro', 'diaria', 'semanal'];
+  // Motivo da Divergente (ConsultarRevisaoOabUseCase::motivo): o "não encontrada no CNA" fica registrado com a data.
+  const MOTIVOS = ['nao_encontrada', 'nome', 'formato'];
 
   let raiz = null;
   let ctx = null;
@@ -92,7 +94,8 @@
       + '<span class="roab-esc" title="' + esc(l.email) + '">' + esc(l.escritorio) + '</span>'
       + '<span class="roab-oab"><b>' + esc(l.inscricao) + '</b>' + (l.principal ? '<span class="roab-principal"><i class="bi bi-star-fill"></i>' + T('principal') + '</span>' : '') + '</span>'
       + '<span class="roab-cna' + (l.nomeCna ? '' : ' roab-cna-sem') + '">' + (l.nomeCna ? esc(l.nomeCna) : T('nao_informado')) + '</span>'
-      + '<span><span class="roab-st roab-st-' + g + '"><i class="bi ' + PILULA[g] + '"></i>' + T('status.' + g) + '</span></span>'
+      + '<span><span class="roab-st roab-st-' + g + '"><i class="bi ' + PILULA[g] + '"></i>' + T('status.' + g) + '</span>'
+      + (MOTIVOS.includes(l.motivo) ? '<small class="roab-motivo">' + T('motivo.' + l.motivo) + '</small>' : '') + '</span>'
       + '<span class="roab-em">' + esc(em) + '</span>'
       + '<span class="roab-acoes"><button type="button" class="roab-confirmar" data-roab-confirmar="' + l.id + '" title="' + esc(T('confirmar')) + '" aria-label="' + esc(T('confirmar')) + '"><i class="bi bi-check-lg"></i></button>'
       + '<button type="button" class="roab-reverif" data-roab-reverif="' + l.id + '" title="' + esc(T('verificar')) + '" aria-label="' + esc(T('verificar')) + '"><i class="bi bi-arrow-repeat"></i></button></span></div>';
@@ -131,7 +134,8 @@
   }
 
   // Desenho (verificar): prompt com o nome do CNA ou o do usuário. Cancelar não faz nada (decisão do Coordenador
-  // 31/10); deixar em branco envia vazio e a inscrição volta a Não verificada. Nome igual confirma; diferente diverge.
+  // 31/10); deixar em branco envia vazio e a inscrição fica registrada como não encontrada no CNA (Divergente, com a
+  // data; pedido do dono 26/11). Nome igual confirma; diferente diverge.
   function verificar(l) {
     const digitado = window.prompt(T('prompt', { inscricao: l.inscricao }), l.nomeCna || l.nome);
     if (digitado === null) {

@@ -59,6 +59,10 @@ perfil:
         aguardando_validacao: Awaiting Master validation
         selo_principal: PRIMARY
         selo_suplementar: SUPPLEMENTARY
+        nao_encontrada: 'We could not find OAB no. {numero}/{uf} in the National Registry of Lawyers. Please check the number.'
+        corrigir: Fix the number
+        selo_validada: OAB validated
+        selo_validada_titulo: 'Checked in the National Registry of Lawyers'
         vazio: 'No registration provided. Use "Add OAB" to register the primary one.'
         modal:
             titulo: OAB Registration

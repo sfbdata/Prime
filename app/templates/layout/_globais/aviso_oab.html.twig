@@ -1,0 +1,20 @@
+{#
+    Aviso da OAB que o Cadastro Nacional dos Advogados não achou (pedido do dono, 26/11/2026), no topo das telas, uma
+    vez por sessão, só para a própria pessoa: aviso_da_oab() (App\Profile\Twig\AvisoDaOabExtension) devolve a
+    inscrição Divergente dela na primeira tela depois do login e null daí em diante. Componente .ae-aviso do desenho 08
+    (o mesmo do espaço), na moldura de atenção. "Corrigir o número" abre a inscrição no Meu Perfil
+    (/perfil#corrigir-oab-<id>, meu-perfil.js); o × só esconde, porque o aviso não volta nesta sessão.
+#}
+{% set aviso_oab = aviso_da_oab() %}
+{% if aviso_oab %}
+    <link rel="stylesheet" href="{{ asset('css/aviso-espaco.css') }}">
+    <script src="{{ asset('js/aviso-oab.js') }}" defer></script>
+    <div class="ae-aviso" data-aviso-oab data-print="hide" role="status">
+        <span class="ae-icone" aria-hidden="true">⚠️</span>
+        <div class="ae-texto">
+            <div>{{ 'moldura.aviso_oab.texto'|trans({numero: aviso_oab.numero, uf: aviso_oab.uf}) }}</div>
+        </div>
+        <a class="ae-aumentar" href="{{ path('app_profile') }}{{ aviso_oab.id ? '#corrigir-oab-' ~ aviso_oab.id : '' }}">{{ 'moldura.aviso_oab.corrigir'|trans }}</a>
+        <button type="button" class="ae-fechar" data-fechar-aviso-oab title="{{ 'moldura.aviso_oab.fechar'|trans }}" aria-label="{{ 'moldura.aviso_oab.fechar'|trans }}">×</button>
+    </div>
+{% endif %}

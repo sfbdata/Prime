@@ -8,11 +8,14 @@ use App\Auth\Entity\InscricaoOab;
 use App\Auth\Enum\StatusOab;
 use App\Auth\Enum\TipoInscricaoOab;
 use App\Auth\Repository\InscricaoOabRepository;
+use App\Auth\DTO\ConsultaOabResultado;
 use App\Auth\Service\EspelhoDaOabPrincipal;
+use App\Auth\Service\ValidadorOab;
 use App\Entity\Auth\User;
 use App\Profile\DTO\InscricaoOabInput;
 use App\Profile\UseCase\RemoverInscricaoOabUseCase;
 use App\Profile\UseCase\SalvarInscricaoOabUseCase;
+use App\Tests\Auth\Doubles\OabWebServiceClientFake;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\Attributes\TestDox;
@@ -22,6 +25,7 @@ use PHPUnit\Framework\TestCase;
 #[CoversClass(RemoverInscricaoOabUseCase::class)]
 #[CoversClass(EspelhoDaOabPrincipal::class)]
 #[CoversClass(InscricaoOab::class)]
+#[CoversClass(ValidadorOab::class)]
 final class SalvarInscricaoOabUseCaseTest extends TestCase
 {
     #[TestDox('primeira inscrição nasce principal (gravada pela troca ordenada), mesmo pedida como suplementar')]
@@ -32,7 +36,7 @@ final class SalvarInscricaoOabUseCaseTest extends TestCase
         $repo->expects(self::once())->method('gravarComNovaPrincipal')
             ->with(self::callback(static fn (InscricaoOab $i): bool => [$i->getNumero(), $i->getUf()] === ['49613', 'DF']), []);
 
-        self::assertTrue($sut->executar($user, new InscricaoOabInput(null, '49.613', 'df', TipoInscricaoOab::Suplementar)));
+        self::assertSame(StatusOab::NaoVerificada, $sut->executar($user, new InscricaoOabInput(null, '49.613', 'df', TipoInscricaoOab::Suplementar)));
     }
 
     #[TestDox('nova principal vai pela gravação ordenada, que rebaixa a antiga antes')]
@@ -48,14 +52,14 @@ final class SalvarInscricaoOabUseCaseTest extends TestCase
         $sut->executar($user, new InscricaoOabInput(null, '700', 'GO', TipoInscricaoOab::Principal));
     }
 
-    #[TestDox('mesmo número e UF: situação e data ficam; devolve "não pendente"')]
+    #[TestDox('mesmo número e UF: situação e data ficam e a validação não roda; devolve null')]
     public function testSemMudanca(): void
     {
         $user = new User();
         $df   = $this->inscricao($user, 1, '49613', 'DF', TipoInscricaoOab::Principal, StatusOab::Confirmada);
-        [$sut] = $this->sut($user, [$df]);
+        [$sut] = $this->sut($user, [$df], (new OabWebServiceClientFake())->comResultado(new ConsultaOabResultado(false, null, null)));
 
-        self::assertFalse($sut->executar($user, new InscricaoOabInput(1, '49613', 'DF', TipoInscricaoOab::Principal)));
+        self::assertNull($sut->executar($user, new InscricaoOabInput(1, '49613', 'DF', TipoInscricaoOab::Principal)));
         self::assertSame(StatusOab::Confirmada, $df->getStatus());
         self::assertNotNull($df->getVerificadaEm());
     }
@@ -100,17 +104,56 @@ final class SalvarInscricaoOabUseCaseTest extends TestCase
         $sut->executar($user, 1);
     }
 
+    #[TestDox('corrigir o número de uma inscrição não encontrada valida de novo na hora: o CNA confirma e o espelho acompanha')]
+    public function testCorrecaoRevalida(): void
+    {
+        $user = (new User())->setFullName('Ana Paula Souza');
+        $df   = $this->inscricao($user, 1, '81269', 'DF', TipoInscricaoOab::Principal, StatusOab::Divergente);
+        $cna  = (new OabWebServiceClientFake())->comResultado(new ConsultaOabResultado(true, 'ANA PAULA DE SOUZA', 'Regular'));
+        [$sut, $repo] = $this->sut($user, [$df], $cna);
+        $repo->expects(self::once())->method('salvar')->with($df, true);
+
+        self::assertSame(StatusOab::Confirmada, $sut->executar($user, new InscricaoOabInput(1, '82269', 'DF', TipoInscricaoOab::Principal)));
+        self::assertSame(['82269', StatusOab::Confirmada, 'ANA PAULA DE SOUZA'], [$df->getNumero(), $df->getStatus(), $df->getNomeOficial()]);
+        self::assertNotNull($df->getVerificadaEm());
+        self::assertSame(['82269', StatusOab::Confirmada], [$user->getOabNumero(), $user->getOabStatus()]);
+    }
+
+    #[TestDox('número novo que o CNA não acha registra "não encontrada": Divergente, sem nome, com data')]
+    public function testNumeroNovoNaoEncontrado(): void
+    {
+        $user = (new User())->setFullName('Ana Paula Souza');
+        $df   = $this->inscricao($user, 1, '82269', 'DF', TipoInscricaoOab::Principal, StatusOab::Confirmada);
+        [$sut] = $this->sut($user, [$df], (new OabWebServiceClientFake())->comResultado(new ConsultaOabResultado(false, null, null)));
+
+        self::assertSame(StatusOab::Divergente, $sut->executar($user, new InscricaoOabInput(1, '81269', 'DF', TipoInscricaoOab::Principal)));
+        self::assertSame([StatusOab::Divergente, null], [$df->getStatus(), $df->getNomeOficial()]);
+        self::assertNotNull($df->getVerificadaEm(), 'resultado registrado');
+    }
+
+    #[TestDox('consulta que falha (CNA dormente) deixa a inscrição corrigida Pendente, sem data: não vira "não encontrada"')]
+    public function testConsultaQueFalhaFicaPendente(): void
+    {
+        $user = (new User())->setFullName('Ana Paula Souza');
+        $df   = $this->inscricao($user, 1, '81269', 'DF', TipoInscricaoOab::Principal, StatusOab::Divergente);
+        [$sut] = $this->sut($user, [$df]);
+
+        self::assertSame(StatusOab::NaoVerificada, $sut->executar($user, new InscricaoOabInput(1, '82269', 'DF', TipoInscricaoOab::Principal)));
+        self::assertSame([StatusOab::NaoVerificada, null, null], [$df->getStatus(), $df->getNomeOficial(), $df->getVerificadaEm()]);
+    }
+
     /**
      * @param list<InscricaoOab> $existentes
      *
      * @return array{0: SalvarInscricaoOabUseCase, 1: InscricaoOabRepository&\PHPUnit\Framework\MockObject\MockObject}
      */
-    private function sut(User $user, array $existentes): array
+    private function sut(User $user, array $existentes, ?OabWebServiceClientFake $cna = null): array
     {
         $repo = $this->createMock(InscricaoOabRepository::class);
         $repo->method('doUsuario')->willReturn($existentes);
+        $validador = new ValidadorOab($cna ?? (new OabWebServiceClientFake())->indisponivel());
 
-        return [new SalvarInscricaoOabUseCase($repo, new EspelhoDaOabPrincipal($repo)), $repo];
+        return [new SalvarInscricaoOabUseCase($repo, new EspelhoDaOabPrincipal($repo), $validador), $repo];
     }
 
     private function inscricao(User $user, int $id, string $numero, string $uf, TipoInscricaoOab $tipo, StatusOab $status): InscricaoOab

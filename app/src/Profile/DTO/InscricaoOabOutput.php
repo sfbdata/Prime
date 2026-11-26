@@ -10,6 +10,9 @@ use App\Auth\Enum\StatusOab;
 /**
  * Uma linha do card "Registro OAB" (desenho "07 - Meu Perfil", VS 18.10.26, `oabs` e `ST`). A situação usa
  * os rótulos e as cores do desenho: Pendente (NaoVerificada), Não confirmada (Divergente), Confirmada.
+ *
+ * `precisaCorrigir` (Divergente: o CNA não achou o número, ou o nome/situação não confere) acende o aviso "Confira o
+ * número" com o atalho para corrigir; `validada` (Confirmada) acende o selo "OAB validada" ao lado do número.
  */
 final readonly class InscricaoOabOutput
 {
@@ -22,6 +25,8 @@ final readonly class InscricaoOabOutput
         public string $situacaoClasse,
         public string $situacaoIcone,
         public ?\DateTimeImmutable $verificadaEm,
+        public bool $precisaCorrigir = false,
+        public bool $validada = false,
     ) {
     }
 
@@ -33,6 +38,17 @@ final readonly class InscricaoOabOutput
             StatusOab::NaoVerificada => ['Pendente', 'pendente', 'bi-hourglass-split'],
         };
 
-        return new self((int) $i->getId(), $i->getNumero(), $i->getUf(), $i->ehPrincipal(), $rotulo, $classe, $icone, $i->getVerificadaEm());
+        return new self(
+            (int) $i->getId(),
+            $i->getNumero(),
+            $i->getUf(),
+            $i->ehPrincipal(),
+            $rotulo,
+            $classe,
+            $icone,
+            $i->getVerificadaEm(),
+            $i->getStatus() === StatusOab::Divergente,
+            $i->getStatus() === StatusOab::Confirmada,
+        );
     }
 }

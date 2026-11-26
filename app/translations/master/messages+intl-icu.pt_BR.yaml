@@ -1534,7 +1534,11 @@ master:
                 pend: Pendente
             confirmar: Confirmar inscrição
             verificar: Verificar de novo (nome no CNA)
-            prompt: 'Nome que consta no CNA para a OAB {inscricao} (deixe em branco se não localizar):'
+            prompt: 'Nome que consta no CNA para a OAB {inscricao} (deixe em branco se não localizar: fica registrada como não encontrada no CNA):'
+            motivo:
+                nao_encontrada: Não encontrada no CNA
+                nome: Nome ou situação não confere
+                formato: Formato inválido
             erro: Não foi possível concluir a ação. Recarregue a página.
             erro_carga: Não foi possível carregar a revisão de OAB agora. Recarregue a página.
     # P4c: e-mail aos primários do estado quando o Master muda o convênio OAB (AvisoDeConvenioDaUf).

@@ -18,4 +18,13 @@ final class ResultadoVerificacaoOab
         public readonly ?string $situacao,
     ) {
     }
+
+    /**
+     * O CNA respondeu (Confirmada ou Divergente)? NaoVerificada aqui é sempre "a consulta falhou" (fail-open do
+     * {@see \App\Auth\Service\ValidadorOab::verificar()}): quem grava não deve apagar com isso um resultado já registrado.
+     */
+    public function houveResposta(): bool
+    {
+        return $this->status !== StatusOab::NaoVerificada;
+    }
 }

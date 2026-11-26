@@ -133,6 +133,21 @@ html[data-bs-theme="dark"] .mp-codigo { color: #6cb6e0; }
 .mp-oab-erro[hidden] { display: none; }
 .mp-oab-remover { align-self: flex-start; height: 30px; padding: 0 10px; border: none; background: transparent; color: #a3232b; font-size: 13px; cursor: pointer; display: flex; align-items: center; gap: 6px; }
 .mp-oab-remover:hover { background: #fdf1f2; }
+/* Selo "OAB validada" ao lado do número e aviso "Confira o número" (pedido do dono, 26/11; sem desenho, nas cores das
+   pílulas de situação acima). A animação do selo só entra com .anima, que o meu-perfil.js põe na primeira vez. */
+.mp-oab-validada { height: 22px; padding: 0 8px; border-radius: 11px; background: #e9f6ee; color: #146c43; font-size: 11.5px; font-weight: 700; display: inline-flex; align-items: center; gap: 4px; }
+.mp-oab-validada .bi { color: #198754; }
+.mp-oab-linha:hover .mp-oab-validada { background: rgba(255,255,255,.2) !important; }
+.mp-oab-validada.anima { animation: mpOabValidada .9s ease-out 1; }
+.mp-oab-validada.anima .bi { animation: mpOabValidadaIcone .9s ease-out 1; }
+@keyframes mpOabValidada { 0% { opacity: 0; transform: scale(.6); box-shadow: 0 0 0 0 rgba(25, 135, 84, .45); } 45% { opacity: 1; transform: scale(1.08); } 100% { transform: scale(1); box-shadow: 0 0 0 8px rgba(25, 135, 84, 0); } }
+@keyframes mpOabValidadaIcone { 0% { transform: rotate(-90deg); } 60% { transform: rotate(10deg); } 100% { transform: rotate(0); } }
+.mp-oab-aviso { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; padding: 9px 16px; border-bottom: 1px solid #f0f2f4; background: #fff8e6; color: #664d03; font-size: 13px; }
+.mp-oab-aviso > .bi { color: #997404; }
+.mp-oab-aviso > span { flex: 1; min-width: 200px; }
+.mp-oab-corrigir { height: 28px; padding: 0 12px; border: 1px solid #c08a12; border-radius: 3px; background: #fff; color: #7a5a00; font-size: 12.5px; font-weight: 700; cursor: pointer; }
+.mp-oab-corrigir:hover { background: #c08a12; color: #fff; }
+@media (prefers-reduced-motion: reduce) { .mp-oab-validada.anima, .mp-oab-validada.anima .bi { animation: none; } }
 
 /* modais */
 .mp-modal .modal-content { border: none; border-radius: 4px; overflow: hidden; box-shadow: 0 20px 50px rgba(18, 36, 47, .25); color: #12242f; }

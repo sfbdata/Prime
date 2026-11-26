@@ -59,6 +59,10 @@ perfil:
         aguardando_validacao: Aguardando validação do Master
         selo_principal: PRINCIPAL
         selo_suplementar: SUPLEMENTAR
+        nao_encontrada: 'Não achamos a OAB nº {numero}/{uf} no Cadastro Nacional dos Advogados. Confira o número.'
+        corrigir: Corrigir o número
+        selo_validada: OAB validada
+        selo_validada_titulo: 'Conferida no Cadastro Nacional dos Advogados'
         vazio: 'Nenhuma inscrição informada. Use "Adicionar OAB" para cadastrar a principal.'
         modal:
             titulo: Inscrição na OAB

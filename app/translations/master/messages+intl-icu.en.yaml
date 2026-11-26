@@ -1476,7 +1476,11 @@ master:
                 pend: Pending
             confirmar: Confirm registration
             verificar: Check again (name in the CNA)
-            prompt: 'Name on file in the CNA for OAB {inscricao} (leave blank if not found):'
+            prompt: 'Name on file in the CNA for OAB {inscricao} (leave blank if not found: it is recorded as not found in the CNA):'
+            motivo:
+                nao_encontrada: Not found in the CNA
+                nome: Name or status does not match
+                formato: Invalid format
             erro: Could not complete the action. Reload the page.
             erro_carga: Could not load the OAB review right now. Reload the page.
     convenio_email:

@@ -374,11 +374,24 @@ input[type="range"].img-slider {
                     <span><b class="{{ o.principal ? 'grande' : '' }}">{{ o.numero }}</b><span class="mp-oab-uf">/{{ o.uf }}</span></span>
                     <small><i class="bi bi-clock"></i>{{ o.verificadaEm ? 'perfil.oab.verificada_em'|trans({data: o.verificadaEm|data_hora}) : 'perfil.oab.aguardando_validacao'|trans }}</small>
                 </span>
+                {# Selo "OAB validada" ao lado do número (pedido do dono, 26/11). A animação curta roda só na primeira vez
+                   que a pessoa o vê depois de confirmar (meu-perfil.js guarda a marca por pessoa, inscrição e data). #}
+                {% if o.validada %}
+                    <span class="mp-oab-validada" data-mp-oab-validada="{{ app.user.id }}-{{ o.id }}-{{ o.verificadaEm ? o.verificadaEm|date('U') : '0' }}" title="{{ 'perfil.oab.selo_validada_titulo'|trans }}"><i class="bi bi-patch-check-fill" aria-hidden="true"></i>{{ 'perfil.oab.selo_validada'|trans }}</span>
+                {% endif %}
                 <span class="mp-oab-tipo {{ o.principal ? 'principal' : '' }}"><i class="bi {{ o.principal ? 'bi-star-fill' : 'bi-diagram-2' }}"></i>{{ o.principal ? 'perfil.oab.selo_principal'|trans : 'perfil.oab.selo_suplementar'|trans }}</span>
                 <span class="flex-grow-1"></span>
                 <span class="mp-oab-situacao {{ o.situacaoClasse }}"><i class="bi {{ o.situacaoIcone }}"></i>{{ o.situacao }}</span>
                 <i class="bi bi-pencil mp-oab-lapis"></i>
             </button>
+            {# O CNA não achou o número (ou não confere): aviso com o atalho que abre a inscrição no modal (pedido do dono, 26/11). #}
+            {% if o.precisaCorrigir %}
+                <div class="mp-oab-aviso" id="mpOabAviso{{ o.id }}" data-mp-oab-aviso="{{ o.id }}" role="status">
+                    <i class="bi bi-exclamation-triangle-fill" aria-hidden="true"></i>
+                    <span>{{ 'perfil.oab.nao_encontrada'|trans({numero: o.numero, uf: o.uf}) }}</span>
+                    <button type="button" class="mp-oab-corrigir" data-mp-oab-corrigir="{{ o.id }}">{{ 'perfil.oab.corrigir'|trans }}</button>
+                </div>
+            {% endif %}
         {% else %}
             <div class="mp-oab-vazio">{{ 'perfil.oab.vazio'|trans }}</div>
         {% endfor %}

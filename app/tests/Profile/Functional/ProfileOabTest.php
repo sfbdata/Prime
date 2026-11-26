@@ -187,6 +187,73 @@ final class ProfileOabTest extends JusPrimeWebTestCase
         self::assertSame([['49613', 'DF', 'principal', 'confirmada']], $this->inscricoes($user));
     }
 
+    #[TestDox('OAB não encontrada no CNA: o Meu Perfil mostra o aviso com o atalho; corrigir o número valida de novo e o aviso some')]
+    public function testAvisoNoPerfilApareceESomeAoCorrigir(): void
+    {
+        [$client, $user] = $this->logado(oabNumero: '81269', oabUf: 'DF', status: StatusOab::Divergente);
+
+        $tela  = $client->request('GET', '/perfil');
+        $id    = $this->idDa($user, 'DF');
+        $aviso = $tela->filter('.mp-card-oab [data-mp-oab-aviso="' . $id . '"]');
+        self::assertCount(1, $aviso);
+        self::assertSame(
+            'Não achamos a OAB nº 81269/DF no Cadastro Nacional dos Advogados. Confira o número.',
+            trim($aviso->filter('span')->text()),
+        );
+        self::assertSame((string) $id, $aviso->filter('button[data-mp-oab-corrigir]')->attr('data-mp-oab-corrigir'));
+        self::assertCount(0, $tela->filter('.mp-oab-validada'), 'sem selo enquanto não confirmada');
+
+        $this->salvarOab($client, ['id' => (string) $id, 'numero' => '82269', 'uf' => 'DF', 'tipo' => 'principal']);
+
+        // No teste o CNA é o dormente: a validação roda, a consulta falha e a inscrição fica Pendente (sem aviso).
+        self::assertSame([['82269', 'DF', 'principal', 'nao_verificada']], $this->inscricoes($user));
+        self::assertSame(['Inscrição salva. Ela fica Pendente até o Master validar.'], $client->getRequest()->getSession()->getFlashBag()->peek('success'));
+        self::assertCount(0, $client->request('GET', '/perfil')->filter('[data-mp-oab-aviso]'));
+    }
+
+    #[TestDox('OAB confirmada ganha o selo "OAB validada" ao lado do número, com a marca da confirmação; Pendente não')]
+    public function testSeloOabValidada(): void
+    {
+        [$client, $user] = $this->logado(oabNumero: '49613', oabUf: 'DF', status: StatusOab::Confirmada);
+        $this->salvarOab($client, ['numero' => '700', 'uf' => 'GO', 'tipo' => 'suplementar']);
+
+        $linhas = $client->request('GET', '/perfil')->filter('.mp-card-oab > button.mp-oab-linha');
+        $selo   = $linhas->eq(0)->filter('.mp-oab-validada');
+        self::assertCount(1, $selo);
+        self::assertSame('OAB validada', trim($selo->text()));
+        self::assertStringStartsWith($user->getId() . '-' . $this->idDa($user, 'DF') . '-', (string) $selo->attr('data-mp-oab-validada'));
+        self::assertCount(0, $linhas->eq(1)->filter('.mp-oab-validada'), 'a Pendente não tem selo');
+        self::assertCount(0, $linhas->filter('[data-mp-oab-aviso]'));
+    }
+
+    #[TestDox('fora do Meu Perfil o aviso da OAB não encontrada aparece uma vez por sessão, com o link para corrigir')]
+    public function testAvisoUmaVezPorSessao(): void
+    {
+        [$client, $user] = $this->logado(oabNumero: '81269', oabUf: 'DF', status: StatusOab::Divergente);
+
+        $perfil = $client->request('GET', '/perfil');
+        self::assertCount(0, $perfil->filter('[data-aviso-oab]'), 'no Meu Perfil o aviso é o do cartão, e não gasta a vez');
+        $id = $this->idDa($user, 'DF');
+
+        $tela  = $client->request('GET', '/novidades');
+        $aviso = $tela->filter('[data-aviso-oab]');
+        self::assertCount(1, $aviso);
+        self::assertSame('Não achamos a OAB nº 81269/DF no Cadastro Nacional dos Advogados. Confira o número.', trim($aviso->filter('.ae-texto')->text()));
+        self::assertSame('/perfil#corrigir-oab-' . $id, $aviso->filter('a.ae-aumentar')->attr('href'));
+
+        self::assertCount(0, $client->request('GET', '/novidades')->filter('[data-aviso-oab]'), 'só uma vez na sessão');
+    }
+
+    #[TestDox('quem tem a OAB Pendente não vê o aviso do topo, nem o da OAB não encontrada de outra pessoa')]
+    public function testSemAvisoParaPendenteNemDeOutraPessoa(): void
+    {
+        [$client, $user] = $this->logado(oabNumero: '49613', oabUf: 'DF', status: StatusOab::NaoVerificada);
+        [$outra] = $this->criarUsuarioComTenant('81269', 'DF', StatusOab::Divergente);
+        self::assertNotSame($outra->getId(), $user->getId());
+
+        self::assertCount(0, $client->request('GET', '/novidades')->filter('[data-aviso-oab]'));
+    }
+
     // ----------------------------------------------------------------- helpers
 
     /** @return array{0: \Symfony\Bundle\FrameworkBundle\KernelBrowser, 1: User} */
