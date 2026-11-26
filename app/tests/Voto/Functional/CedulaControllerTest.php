@@ -187,9 +187,31 @@ final class CedulaControllerTest extends JusPrimeWebTestCase
         self::assertSame($this->link() . '/pauta/__PAUTA__', $dados['urlVotar']);
         self::assertNotSame('', $dados['csrf']);
         self::assertSame('/images/voto/bj-voto-logo.png', $dados['logo']);
-        foreach (['inicio_aperte', 'candidaturas', 'fim_voto', 'erro_generico', 'dica', 'fala_invalido'] as $chave) {
+        foreach (['inicio_aperte', 'candidaturas', 'fim_voto', 'erro_generico', 'dica', 'fala_invalido', 'cartao_aria'] as $chave) {
             self::assertNotSame('', $dados['textos'][$chave] ?? '', 'texto da cabine ausente: ' . $chave);
         }
+    }
+
+    #[TestDox('Urna: candidatos em cartões button com data-numero, foto ou iniciais, número e nome; o clique preenche o número')]
+    public function testCartoesClicaveisDaUrna(): void
+    {
+        $dados = $this->dadosDaCabine($this->client->request('GET', $this->link()));
+        self::assertSame('Candidato {numero}, {nome}', $dados['textos']['cartao_aria']);
+
+        $js = (string) file_get_contents(__DIR__ . '/../../../public/js/voto-cabine.js');
+        self::assertStringContainsString("var b = el('button', 'uOpcao');", $js);
+        self::assertStringContainsString("b.type = 'button';", $js);
+        self::assertStringContainsString("b.setAttribute('data-numero', numeroDe(p, o));", $js);
+        self::assertStringContainsString("texto('cartao_aria', {numero: numeroDe(p, o), nome: o.rotulo})", $js);
+        self::assertStringContainsString("el('span', 'vAv', o.foto ? null : iniciais(o.rotulo))", $js, 'sem foto: iniciais');
+        self::assertStringContainsString("el('span', 'uOpcaoNome', o.rotulo)", $js);
+        self::assertStringContainsString('definir({dig: numeroDe(p, o)});', $js, 'o clique preenche o número');
+        self::assertStringContainsString('!o.abstencao', $js, 'branco fica fora dos cartões');
+        self::assertStringNotContainsString('uOpcT', $js, 'a lista em texto corrido saiu');
+
+        $css = (string) file_get_contents(__DIR__ . '/../../../public/css/voto-cabine.css');
+        self::assertStringContainsString('.uOpcao:focus-visible { outline:3px solid #3b8fc2;', $css);
+        self::assertStringContainsString('grid-template-columns:repeat(2, minmax(0,1fr))', $css, 'celular: 2 colunas');
     }
 
     #[TestDox('Página própria: sem a moldura do sistema, sem Bootstrap e sem os textos proibidos (cifra, demonstração, BJV)')]
