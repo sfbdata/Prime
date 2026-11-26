@@ -1,0 +1,14 @@
+{#
+    Aviso "Ainda não liberado" (pedido do dono, 26/11): qualquer botão ou link do Voto que ainda não tem destino leva
+    `data-voto-indisponivel="motivo em uma linha"` em vez de href. O clique abre esta janela (public/js/voto-indisponivel.js)
+    com o motivo. Incluída uma vez por tela. É a .vModAbrir do Voto (voto-janela.js): Esc e o fundo fecham.
+#}
+<div class="vModAbrir" data-voto-janela-raiz data-voto-indisponivel-janela hidden>
+    <div class="vModC voto-indisponivel" role="dialog" aria-modal="true" aria-labelledby="voto-indisponivel-titulo">
+        <div class="vH"><i class="bi bi-lock" aria-hidden="true"></i><span id="voto-indisponivel-titulo">{{ 'voto.indisponivel.titulo'|trans }}</span></div>
+        <div class="vModCorpo">
+            <div class="voto-indisponivel-motivo" data-voto-indisponivel-motivo></div>
+            <div class="vModRodape"><button type="button" class="vB vP" data-voto-janela-fechar>{{ 'voto.indisponivel.entendi'|trans }}</button></div>
+        </div>
+    </div>
+</div>

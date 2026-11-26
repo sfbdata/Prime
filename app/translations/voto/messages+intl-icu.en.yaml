@@ -3,6 +3,10 @@ voto:
     demonstracao:
         rotulo: Demo environment.
         texto: Data and voters are fictitious. This is not an official vote of any organization and the system has no certification from an electoral authority.
+    indisponivel:
+        titulo: Not available yet
+        entendi: Got it
+        pauta_nao_aberta: 'This item has not been opened for voting yet. Open it in Election management.'
     abas:
         rotulo: Voting tabs
         ele: Vote
@@ -460,6 +464,10 @@ voto:
                 conv1: 1st call
                 conv2: 2nd call
                 minutos_rotulo: Minutes
+                outro_minutos: Other, in minutes
+                outro_exemplo: 'E.g.: 45'
+                prazo_pronto: Ready-made deadlines
+                pronto_minutos: '{n} min'
                 minutos: minutes
                 encerra_em: 'Closes in {tempo}'
                 sem_prazo_definido: Open, no deadline set
@@ -653,6 +661,18 @@ voto:
                 encerrada: 'Vote closed: eligibility can no longer be changed.'
             links:
                 titulo: Unit links
+                confirmar_titulo: Send links by email
+                confirmar_pergunta: 'Send to {n, plural, one {# person} other {# people}}?'
+                confirmar_enviar: Send
+                cancelar: Cancel
+                ninguem: 'There is nobody to send to: every eligible unit with an email has already received the link.'
+                restam_proximo: '{x} remaining for the next send.'
+                previa_assunto: 'Subject:'
+                previa_titulo: Email preview
+                previa_dica: 'Email preview with sample data. Each person receives their own individual link.'
+                previa_unidade: Sample unit
+                previa_responsavel: Person name
+                previa_link: individual link for each person
                 texto: 'Each unit votes from its own phone, without a BlueJus account, through the personal link. Whoever has the link votes for the unit: send it only to the contact person.'
                 antes_de_publicar: The links appear after the assembly is published.
                 enviar: Send links by email

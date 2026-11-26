@@ -12,6 +12,7 @@ use App\Voto\Exception\SemPapelNaAvaliacaoException;
 use App\Voto\Service\ArquivoDeUnidades;
 use App\Voto\Service\AvisosDoVoto;
 use App\Voto\Service\GuardaDaEquipeDoVoto;
+use App\Voto\Service\LinkDaUnidadeMailer;
 use App\Voto\UseCase\EditarUnidadeUseCase;
 use App\Voto\UseCase\EnviarLinksPorEmailUseCase;
 use App\Voto\UseCase\GerarNovoLinkDaUnidadeUseCase;
@@ -44,7 +45,7 @@ final class UnidadesDaAssembleiaController extends AbstractController
     }
 
     #[Route('', name: 'voto_assembleia_unidades', methods: ['GET'])]
-    public function unidades(int $id, ObterUnidadesDaAssembleiaUseCase $obter): Response
+    public function unidades(int $id, ObterUnidadesDaAssembleiaUseCase $obter, LinkDaUnidadeMailer $mailer): Response
     {
         $tenant = $this->guarda->exigir();
         try {
@@ -57,6 +58,9 @@ final class UnidadesDaAssembleiaController extends AbstractController
             'tela' => $tela,
             'assembleia' => $tela->assembleia,
             'relatorio' => $this->avisos->retirarRelatorio(),
+            'lote_do_envio' => EnviarLinksPorEmailUseCase::LOTE,
+            // Prévia do e-mail na janela de confirmação do envio (só depois de publicada; nada é enviado aqui).
+            'previa_do_email' => $tela->assembleia->publicada() ? $mailer->previa($tela->assembleia->titulo) : null,
         ]);
     }
 

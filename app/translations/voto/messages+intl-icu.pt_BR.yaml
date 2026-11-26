@@ -5,6 +5,10 @@ voto:
     demonstracao:
         rotulo: Ambiente demonstrativo.
         texto: Dados e eleitores são fictícios. Não é votação oficial de nenhuma entidade e o sistema não possui certificação de órgão eleitoral.
+    indisponivel:
+        titulo: Ainda não liberado
+        entendi: Entendi
+        pauta_nao_aberta: 'Esta pauta ainda não foi aberta para votação. Abra a pauta em Gestão eleitoral.'
     abas:
         rotulo: Abas do Voto
         ele: Votar
@@ -488,6 +492,10 @@ voto:
                 conv1: 1ª convocação
                 conv2: 2ª convocação
                 minutos_rotulo: Minutos
+                outro_minutos: Outro, em minutos
+                outro_exemplo: 'Ex.: 45'
+                prazo_pronto: Prazos prontos
+                pronto_minutos: '{n} min'
                 minutos: minutos
                 encerra_em: 'Encerra em {tempo}'
                 sem_prazo_definido: Aberta, sem prazo definido
@@ -698,6 +706,18 @@ voto:
                 encerrada: 'Votação encerrada: a aptidão não pode mais ser alterada.'
             links:
                 titulo: Links das unidades
+                confirmar_titulo: Enviar links por e-mail
+                confirmar_pergunta: 'Enviar para {n, plural, one {# pessoa} other {# pessoas}}?'
+                confirmar_enviar: Enviar
+                cancelar: Cancelar
+                ninguem: 'Não há ninguém para enviar: todas as unidades aptas com e-mail já receberam o link.'
+                restam_proximo: 'Restam {x} para o próximo envio.'
+                previa_assunto: 'Assunto:'
+                previa_titulo: Prévia do e-mail
+                previa_dica: 'Prévia do e-mail com dados de exemplo. Cada pessoa recebe o próprio link individual.'
+                previa_unidade: Unidade de exemplo
+                previa_responsavel: Nome da pessoa
+                previa_link: link individual de cada pessoa
                 texto: 'Cada unidade vota do próprio celular, sem conta no BlueJus, pelo link pessoal. Quem tem o link vota pela unidade: envie só ao responsável.'
                 antes_de_publicar: Os links aparecem depois de publicar a assembleia.
                 enviar: Enviar links por e-mail

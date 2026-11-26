@@ -81,6 +81,11 @@ final class MesaDaAssembleiaController extends AbstractController
         if ('sem' === $request->request->get('modo') || 'sem' === $request->request->get('duracao')) {
             return null;
         }
+        // Botões prontos (30, 60 e 120 minutos): valem só esses valores; qualquer outro cai na regra de sempre.
+        $pronto = (string) $request->request->get('prazo_pronto', '');
+        if (\in_array($pronto, ['30', '60', '120'], true)) {
+            return (int) $pronto;
+        }
         $minutos = trim((string) $request->request->get('minutos', ''));
 
         return 1 === preg_match('/^\d{1,5}$/', $minutos) ? (int) $minutos : 0;
