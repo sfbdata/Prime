@@ -57,7 +57,7 @@ permanecem proibidas.)
    precisa ser olhada por alguém depois de publicada entra no relatório como
    pendência. Fontes:
    - a seção "Olhar na tela" (ou "O que olhar na tela") do corpo dos PRs
-     mergeados no dia (`gh pr list --state merged --search "merged:AAAA-MM-DD"
+     mergeados no dia (`gh pr list --state merged --limit 100 --search "merged:AAAA-MM-DD"
      --json number,body`);
    - o arquivo `~/projetos/bluejus-coordenacao/telas-para-conferir.md`, se
      existir (itens ainda sem `[x]`).
@@ -152,7 +152,7 @@ Hoje o foco foi deixar o sistema mais robusto e prático no dia a dia. Resumo da
 
 ## Regras
 
-- **Para este relatório, use só leitura** (`git log`, `git show`, `git diff`) — ele
+- **Para este relatório, use só leitura** (`git log`, `git show`, `git diff`, `gh pr list`, `gh pr view`) — ele
   não precisa escrever. Commit local é permitido no fluxo geral, mas
   push/merge/rebase/reset seguem proibidos (só o humano).
 - Não invente funcionalidades: se o commit não deixa claro o impacto, abra o
