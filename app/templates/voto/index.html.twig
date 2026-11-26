@@ -30,10 +30,10 @@
 
 {% block body %}
 {% set abas = [
-    {id: 'ele', icone: 'bi-check2-square'},
-    {id: 'tra', icone: 'bi-shield-check'},
     {id: 'ges', icone: 'bi-gear'},
     {id: 'aco', icone: 'bi-broadcast'},
+    {id: 'ele', icone: 'bi-check2-square'},
+    {id: 'tra', icone: 'bi-shield-check'},
 ] %}
 <div class="voto-tela" id="voto">
     <h1 class="voto-titulo">{{ 'voto.titulo'|trans }}</h1>
@@ -56,6 +56,7 @@
     {% endif %}
 </div>
 {% include 'voto/assembleia/_toast.html.twig' %}
+{% include 'voto/assembleia/_janela_indisponivel.html.twig' %}
 {% endblock %}
 
 {% block javascripts %}
@@ -63,6 +64,7 @@
 <script src="{{ asset('js/voto-assembleia.js') }}" defer></script>
 <script src="{{ asset('js/voto-menu.js') }}" defer></script>
 <script src="{{ asset('js/voto-janela.js') }}" defer></script>
+<script src="{{ asset('js/voto-indisponivel.js') }}" defer></script>
 <script src="{{ asset('js/voto-lembrete.js') }}" defer></script>
 <script src="{{ asset('js/voto-relatorio.js') }}" defer></script>
 <script src="{{ asset('js/voto-minuta.js') }}" defer></script>

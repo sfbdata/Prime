@@ -19,6 +19,7 @@ use App\Voto\Controller\UnidadesDaAssembleiaController;
 use App\Voto\Entity\Assembleia;
 use App\Voto\Entity\LiberacaoDoVoto;
 use App\Voto\Entity\UnidadeDaAssembleia;
+use App\Voto\Enum\CenarioDaAssembleia;
 use Doctrine\ORM\EntityManagerInterface;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\TestDox;
@@ -234,6 +235,73 @@ final class UnidadesDaAssembleiaControllerTest extends JusPrimeWebTestCase
     private function base(Assembleia $a): string
     {
         return '/voto/assembleias/' . $a->getId() . '/unidades';
+    }
+
+    #[TestDox('Tabela de aptos: grava 2 linhas pelo caminho da importação, ignora linha vazia e não repete quem já está na lista')]
+    public function testTabelaDeAptosGrava(): void
+    {
+        $this->liberar();
+        $this->entrar();
+        $a = AssembleiaFactory::new(['tenant' => $this->escritorio, 'cenario' => CenarioDaAssembleia::Associacao])->create()->_real();
+        $pagina = $this->client->request('GET', '/voto/assembleias/' . $a->getId() . '/unidades');
+        self::assertResponseIsSuccessful();
+        self::assertSame(['Unidade', 'Nome', 'E-mail'], array_slice($pagina->filter('form[data-voto-aptos] thead th')->each(static fn (\Symfony\Component\DomCrawler\Crawler $c): string => trim($c->text())), 0, 3));
+        self::assertCount(1, $pagina->filter('button[data-voto-aptos-adicionar]'));
+        self::assertCount(1, $pagina->filter('details[data-voto-aptos-avancada]'));
+
+        $form = $pagina->filter('form[data-voto-aptos]')->form();
+        $valores = $form->getPhpValues();
+        $valores['linha_unidade'] = ['Lote 07', '', 'Lote 08'];
+        $valores['linha_nome'] = ['Ana Souza', '', 'Zé "Silva"; Lima, filho'];
+        $valores['linha_email'] = ['ana@exemplo.com', '', 'bruno@exemplo.com'];
+        $this->client->request('POST', $form->getUri(), $valores);
+        self::assertResponseRedirects('/voto/assembleias/' . $a->getId() . '/unidades');
+
+        $this->em->clear();
+        $gravadas = $this->em->getRepository(UnidadeDaAssembleia::class)->findBy(['assembleia' => $a->getId()], ['identificacao' => 'ASC']);
+        self::assertCount(2, $gravadas);
+        self::assertSame(['Lote 07', 'Lote 08'], array_map(static fn (UnidadeDaAssembleia $u): string => $u->getIdentificacao(), $gravadas));
+        self::assertSame('Ana Souza', $gravadas[0]->getResponsavel());
+        self::assertSame('Zé "Silva"; Lima, filho', $gravadas[1]->getResponsavel());
+        self::assertSame('bruno@exemplo.com', $gravadas[1]->getEmail());
+        self::assertTrue($gravadas[0]->isApta());
+
+        // Repetir o envio não duplica: quem já está na lista conta como duplicada.
+        $this->client->request('POST', $form->getUri(), $valores);
+        $this->em->clear();
+        self::assertCount(2, $this->em->getRepository(UnidadeDaAssembleia::class)->findBy(['assembleia' => $a->getId()]));
+    }
+
+    #[TestDox('Tabela de aptos: erro cita a linha como aparece na tela e a unidade chamada "Unidade" na 1ª linha não é descartada')]
+    public function testTabelaDeAptosNumeraComoATela(): void
+    {
+        $this->liberar();
+        $this->entrar();
+        $a = AssembleiaFactory::new(['tenant' => $this->escritorio, 'cenario' => CenarioDaAssembleia::Associacao])->create()->_real();
+        $pagina = $this->client->request('GET', '/voto/assembleias/' . $a->getId() . '/unidades');
+        $form = $pagina->filter('form[data-voto-aptos]')->form();
+        $valores = $form->getPhpValues();
+        $valores['linha_unidade'] = ['Unidade', '', ''];
+        $valores['linha_nome'] = ['Ana', '', 'Sem unidade'];
+        $valores['linha_email'] = ['', '', ''];
+        $this->client->request('POST', $form->getUri(), $valores);
+        $tela = $this->client->followRedirect();
+        self::assertStringContainsString('Linha 3', $tela->filter('.voto-relatorio')->text());
+
+        $this->em->clear();
+        $gravadas = $this->em->getRepository(UnidadeDaAssembleia::class)->findBy(['assembleia' => $a->getId()]);
+        self::assertSame(['Unidade'], array_map(static fn (UnidadeDaAssembleia $u): string => $u->getIdentificacao(), $gravadas));
+    }
+
+    #[TestDox('Tabela de aptos de outro escritório: 404 e nada gravado')]
+    public function testTabelaDeAptosDeOutroEscritorio(): void
+    {
+        $this->liberar();
+        $this->entrar();
+        $alheia = AssembleiaFactory::createOne()->_real();
+        $this->client->request('POST', '/voto/assembleias/' . $alheia->getId() . '/unidades/importar', ['_token' => 'x', 'linha_unidade' => ['1'], 'linha_nome' => ['Ana'], 'linha_email' => ['']]);
+        $this->em->clear();
+        self::assertCount(0, $this->em->getRepository(UnidadeDaAssembleia::class)->findBy(['assembleia' => $alheia->getId()]));
     }
 
     private function liberar(): void

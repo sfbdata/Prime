@@ -155,6 +155,7 @@ final class MontarCedulaUseCase
             simulacao: $assembleia->isSimulacao(),
             ocorrencia: $ocorrencia?->getTexto(),
             ocorrenciaEmAvaliacao: true === $ocorrencia?->pendente(),
+            linkSalaVirtual: $assembleia->getLinkSalaVirtual(),
         );
     }
 

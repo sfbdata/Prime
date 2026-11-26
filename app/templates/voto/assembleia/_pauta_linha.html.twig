@@ -60,8 +60,17 @@
                     {% else %}
                         <b class="voto-cron" data-voto-prazo="{{ segundos }}" data-modelo="{{ 'voto.assembleia.gestor.mesa.encerra_em'|trans({tempo: '{tempo}'}) }}">{{ 'voto.assembleia.gestor.mesa.encerra_em'|trans({tempo: '%02d:%02d'|format(segundos // 60, segundos % 60)}) }}</b>
                     {% endif %}
-                    <input class="vF voto-mesa-min" name="minutos" aria-label="{{ 'voto.assembleia.gestor.mesa.minutos_rotulo'|trans }}" inputmode="numeric" value="5">
-                    <button type="submit" class="vB" name="modo" value="minutos"><i class="bi bi-stopwatch"></i>{{ 'voto.assembleia.gestor.mesa.definir_prazo'|trans }}</button>
+                    {# O campo próprio vem primeiro no HTML (Enter nele usa o "Definir prazo"); na tela, os prazos prontos vêm antes (order). #}
+                    <span class="voto-mesa-outro">
+                        <label class="voto-mesa-rotulo" for="prazo-outro-{{ p.id }}">{{ 'voto.assembleia.gestor.mesa.outro_minutos'|trans }}</label>
+                        <input class="vF voto-mesa-min" id="prazo-outro-{{ p.id }}" name="minutos" inputmode="numeric" maxlength="5" placeholder="{{ 'voto.assembleia.gestor.mesa.outro_exemplo'|trans }}">
+                        <button type="submit" class="vB" name="modo" value="minutos"><i class="bi bi-stopwatch"></i>{{ 'voto.assembleia.gestor.mesa.definir_prazo'|trans }}</button>
+                    </span>
+                    <span class="voto-mesa-prontos" role="group" aria-label="{{ 'voto.assembleia.gestor.mesa.prazo_pronto'|trans }}">
+                        {% for pronto in [30, 60, 120] %}
+                            <button type="submit" class="vB" name="prazo_pronto" value="{{ pronto }}"><i class="bi bi-stopwatch"></i>{{ 'voto.assembleia.gestor.mesa.pronto_minutos'|trans({n: pronto}) }}</button>
+                        {% endfor %}
+                    </span>
                     <button type="submit" class="vB" name="modo" value="sem">{{ 'voto.assembleia.gestor.mesa.sem_prazo'|trans }}</button>
                 </form>
                 <form method="post" action="{{ path('voto_assembleia_pauta_encerrar', {id: a.id, pauta: p.id}) }}" class="voto-mesa-encerrar" data-mesa="encerrar">

@@ -57,7 +57,7 @@
         </select></label>
         <label class="vL voto-pauta-titulo">{{ 'voto.assembleia.gestor.pautas.pauta'|trans }}<input class="vF" name="titulo" maxlength="200" required value="{{ p.titulo ?? '' }}"></label>
         <label class="vL voto-pauta-regra">{{ 'voto.assembleia.gestor.pautas.regra_pronta'|trans }}<select class="vF" name="regra_pronta" data-voto-regra-pronta>
-            {% for chave in ['', 'simples', 'absoluta', 'dois', 'unanime'] %}<option value="{{ chave }}"{% if preset == chave %} selected{% endif %}>{{ ('voto.assembleia.gestor.pautas.preset_' ~ (chave ?: 'personalizada'))|trans }}</option>{% endfor %}
+            {% for chave in ['', 'simples', 'absoluta', 'dois', 'unanime'] %}<option value="{{ chave }}"{% if preset == chave %} selected{% endif %}>{{ ('voto.assembleia.gestor.pautas.preset_' ~ (chave ?: 'personalizada') ~ (chave == 'simples' and a.cenario.value != 'condominio' ? '_geral' : ''))|trans({votantes: a.cenario.votantes, documento: a.cenario.documentoDasRegras}) }}</option>{% endfor %}
         </select></label>
         <label class="vL voto-pauta-vagas">{{ 'voto.assembleia.gestor.pautas.vagas'|trans }}<input class="vF" name="vagas" inputmode="numeric" data-voto-limite="vagas" value="{{ p.vagas ?? 1 }}"></label>
         {% include 'voto/assembleia/_menu_tres_pontos.html.twig' with {itens: itensDoCargo} only %}

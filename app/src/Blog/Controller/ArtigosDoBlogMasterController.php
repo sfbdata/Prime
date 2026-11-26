@@ -13,6 +13,8 @@ use App\Blog\Exception\ImagemDoArtigoNaoEncontrada;
 use App\Blog\Enum\BlogsDoArtigo;
 use App\Blog\Service\CatalogoDoBlog;
 use App\Blog\Service\HtmlDoArtigoParaMarkdown;
+use App\Blog\UseCase\AgendarArtigoDoBlogUseCase;
+use App\Blog\UseCase\CancelarAgendamentoDoArtigoDoBlogUseCase;
 use App\Blog\UseCase\CarregarArtigoParaEditorUseCase;
 use App\Blog\UseCase\DespublicarArtigoDoBlogUseCase;
 use App\Blog\UseCase\DuplicarArtigoDoBlogUseCase;
@@ -45,7 +47,8 @@ use Symfony\Component\Validator\Validator\ValidatorInterface;
  * desde a P3, o envio e a entrega das imagens do corpo e da capa (seção 4). Só o Master. Todo POST leva o token CSRF `master_blog` no header `X-CSRF-Token`.
  *
  * Desde a P4: Publicar e Despublicar (pedem a geração dos blogs ao builder) e o histórico das gerações para a faixa da
- * lista. Agendar fica para a P5 (agendador).
+ * lista. Desde a P5: Agendar (data e hora de Brasília, só futuro) e Cancelar agendamento; quem publica na hora é o
+ * comando `blog:publicar-agendados` (AgendaDeTarefas).
  */
 #[IsGranted('ROLE_SUPER_ADMIN')]
 #[Route('/master/blog')]
@@ -143,6 +146,29 @@ final class ArtigosDoBlogMasterController extends AbstractController
         $ator = $this->getUser();
 
         return $this->protegido($request, fn (): JsonResponse => $this->json(['ok' => true] + (array) $publicar->executar($id, $ator instanceof User ? $ator : null)));
+    }
+
+    /** Agendar: corpo `{publicarEm: "AAAA-MM-DDTHH:MM"}` em horário de Brasília; 422 se a data não é futura ou o artigo não passa nas regras do zod. */
+    #[Route('/artigos/{id}/agendar', name: 'master_blog_artigos_agendar', requirements: ['id' => '\d{1,10}'], methods: ['POST'])]
+    public function agendar(int $id, Request $request, AgendarArtigoDoBlogUseCase $agendar): JsonResponse
+    {
+        return $this->protegido($request, function () use ($id, $request, $agendar): JsonResponse {
+            $corpo = json_decode($request->getContent(), true);
+            $texto = \is_array($corpo) && \is_string($corpo['publicarEm'] ?? null) ? $corpo['publicarEm'] : '';
+            $quando = \DateTimeImmutable::createFromFormat('!Y-m-d\TH:i', $texto, new \DateTimeZone('America/Sao_Paulo'));
+            if ($quando === false || $quando->format('Y-m-d\TH:i') !== $texto) {
+                throw new ArtigoDoBlogRecusado('Informe a data e a hora do agendamento.', 'publicarEm');
+            }
+
+            return $this->json(['ok' => true] + (array) $agendar->executar($id, $quando));
+        });
+    }
+
+    /** Cancelar agendamento: o artigo volta a rascunho; 409 se não está agendado. */
+    #[Route('/artigos/{id}/cancelar-agendamento', name: 'master_blog_artigos_cancelar_agendamento', requirements: ['id' => '\d{1,10}'], methods: ['POST'])]
+    public function cancelarAgendamento(int $id, Request $request, CancelarAgendamentoDoArtigoDoBlogUseCase $cancelar): JsonResponse
+    {
+        return $this->protegido($request, fn (): JsonResponse => $this->json(['ok' => true] + (array) $cancelar->executar($id)));
     }
 
     /** Despublicar: 409 se o artigo não está publicado. */

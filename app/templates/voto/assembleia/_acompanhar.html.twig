@@ -26,9 +26,9 @@
                 </div>
                 {% include 'voto/assembleia/_chip_da_pauta.html.twig' with {p: linha.p, a: linha.a} only %}
                 {% if voto_ve_relacao(linha.a.id) and linha.a.cenario.temListaDeVotantes %}
-                    <a class="vB" href="{{ path('voto_assembleia_unidades_ao_vivo', {id: linha.a.id, pauta: linha.p.id}) }}" target="_blank" rel="noopener" data-voto-unidades><i class="bi bi-grid-3x3-gap"></i>{{ 'voto.assembleia.gestor.acompanhar.unidades'|trans }}</a>
+                    {% if linha.p.aguardandoAMesa %}<button type="button" class="vB" data-voto-indisponivel="{{ 'voto.indisponivel.pauta_nao_aberta'|trans }}">{% else %}<a class="vB" href="{{ path('voto_assembleia_unidades_ao_vivo', {id: linha.a.id, pauta: linha.p.id}) }}" target="_blank" rel="noopener" data-voto-unidades>{% endif %}<i class="bi bi-grid-3x3-gap"></i>{{ 'voto.assembleia.gestor.acompanhar.unidades'|trans }}{% if linha.p.aguardandoAMesa %}</button>{% else %}</a>{% endif %}
                 {% endif %}
-                <a class="vB vP" href="{{ path('voto_assembleia_assistir', {id: linha.a.id, pauta: linha.p.id}) }}" target="_blank" rel="noopener" data-voto-assistir><i class="bi bi-box-arrow-up-right"></i>{{ 'voto.assembleia.gestor.acompanhar.assistir'|trans }}</a>
+                {% if linha.p.aguardandoAMesa %}<button type="button" class="vB vP" data-voto-indisponivel="{{ 'voto.indisponivel.pauta_nao_aberta'|trans }}">{% else %}<a class="vB vP" href="{{ path('voto_assembleia_assistir', {id: linha.a.id, pauta: linha.p.id}) }}" target="_blank" rel="noopener" data-voto-assistir>{% endif %}<i class="bi bi-box-arrow-up-right"></i>{{ 'voto.assembleia.gestor.acompanhar.assistir'|trans }}{% if linha.p.aguardandoAMesa %}</button>{% else %}</a>{% endif %}
             </div>
         {% else %}
             <div class="vLin voto-aco-vazio">{{ 'voto.acompanhar.vazio'|trans }}</div>

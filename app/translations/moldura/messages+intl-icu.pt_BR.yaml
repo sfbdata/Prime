@@ -166,6 +166,7 @@ moldura:
             armazenamento_reconciliar_espelho: Conferência da cópia no R2
             armazenamento_limpar_replicacao: Limpeza da fila de envio ao R2
             blog_conferir_publicacoes: Publicação dos artigos dos blogs
+            blog_publicar_agendados: Publicação dos artigos agendados dos blogs
             voto_executar_programacao: Abertura e encerramento programados do Voto
             conector_faxinar: Limpeza das conexões vencidas do conector de I.A.
             backup_vencer: Limpeza dos backups vencidos

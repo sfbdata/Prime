@@ -5,6 +5,10 @@ voto:
     demonstracao:
         rotulo: Ambiente demonstrativo.
         texto: Dados e eleitores são fictícios. Não é votação oficial de nenhuma entidade e o sistema não possui certificação de órgão eleitoral.
+    indisponivel:
+        titulo: Ainda não liberado
+        entendi: Entendi
+        pauta_nao_aberta: 'Esta pauta ainda não foi aberta para votação. Abra a pauta em Gestão eleitoral.'
     abas:
         rotulo: Abas do Voto
         ele: Votar
@@ -24,6 +28,7 @@ voto:
         modalidade:
             pauta: Pautas de assembleia
             individual: Eleição individual
+            individual_vagas: 'Eleição · {n} vagas'
             chapa: Eleição por chapa
             consulta: Consulta
         aviso:
@@ -104,6 +109,14 @@ voto:
             encerrada: Encerrada
             suspensa: Suspensa
             cancelada: Cancelada
+        sala:
+            titulo: Acompanhar
+            abrir: Abrir sala
+            sem_link: A sala virtual ainda não foi informada pela organização.
+            estado:
+                aguardando: Votação ainda não aberta
+                aberta: Votação aberta
+                encerrada: Votação encerrada
         grupos: Todos os grupos
         grupos_da_pauta: 'Grupos: {grupos}'
         aviso_voto_aberto: 'VOTO ABERTO: seu nome e seu voto ficarão visíveis'
@@ -211,31 +224,25 @@ voto:
                 conferencia: Conferência
                 perfis: Perfis
                 avaliacoes: Avaliações
-            # Assistente de 7 passos do cadastro (desenho 18, trilho .vPas): nomes, título e frase de cada passo, revisão e aviso.
+            # Assistente de 5 passos do cadastro (desenho 18, trilho .vPas): nomes, título e frase de cada passo, revisão e aviso.
             assistente:
                 rotulo: Passos do cadastro da assembleia
                 nao_salvas: Alterações ainda não salvas
                 passo_1: Categoria
-                passo_2: Regras e prazo
-                passo_3: Acesso
-                passo_4: Cargos
-                passo_5: Lista de aptos
-                passo_6: Equipe
-                passo_7: Revisar
+                passo_2: Cargos
+                passo_3: Lista de aptos
+                passo_4: Equipe
+                passo_5: Revisar
                 titulo_1: Que tipo de votação você vai criar?
-                titulo_2: Regras e prazo
-                titulo_3: Como o votante entra
-                titulo_4: Cargos e candidaturas
-                titulo_5: Quem pode votar
-                titulo_6: Quem conduz a votação
-                titulo_7: Confira e publique
+                titulo_2: Cargos e candidaturas
+                titulo_3: Quem pode votar
+                titulo_4: Quem conduz a votação
+                titulo_5: Confira e publique
                 descricao_1: A categoria já traz regras, documentos e cargos prontos. Tudo pode ser ajustado.
-                descricao_2: Defina como o voto funciona e quando a votação acontece.
-                descricao_3: A configuração sugerida atende à maioria dos casos.
-                descricao_4: Inclua cargos, pautas ou perguntas e suas opções.
-                descricao_5: Importe a relação de quem está apto.
-                descricao_6: Quem opera a votação é a equipe do escritório com acesso ao Voto.
-                descricao_7: Depois de publicada, a configuração fica bloqueada.
+                descricao_2: Inclua cargos, pautas ou perguntas e suas opções.
+                descricao_3: Informe quem está apto a votar.
+                descricao_4: Quem opera a votação é a equipe do escritório com acesso ao Voto.
+                descricao_5: Depois de publicada, a configuração fica bloqueada.
                 acesso_texto: 'Cada unidade entra pelo próprio link ou QR Code, sem conta no BlueJus. Os links são gerados quando a assembleia é publicada.'
                 equipe_texto: 'A mesa (equipe do escritório com acesso ao Voto) abre, suspende e encerra cada pauta depois de publicar. A convocação e o prazo são escolhidos ao abrir cada pauta.'
                 equipe_padrao: Usar a equipe padrão
@@ -359,6 +366,8 @@ voto:
                 rotulo_unidade: Nome do campo Unidade
                 rotulo_bloco: Nome do campo Bloco
                 rotulo_dica: 'Opcional, até 40 caracteres. Serve para outras eleições (ex.: Matrícula, Seção). Aparece no portal do eleitor e na lista.'
+                sala_virtual: Sala virtual (link do Meet, Zoom, Teams...)
+                sala_virtual_dica: 'Opcional. Cole o link da reunião onde será o debate. O eleitor o abre pelo botão Abrir sala, no portal do eleitor.'
                 peso: Peso do voto
                 peso_fracao: Fração ideal
                 peso_unidade: Uma unidade, um voto
@@ -376,7 +385,8 @@ voto:
                 preset_personalizada: 'Personalizada'
                 preset_simples: 'Maioria dos presentes; 1ª convocação com metade das frações'
                 preset_absoluta: 'Maioria absoluta de todos os aptos (ex.: destituição)'
-                preset_dois: 'Dois terços dos votos dos condôminos (ex.: convenção)'
+                preset_simples_geral: 'Maioria dos presentes; 1ª convocação com metade dos {votantes}'
+                preset_dois: 'Dois terços dos votos dos {votantes} (ex.: {documento})'
                 preset_unanime: 'Unanimidade'
                 vagas: 'Vagas'
                 digitos: 'Dígitos'
@@ -492,6 +502,10 @@ voto:
                 conv1: 1ª convocação
                 conv2: 2ª convocação
                 minutos_rotulo: Minutos
+                outro_minutos: Outro, em minutos
+                outro_exemplo: 'Ex.: 45'
+                prazo_pronto: Prazos prontos
+                pronto_minutos: '{n} min'
                 minutos: minutos
                 encerra_em: 'Encerra em {tempo}'
                 sem_prazo_definido: Aberta, sem prazo definido
@@ -638,6 +652,12 @@ voto:
                 editada: Cadastro atualizado.
                 campo_situacao: Situação
                 campo_fracao: Fração
+                coluna_nome: Nome
+                adicionar_linha: Adicionar linha
+                remover_linha: Remover linha
+                salvar_tabela: Salvar a lista
+                opcao_avancada: Opção avançada (colar a lista ou importar planilha)
+                texto_tabela: 'Preencha uma linha para cada {unidade} que pode votar: a identificação, o nome de quem vota e o e-mail para onde vai o link. Use "Adicionar linha" para incluir mais. Quem já está na lista não é repetido.'
                 campo_responsavel: Responsável
                 campo_email: E-mail
                 campo_telefone: Telefone
@@ -696,6 +716,18 @@ voto:
                 encerrada: 'Votação encerrada: a aptidão não pode mais ser alterada.'
             links:
                 titulo: Links das unidades
+                confirmar_titulo: Enviar links por e-mail
+                confirmar_pergunta: 'Enviar para {n, plural, one {# pessoa} other {# pessoas}}?'
+                confirmar_enviar: Enviar
+                cancelar: Cancelar
+                ninguem: 'Não há ninguém para enviar: todas as unidades aptas com e-mail já receberam o link.'
+                restam_proximo: 'Restam {x} para o próximo envio.'
+                previa_assunto: 'Assunto:'
+                previa_titulo: Prévia do e-mail
+                previa_dica: 'Prévia do e-mail com dados de exemplo. Cada pessoa recebe o próprio link individual.'
+                previa_unidade: Unidade de exemplo
+                previa_responsavel: Nome da pessoa
+                previa_link: link individual de cada pessoa
                 texto: 'Cada unidade vota do próprio celular, sem conta no BlueJus, pelo link pessoal. Quem tem o link vota pela unidade: envie só ao responsável.'
                 antes_de_publicar: Os links aparecem depois de publicar a assembleia.
                 enviar: Enviar links por e-mail
@@ -869,17 +901,26 @@ voto:
                 rascunho_excluido: Rascunho excluído.
                 simulacao_reiniciada: 'Simulação reiniciada: votos apagados, de volta a rascunho.'
                 simulacao_apagada: Simulação apagada.
+                votacao_apagada: Votação apagada para sempre.
+                sala_virtual_salva: Link da sala virtual salvo.
             # ---- Voto redesign F1-2b e F1-3: telas do ciclo de vida da votação (desenho 18, 16/11).
             chip_ciclo:
                 arquivada: Arquivada
                 cancelada: Cancelada
                 suspensa: Suspensa
+            sala_virtual:
+                rotulo: 'Sala virtual:'
+                menu: Sala virtual
+                titulo: Sala virtual da votação
+                dica: 'Cole o link da reunião (Meet, Zoom, Teams...). Deixe vazio para tirar o link. O eleitor o abre pelo botão Abrir sala.'
+                salvar: Salvar link
             menu_ciclo:
                 retirar_ou_cancelar: Retirar de pauta ou cancelar
                 suspender: Suspender votação
                 retomar: Retomar votação
                 cancelar: Cancelar votação
                 excluir_rascunho: Excluir rascunho
+                apagar: Apagar votação
                 reiniciar_simulacao: Reiniciar simulação
                 apagar_simulacao: Apagar simulação
                 arquivar: Arquivar
@@ -940,6 +981,13 @@ voto:
                 faixa: 'Arquivada em {em}{sem}. Motivo: {motivo}. Dados e evidências preservados; não aparece em Votar, Resultados e Acompanhar.'
                 sem_deliberacao: ', sem deliberação'
                 retirada_motivo: 'Retirada de pauta: {motivo}'
+                apagar_titulo: Apagar votação
+                apagar_aviso: 'Votos, unidades, candidaturas, edital e ata desta votação somem para sempre. Não há como desfazer.'
+                apagar_digite: 'Para confirmar, digite o nome da votação ({nome}) ou APAGAR:'
+                apagar_campo: Nome da votação ou APAGAR
+                apagar_cancelar: Manter votação
+                apagar_sim: Apagar para sempre
+                apagar_confirmacao_curta: Digite o nome da votação ou APAGAR para confirmar.
                 excluir_pergunta: Excluir este rascunho? Ele nunca foi publicado e a exclusão fica registrada na auditoria.
                 excluir_manter: Manter
                 excluir_sim: Excluir rascunho

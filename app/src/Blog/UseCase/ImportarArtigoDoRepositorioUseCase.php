@@ -121,13 +121,7 @@ final class ImportarArtigoDoRepositorioUseCase
     {
         $publicadoEm = self::data($f, 'publicadoEm');
         if (($f['rascunho'] ?? false) === true) {
-            if ($publicadoEm !== null && $publicadoEm > $agora) {
-                // guarda a data futura para o Master agendar depois
-                $artigo->agendar($publicadoEm, $agora);
-                $artigo->cancelarAgendamento();
-            }
-
-            return;
+            return; // rascunho não guarda data: o Master agenda pela tela (a data marcada só existe no artigo agendado)
         }
         if ($publicadoEm === null) {
             return; // a regra "Informe a data de publicação." recusa adiante

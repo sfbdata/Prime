@@ -68,6 +68,8 @@ final class AgendaDeTarefasTest extends TestCase
             'armazenamento:replicar-espelho' => ['armazenamento:replicar-espelho --se-ligado --limite=50 --no-interaction', '* * * * *', '* * * * *'],
             // Nova (painel de artigos dos blogs, P4): lê o resultado do builder dos blogs a cada minuto.
             'blog:conferir-publicacoes' => ['blog:conferir-publicacoes --no-interaction', '* * * * *', '* * * * *'],
+            // Nova (painel de artigos dos blogs, P5): publica os artigos agendados, a cada 5 minutos.
+            'blog:publicar-agendados' => ['blog:publicar-agendados --no-interaction', '*/5 * * * *', '*/5 * * * *'],
             // Nova (Voto, horário programado): abre e encerra as pautas programadas, a cada minuto.
             'voto:executar-programacao' => ['voto:executar-programacao --no-interaction', '* * * * *', '* * * * *'],
             // Nova (Backup, PR 3): vence os backups prontos e marca como falhou os presos em preparo, de hora em hora.

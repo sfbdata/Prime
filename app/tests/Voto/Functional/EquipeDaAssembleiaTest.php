@@ -97,6 +97,30 @@ final class EquipeDaAssembleiaTest extends JusPrimeWebTestCase
         self::assertResponseStatusCodeSame(403);
     }
 
+    #[TestDox('Apagar votação e Sala virtual: a auditoria (Visualizar) recebe 403 e nada muda; a comissão passa pela barreira')]
+    public function testApagarESalaVirtualRecusadosEmVisualizar(): void
+    {
+        $a = $this->assembleia('Evento a apagar', true);
+        $auditoria = $this->colega();
+        $comissao = $this->colega();
+        $this->membro($a, PapelNaEquipe::Auditoria, $auditoria);
+        $this->membro($a, PapelNaEquipe::Comissao, $comissao);
+
+        $this->entrar($auditoria);
+        $this->client->request('POST', '/voto/assembleias/' . $a->getId() . '/apagar', ['_token' => $this->token('voto_assembleia_' . $a->getId()), 'confirmacao' => 'APAGAR']);
+        self::assertResponseStatusCodeSame(403);
+        $this->client->request('POST', '/voto/assembleias/' . $a->getId() . '/sala-virtual', ['_token' => $this->token('voto_assembleia_' . $a->getId()), 'link_sala_virtual' => 'https://zoom.us/j/1']);
+        self::assertResponseStatusCodeSame(403);
+        $banco = $this->em->getConnection();
+        self::assertNotFalse($banco->fetchOne('SELECT id FROM voto.assembleia WHERE id = ?', [$a->getId()]));
+        self::assertNull($banco->fetchOne('SELECT link_sala_virtual FROM voto.assembleia WHERE id = ?', [$a->getId()]));
+
+        $this->entrar($comissao);
+        $this->client->request('POST', '/voto/assembleias/' . $a->getId() . '/sala-virtual', ['_token' => $this->token('voto_assembleia_' . $a->getId()), 'link_sala_virtual' => 'https://zoom.us/j/1']);
+        self::assertResponseRedirects();
+        self::assertSame('https://zoom.us/j/1', $banco->fetchOne('SELECT link_sala_virtual FROM voto.assembleia WHERE id = ?', [$a->getId()]));
+    }
+
     #[TestDox('A auditoria ainda gera a minuta por POST (leitura com motivo): a barreira não recusa')]
     public function testMinutaPorPostPassaEmVisualizar(): void
     {

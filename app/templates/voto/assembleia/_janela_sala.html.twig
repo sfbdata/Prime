@@ -1,0 +1,24 @@
+{#
+    Janela "Sala virtual" (mesma moldura .vModCiclo das janelas de ciclo, nunca modal do Bootstrap): o campo do link do Meet,
+    Zoom ou Teams, que pode ser trocado depois de publicar. Vazio apaga. Abre pelo item do menu de três pontos com
+    data-voto-janela="#janela-sala-{a.id}". CONTRATO: `a` (AssembleiaNoPainel) e `token` (CSRF 'voto_assembleia_{a.id}').
+    Envia POST para voto_assembleia_sala_virtual; o servidor valida (http ou https, até 500).
+#}
+{% set id = 'janela-sala-' ~ a.id %}
+<div class="vModCiclo" data-voto-janela-raiz id="{{ id }}" hidden>
+    <div class="vModC" role="dialog" aria-modal="true" aria-labelledby="{{ id }}-titulo">
+        <div class="vH"><i class="bi bi-camera-video"></i><span id="{{ id }}-titulo">{{ 'voto.assembleia.gestor.sala_virtual.titulo'|trans }}</span><span class="voto-espaco"></span><button type="button" class="vB" data-voto-janela-fechar>{{ 'voto.assembleia.gestor.janela_ciclo.fechar'|trans }}</button></div>
+        <form method="post" action="{{ path('voto_assembleia_sala_virtual', {id: a.id}) }}" class="vModCorpo" data-voto-sala-form>
+            <input type="hidden" name="_token" value="{{ token }}">
+            <b>{{ a.titulo }}</b>
+            <label class="vL">{{ 'voto.assembleia.gestor.form.sala_virtual'|trans }}
+                <input class="vF" type="url" name="link_sala_virtual" maxlength="500" inputmode="url" autocomplete="off" placeholder="https://meet.google.com/..." value="{{ a.linkSalaVirtual }}">
+            </label>
+            <div class="voto-etapa-sub">{{ 'voto.assembleia.gestor.sala_virtual.dica'|trans }}</div>
+            <div class="vModRodape">
+                <button type="button" class="vB" data-voto-janela-fechar>{{ 'voto.assembleia.gestor.janela_ciclo.cancelar'|trans }}</button>
+                <button type="submit" class="vB vP"><i class="bi bi-check2"></i>{{ 'voto.assembleia.gestor.sala_virtual.salvar'|trans }}</button>
+            </div>
+        </form>
+    </div>
+</div>

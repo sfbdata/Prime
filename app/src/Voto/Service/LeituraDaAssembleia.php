@@ -98,7 +98,7 @@ final class LeituraDaAssembleia
             editalTamanho: $assembleia->getEditalTamanho(),
             editalSha256: $assembleia->getEditalSha256(),
             editalChave: $assembleia->temEdital() ? ChavesDoVoto::edital($assembleia) : null,
-            editalAlteravel: $assembleia->podeAlterarEdital(),
+            editalAlteravel: $assembleia->podeAlterarEdital(), linkSalaVirtual: $assembleia->getLinkSalaVirtual(),
         );
     }
 

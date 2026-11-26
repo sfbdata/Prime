@@ -34,7 +34,23 @@ final readonly class CedulaOutput
         public ?string $ocorrencia = null,
         /** A ocorrência tem avaliação pendente: "(em avaliação pelo conselho)". */
         public bool $ocorrenciaEmAvaliacao = false,
+        /** Link da sala virtual do debate (http ou https); null se a organização não informou. */
+        public ?string $linkSalaVirtual = null,
     ) {
+    }
+
+    /** O estado da votação para a faixa "Acompanhar": aberta (alguma pauta aberta), encerrada (todas) ou aguardando. */
+    public function estadoDaVotacao(): string
+    {
+        $encerradas = 0;
+        foreach ($this->pautas as $pauta) {
+            if ($pauta->aberta()) {
+                return 'aberta';
+            }
+            $encerradas += $pauta->encerrada() ? 1 : 0;
+        }
+
+        return [] !== $this->pautas && $encerradas === \count($this->pautas) ? 'encerrada' : 'aguardando';
     }
 
     /** Alguma pauta ainda pode mudar sem ação do morador (abrir, encerrar): a página se atualiza sozinha. */

@@ -57,6 +57,20 @@
         <div class="vAviso" data-vc-vazio>{{ 'voto.assembleia.cedula.vazio'|trans }}</div>
     {% endfor %}
 
+    {# Faixa "Acompanhar" (sala virtual do debate): estado da votação, "Abrir sala" e, sem link, o aviso na própria página. #}
+    {% if cedula.assembleiaPublicada %}
+    <div class="vC vcSala" data-vc-sala>
+        <span class="vcSalaTitulo"><i class="bi bi-broadcast" aria-hidden="true"></i> {{ 'voto.assembleia.cedula.sala.titulo'|trans }}</span>
+        <span class="vChip vcChip-{{ cedula.estadoDaVotacao() == 'aguardando' ? 'publicada' : cedula.estadoDaVotacao() }}" data-vc-sala-estado>{{ ('voto.assembleia.cedula.sala.estado.' ~ cedula.estadoDaVotacao())|trans }}</span>
+        {% if cedula.linkSalaVirtual is not null %}
+            <a class="vB vP" href="{{ cedula.linkSalaVirtual }}" target="_blank" rel="noopener noreferrer" data-vc-sala-abrir><i class="bi bi-camera-video" aria-hidden="true"></i>{{ 'voto.assembleia.cedula.sala.abrir'|trans }}</a>
+        {% else %}
+            <button type="button" class="vB vP" data-vc-sala-sem-link aria-controls="vc-sala-aviso" aria-expanded="false"><i class="bi bi-camera-video" aria-hidden="true"></i>{{ 'voto.assembleia.cedula.sala.abrir'|trans }}</button>
+            <div class="vAviso vcSalaAviso" id="vc-sala-aviso" role="status" data-vc-sala-aviso hidden>{{ 'voto.assembleia.cedula.sala.sem_link'|trans }}</div>
+        {% endif %}
+    </div>
+    {% endif %}
+
     {# A cabine é fixa na tela; fica no mesmo bloco por causa de `todas` e `votaveis`, que só existem aqui. #}
     {% if todas is not empty %}
         {% include 'voto/cedula/_cabine.html.twig' with {cedula: cedula, token: token, votaveis: votaveis, todas: todas} only %}
@@ -100,6 +114,7 @@
 {% endblock %}
 
 {% block depois %}
+    <script src="/js/voto-sala.js" defer></script>
     {# Toast do desenho (L281): verde no sucesso, vermelho no erro; some em 3600 ms. #}
     {% for mensagem in app.flashes('voto_cedula_ok') %}
         <div class="vcToast" role="status" data-vc-toast>{{ mensagem }}</div>

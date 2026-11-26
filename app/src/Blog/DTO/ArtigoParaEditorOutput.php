@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Blog\DTO;
 
 use App\Blog\Entity\ArtigoDoBlog;
+use App\Blog\Enum\SituacaoDoArtigo;
 use App\Blog\Service\CatalogoDoBlog;
 
 /** Tudo o que a página do editor precisa de um artigo (vira JSON na página; nunca o Markdown, que é gerado). */
@@ -42,6 +43,8 @@ final readonly class ArtigoParaEditorOutput
         /** A capa: o id da ImagemDoArtigo (texto), que o cartão "Imagem de compartilhamento" mostra e devolve no salvar. */
         public ?string $imagemChave = null,
         public ?string $imagemAlt = null,
+        /** Só no artigo agendado: a data e a hora marcadas, dd/mm/aaaa hh:mm (Brasília). */
+        public ?string $agendadoPara = null,
     ) {
     }
 
@@ -85,6 +88,7 @@ final readonly class ArtigoParaEditorOutput
             jaFoiAoAr: \in_array($artigo->getSituacao()->value, ['publicado', 'despublicado'], true),
             imagemChave: $artigo->getImagemChave(),
             imagemAlt: $artigo->getImagemAlt(),
+            agendadoPara: $artigo->getSituacao() === SituacaoDoArtigo::Agendado ? $artigo->getPublicarEm()?->format('d/m/Y H:i') : null,
         );
     }
 }

@@ -1,7 +1,7 @@
 {% extends 'voto/assembleia/_moldura.html.twig' %}
 
 {#
-    Passo 5 do assistente de 7 passos, "Lista de aptos" (trilho + título: _assistente_trilho), e a mesa de links depois de
+    Passo 3 do assistente de 5 passos, "Lista de aptos" (trilho + título: _assistente_trilho), e a mesa de links depois de
     publicar. Unidades e links (desenho §2, etapa 5 "unidades com fração", e §3, link e "Copiar link"). A lista é colada
     (`unidade; bloco; situação; fração; responsável; e-mail`) e só acrescenta: quem já está na lista conta como
     duplicada, para os links já enviados continuarem valendo. Os links aparecem depois de publicar.
@@ -10,6 +10,16 @@
 #}
 
 {% set sub = 'unidades' %}
+
+{% macro linha(a) %}
+    <tr data-voto-aptos-linha>
+        <td><input class="vF" type="text" name="linha_unidade[]" maxlength="80" aria-label="{{ a.nomeDaUnidade }}"></td>
+        <td><input class="vF" type="text" name="linha_nome[]" maxlength="160" aria-label="{{ 'voto.assembleia.gestor.unidades.coluna_nome'|trans }}"></td>
+        <td><input class="vF" type="email" name="linha_email[]" maxlength="180" aria-label="{{ 'voto.assembleia.gestor.unidades.campo_email'|trans }}"></td>
+        {% if a.porFracao %}<td><input class="vF" type="text" name="linha_fracao[]" inputmode="decimal" aria-label="{{ 'voto.assembleia.gestor.unidades.campo_fracao'|trans }}"></td>{% endif %}
+        <td><button type="button" class="vB vD" data-voto-aptos-remover aria-label="{{ 'voto.assembleia.gestor.unidades.remover_linha'|trans }}" title="{{ 'voto.assembleia.gestor.unidades.remover_linha'|trans }}"><i class="bi bi-trash"></i></button></td>
+    </tr>
+{% endmacro %}
 
 {% block conteudo %}
 {% set a = assembleia %}
@@ -21,18 +31,41 @@
         {% include 'voto/assembleia/_assistente_faixa.html.twig' with {a: a, icone: 'bi-list-check'} only %}
     {% endif %}
     <div class="voto-assistente-corpo">
-        {% if not a.publicada %}{% include 'voto/assembleia/_assistente_trilho.html.twig' with {a: a, passo: 5, em_form: false} only %}{% endif %}
-        <div class="voto-texto">{{ 'voto.assembleia.gestor.unidades.texto'|trans({identificacao: a.cenario.identificacao|lower, grupo: a.cenario.grupo|lower}) }}</div>
+        {% if not a.publicada %}{% include 'voto/assembleia/_assistente_trilho.html.twig' with {a: a, passo: 3, em_form: false} only %}{% endif %}
+        <div class="voto-texto">{{ 'voto.assembleia.gestor.unidades.texto_tabela'|trans({unidade: a.nomeDaUnidade|lower}) }}</div>
         {% if a.podeAlterarUnidades and voto_edita(a.id) %}
-            <form method="post" enctype="multipart/form-data" action="{{ path('voto_assembleia_unidades_importar', {id: a.id}) }}" class="voto-importar">
+            {# Forma principal: tabela simples, que grava pelo mesmo caminho da importação (voto_assembleia_unidades_importar). #}
+            <form method="post" action="{{ path('voto_assembleia_unidades_importar', {id: a.id}) }}" class="voto-importar voto-aptos-tabela" data-voto-aptos>
                 <input type="hidden" name="_token" value="{{ token }}">
-                <p class="voto-texto">{{ 'voto.assembleia.gestor.unidades.importacao_arquivo'|trans }}</p>
-                <label class="vL">{{ 'voto.assembleia.gestor.unidades.arquivo'|trans }}<input class="vF" type="file" name="arquivo" accept=".xlsx,.csv"></label>
-                <a class="vB" href="{{ path('voto_assembleia_unidades_modelo', {id: a.id}) }}"><i class="bi bi-download"></i>{{ 'voto.assembleia.gestor.unidades.baixar_modelo'|trans }}</a>
-                <p class="voto-texto">{{ 'voto.assembleia.gestor.unidades.primeira_aba'|trans({identificacao: a.cenario.identificacao, grupo: a.cenario.grupo}) }}</p>
-                <label class="vL">{{ 'voto.assembleia.gestor.unidades.lista'|trans }}<textarea class="vF vMono voto-lista" name="lista" rows="6"></textarea></label>
-                <div><button type="submit" class="vB vP"><i class="bi bi-upload"></i>{{ 'voto.assembleia.gestor.unidades.importar'|trans }}</button></div>
+                <table class="voto-aptos-tabela-corpo">
+                    <thead><tr>
+                        <th>{{ a.nomeDaUnidade }}</th><th>{{ 'voto.assembleia.gestor.unidades.coluna_nome'|trans }}</th><th>{{ 'voto.assembleia.gestor.unidades.campo_email'|trans }}</th>
+                        {% if a.porFracao %}<th>{{ 'voto.assembleia.gestor.unidades.campo_fracao'|trans }}</th>{% endif %}
+                        <th></th>
+                    </tr></thead>
+                    <tbody data-voto-aptos-linhas>
+                        {% for n in 1..3 %}{{ _self.linha(a) }}{% endfor %}
+                    </tbody>
+                </table>
+                <template data-voto-aptos-modelo>{{ _self.linha(a) }}</template>
+                <div class="voto-acoes">
+                    <button type="button" class="vB" data-voto-aptos-adicionar><i class="bi bi-plus-lg"></i>{{ 'voto.assembleia.gestor.unidades.adicionar_linha'|trans }}</button>
+                    <button type="submit" class="vB vP"><i class="bi bi-check-lg"></i>{{ 'voto.assembleia.gestor.unidades.salvar_tabela'|trans }}</button>
+                </div>
             </form>
+            <details class="vDet voto-aptos-avancada" data-voto-aptos-avancada>
+                <summary>{{ 'voto.assembleia.gestor.unidades.opcao_avancada'|trans }}</summary>
+                <form method="post" enctype="multipart/form-data" action="{{ path('voto_assembleia_unidades_importar', {id: a.id}) }}" class="voto-importar">
+                    <input type="hidden" name="_token" value="{{ token }}">
+                    <p class="voto-texto">{{ 'voto.assembleia.gestor.unidades.texto'|trans({identificacao: a.cenario.identificacao|lower, grupo: a.cenario.grupo|lower}) }}</p>
+                    <p class="voto-texto">{{ 'voto.assembleia.gestor.unidades.importacao_arquivo'|trans }}</p>
+                    <label class="vL">{{ 'voto.assembleia.gestor.unidades.arquivo'|trans }}<input class="vF" type="file" name="arquivo" accept=".xlsx,.csv"></label>
+                    <a class="vB" href="{{ path('voto_assembleia_unidades_modelo', {id: a.id}) }}"><i class="bi bi-download"></i>{{ 'voto.assembleia.gestor.unidades.baixar_modelo'|trans }}</a>
+                    <p class="voto-texto">{{ 'voto.assembleia.gestor.unidades.primeira_aba'|trans({identificacao: a.cenario.identificacao, grupo: a.cenario.grupo}) }}</p>
+                    <label class="vL">{{ 'voto.assembleia.gestor.unidades.lista'|trans }}<textarea class="vF vMono voto-lista" name="lista" rows="6"></textarea></label>
+                    <div><button type="submit" class="vB vP"><i class="bi bi-upload"></i>{{ 'voto.assembleia.gestor.unidades.importar'|trans }}</button></div>
+                </form>
+            </details>
         {% else %}
             <div class="voto-texto">{{ 'voto.assembleia.gestor.unidades.bloqueada'|trans }}</div>
         {% endif %}
@@ -73,10 +106,10 @@
     {% if a.publicada %}
         <div class="vLin voto-acoes">
             <a class="vB" href="{{ path('voto_assembleia_divulgacao', {id: a.id}) }}"><i class="bi bi-qr-code"></i>Link e QR Code</a>
-            {% if voto_edita(a.id) %}<form method="post" action="{{ path('voto_assembleia_unidades_enviar', {id: a.id}) }}" class="voto-form-linha">
-                <input type="hidden" name="_token" value="{{ token }}">
-                <button type="submit" class="vB vP" {{ tela.faltamEnvio == 0 ? 'disabled' }}><i class="bi bi-envelope"></i>{{ 'voto.assembleia.gestor.links.enviar'|trans }}</button>
-            </form>{% endif %}
+            {% if voto_edita(a.id) %}
+                <button type="button" class="vB vP" data-voto-janela="#janela-enviar-links"><i class="bi bi-envelope"></i>{{ 'voto.assembleia.gestor.links.enviar'|trans }}</button>
+                {% include 'voto/assembleia/_janela_enviar_links.html.twig' with {a: a, token: token, faltam: tela.faltamEnvio, lote: lote_do_envio, previa: previa_do_email} only %}
+            {% endif %}
             <span class="voto-participacao">{{ 'voto.assembleia.gestor.links.faltam'|trans({n: tela.faltamEnvio}) }}</span>
         </div>
     {% else %}
@@ -180,7 +213,7 @@
             <a class="vB" href="{{ path('voto_index', {aba: 'ges'}) }}#assembleia-{{ a.id }}">{{ 'voto.assembleia.gestor.form.salvar_sair'|trans }}</a>
             <span class="voto-espaco"></span>
             <a class="vB" href="{{ path('voto_assembleia_pautas', {id: a.id}) }}"><i class="bi bi-arrow-left"></i>{{ 'voto.assembleia.gestor.form.voltar'|trans }}</a>
-            <a class="vB vP" href="{{ path('voto_assembleia_passo', {id: a.id, passo: 6}) }}">{{ 'voto.assembleia.gestor.form.continuar'|trans }}<i class="bi bi-arrow-right"></i></a>
+            <a class="vB vP" href="{{ path('voto_assembleia_passo', {id: a.id, passo: 4}) }}">{{ 'voto.assembleia.gestor.form.continuar'|trans }}<i class="bi bi-arrow-right"></i></a>
         </div>
     {% endif %}
 </div>
@@ -190,4 +223,5 @@
 {{ parent() }}
 <script src="{{ asset('js/voto-avaliacoes.js') }}" defer></script>
 <script src="{{ asset('js/voto-ciclo.js') }}" defer></script>
+<script src="{{ asset('js/voto-aptos-tabela.js') }}" defer></script>
 {% endblock %}

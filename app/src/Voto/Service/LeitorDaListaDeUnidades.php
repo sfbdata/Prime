@@ -25,7 +25,8 @@ final class LeitorDaListaDeUnidades
 {
     public const LIMITE_DE_LINHAS = 3000;
 
-    private const CABECALHOS = ['unidade', 'identificacao', 'identificador', 'numero'];
+    // "cpf": modelos antigos da associação abriam a primeira coluna com esse rótulo.
+    private const CABECALHOS = ['unidade', 'identificacao', 'identificador', 'numero', 'cpf'];
 
     /**
      * @return array{validas: list<LinhaDeUnidade>, invalidas: list<array{linha: int, motivo: string}>, duplicadas: list<int>}
@@ -49,8 +50,11 @@ final class LeitorDaListaDeUnidades
         return $this->lerTabela($tabela, $peso);
     }
 
-    /** @param list<list<string>> $linhas */
-    public function lerTabela(array $linhas, PesoDoVoto $peso): array
+    /**
+     * @param list<list<string>> $linhas
+     * @param bool               $pularCabecalho false na tabela da tela (sem cabeçalho): a unidade chamada "Unidade" ou "Número" não é descartada
+     */
+    public function lerTabela(array $linhas, PesoDoVoto $peso, bool $pularCabecalho = true): array
     {
         if (\count($linhas) > self::LIMITE_DE_LINHAS) {
             throw new OperacaoInvalidaNaAssembleiaException(sprintf('Envie no máximo %d linhas por vez.', self::LIMITE_DE_LINHAS));
@@ -64,7 +68,7 @@ final class LeitorDaListaDeUnidades
             if (isset($colunas[0])) {
                 $colunas[0] = preg_replace('/^\xEF\xBB\xBF/', '', $colunas[0]) ?? $colunas[0];
             }
-            if ([] === $colunas || (0 === \count($lidas['validas']) + \count($lidas['invalidas']) && self::ehCabecalho($colunas))) {
+            if ([] === $colunas || ($pularCabecalho && 0 === \count($lidas['validas']) + \count($lidas['invalidas']) && self::ehCabecalho($colunas))) {
                 continue;
             }
             $this->classificar($indice + 1, array_map(static fn (string $coluna): string => trim($coluna), array_pad($colunas, 9, '')),

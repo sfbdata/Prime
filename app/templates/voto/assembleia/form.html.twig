@@ -1,14 +1,14 @@
 {% extends 'voto/assembleia/_moldura.html.twig' %}
 
 {#
-    Passos 1 (Categoria) e 2 (Regras e prazo) do assistente de 7 passos (desenho 18, L254-258). Passo 1: os botões da
-    categoria (.vCats/.vCat/.vCatOn, 9 cenários), o aviso do cenário (.vAviso), "Votação de simulação", o rótulo da entidade
-    do cenário (condomínio por padrão), "CNPJ (opcional, separa entidades com nome parecido)" com a máscara na exibição e
-    "Evento". Passo 2: "Peso do voto" ("Fração ideal" ou "Uma unidade, um voto") e o resumo das regras de cada pauta (que se
-    editam no passo Cargos). Os dois passos gravam pelo MESMO formulário (editar/criar): os campos do outro passo seguem
-    como `hidden`. Escolher o cenário troca o rótulo da entidade, o aviso e o peso sugerido (public/js/voto-cenario.js; sem JS
-    o servidor mostra o escolhido). Rodapé "Salvar e sair" | "Voltar" | "Continuar". Sem data (modo mesa).
-    Contexto: `assembleia` (AssembleiaNoPainel ou null), `input` (AssembleiaInput), `erro`, `cenarios`, `cenario` e `passo` (1 ou 2).
+    Passo 1 (Categoria) do assistente de 5 passos (desenho 18, L254-258): os botões da categoria (.vCats/.vCat/.vCatOn, 9
+    cenários), o aviso do cenário (.vAviso), "Votação de simulação", o rótulo da entidade do cenário (condomínio por padrão),
+    "CNPJ (opcional, separa entidades com nome parecido)" com a máscara na exibição e "Evento". Logo abaixo ficam as regras
+    que eram dos antigos passos "Regras e prazo" e "Acesso": "Peso do voto" ("Fração ideal" ou "Uma unidade, um voto"), o
+    resumo das regras de cada pauta (que se editam no passo Cargos) e o texto de como o votante entra. Tudo grava pelo
+    MESMO formulário (editar/criar). Escolher o cenário troca o rótulo da entidade, o aviso e o peso sugerido
+    (public/js/voto-cenario.js; sem JS o servidor mostra o escolhido). Rodapé "Salvar e sair" | "Continuar". Sem data (modo mesa).
+    Contexto: `assembleia` (AssembleiaNoPainel ou null), `input` (AssembleiaInput), `erro`, `cenarios`, `cenario` e `passo` (1).
 #}
 
 {% set sub = 'assembleia' %}
@@ -21,10 +21,8 @@
     {% include 'voto/assembleia/_assistente_faixa.html.twig' with {a: assembleia} only %}
     <form method="post" class="voto-assistente-corpo" data-voto-assistente-form action="{{ assembleia is null ? path('voto_assembleia_nova') : path('voto_assembleia_editar', {id: assembleia.id}) }}">
         <input type="hidden" name="_token" value="{{ csrf_token(assembleia is null ? 'voto_assembleia_nova' : 'voto_assembleia_' ~ assembleia.id) }}">
-        <input type="hidden" name="passo" value="{{ passo }}">
         {% include 'voto/assembleia/_assistente_trilho.html.twig' with {a: assembleia, passo: passo, em_form: not so_le} only %}
         <fieldset class="voto-fieldset-leitura" style="border:0;margin:0;padding:0;min-width:0;"{{ so_le ? ' disabled' : '' }}>
-        {% if passo == 1 %}
             <div class="vCats" role="radiogroup" aria-label="{{ 'voto.assembleia.gestor.form.cenario'|trans }}" data-voto-cenarios>
                 {% for c in cenarios %}
                     <label class="vCat{{ c == cenario ? ' vCatOn' : '' }}"><input type="radio" class="voto-cat-radio" name="cenario" value="{{ c.value }}"{{ c == cenario ? ' checked' : '' }} data-entidade="{{ c.entidade }}" data-ajuda="{{ c.ajuda }}" data-peso="{{ c.pesoSugerido.value }}"><i class="bi {{ c.icone }}" aria-hidden="true"></i>{{ c.rotulo }}</label>
@@ -40,18 +38,11 @@
                 <label class="vL">{{ 'voto.assembleia.gestor.form.rotulo_unidade'|trans }}<input class="vF" name="rotulo_unidade" maxlength="40" placeholder="Unidade" value="{{ input.rotuloUnidade }}"></label>
                 <label class="vL">{{ 'voto.assembleia.gestor.form.rotulo_bloco'|trans }}<input class="vF" name="rotulo_bloco" maxlength="40" placeholder="Bloco" value="{{ input.rotuloBloco }}"></label>
                 <div class="voto-etapa-sub">{{ 'voto.assembleia.gestor.form.rotulo_dica'|trans }}</div>
+                <label class="vL">{{ 'voto.assembleia.gestor.form.sala_virtual'|trans }}<input class="vF" type="url" name="link_sala_virtual" maxlength="500" inputmode="url" placeholder="https://meet.google.com/..." value="{{ input.linkSalaVirtual }}"></label>
+                <div class="voto-etapa-sub">{{ 'voto.assembleia.gestor.form.sala_virtual_dica'|trans }}</div>
             </div>
-            <input type="hidden" name="peso" value="{{ input.peso }}" data-voto-cenario-peso>
-        {% else %}
-            <input type="hidden" name="cenario" value="{{ cenario.value }}">
-            {% if input.simulacao %}<input type="hidden" name="simulacao" value="1">{% endif %}
-            <input type="hidden" name="entidade" value="{{ input.entidade }}">
-            <input type="hidden" name="cnpj" value="{{ cnpj_formatado }}">
-            <input type="hidden" name="titulo" value="{{ input.titulo }}">
-            <input type="hidden" name="rotulo_unidade" value="{{ input.rotuloUnidade }}">
-            <input type="hidden" name="rotulo_bloco" value="{{ input.rotuloBloco }}">
             <div class="vG2">
-                <label class="vL">{{ 'voto.assembleia.gestor.form.peso'|trans }}<select class="vF" name="peso">
+                <label class="vL">{{ 'voto.assembleia.gestor.form.peso'|trans }}<select class="vF" name="peso" data-voto-cenario-peso>
                     <option value="fracao" {{ input.peso == 'fracao' ? 'selected' }}>{{ 'voto.assembleia.gestor.form.peso_fracao'|trans }}</option>
                     <option value="unidade" {{ input.peso == 'unidade' ? 'selected' }}>{{ 'voto.assembleia.gestor.form.peso_unidade'|trans }}</option>
                 </select></label>
@@ -71,7 +62,7 @@
                     {% endfor %}
                 </div>
             {% endif %}
-        {% endif %}
+            <div class="vAviso" data-voto-passo-texto>{{ 'voto.assembleia.gestor.assistente.acesso_texto'|trans }}</div>
         </fieldset>
         {% if erro %}<div class="voto-erro" role="alert">{{ erro }}</div>{% endif %}
         {% if so_le %}
@@ -82,8 +73,7 @@
         <div class="voto-rodape">
             <button type="submit" class="vB" name="depois" value="sair">{{ 'voto.assembleia.gestor.form.salvar_sair'|trans }}</button>
             <span class="voto-espaco"></span>
-            {% if passo > 1 %}<button type="submit" class="vB" name="depois" value="passo-{{ passo - 1 }}"><i class="bi bi-arrow-left"></i>{{ 'voto.assembleia.gestor.form.voltar'|trans }}</button>{% endif %}
-            <button type="submit" class="vB vP" name="depois" value="passo-{{ passo + 1 }}">{{ 'voto.assembleia.gestor.form.continuar'|trans }}<i class="bi bi-arrow-right"></i></button>
+            <button type="submit" class="vB vP" name="depois" value="passo-2">{{ 'voto.assembleia.gestor.form.continuar'|trans }}<i class="bi bi-arrow-right"></i></button>
         </div>
         {% endif %}
     </form>
