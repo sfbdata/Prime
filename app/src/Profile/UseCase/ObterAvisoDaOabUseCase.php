@@ -30,6 +30,10 @@ final class ObterAvisoDaOabUseCase
     /** @return array{id: ?int, numero: string, uf: string, motivo: string}|null */
     public function executar(User $usuario): ?array
     {
+        // Sem OAB no espelho do User (já carregado) não há o que verificar: poupa a consulta em toda tela.
+        if (trim((string) $usuario->getOabNumero()) === '') {
+            return null;
+        }
         $lista = $this->inscricoes->doUsuario($usuario);
         foreach ($lista as $inscricao) {
             if ($inscricao->getStatus() === StatusOab::Divergente) {

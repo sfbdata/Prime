@@ -20,7 +20,7 @@ final class ObterAvisoDaOabUseCaseTest extends TestCase
     #[TestDox('a inscrição que o CNA não achou (Divergente) dá o aviso com número e UF')]
     public function testDivergenteAvisa(): void
     {
-        $user = new User();
+        $user = (new User())->setOabNumero('81269');
         $df   = $this->inscricao($user, 1, '81269', 'DF', TipoInscricaoOab::Principal, StatusOab::Divergente);
         $go   = $this->inscricao($user, 2, '700', 'GO', TipoInscricaoOab::Suplementar, StatusOab::Confirmada);
 
@@ -30,7 +30,7 @@ final class ObterAvisoDaOabUseCaseTest extends TestCase
     #[TestDox('o motivo é o mesmo da Revisão do Master: nome lido no CNA dá "nome"; número fora da regra dá "formato"')]
     public function testMotivos(): void
     {
-        $user = new User();
+        $user = (new User())->setOabNumero('81269');
         $nome = new InscricaoOab($user, '81269', 'DF', TipoInscricaoOab::Principal);
         $nome->registrarVerificacao(StatusOab::Divergente, 'Outra Pessoa');
         $formato = $this->inscricao($user, 2, '12', 'GO', TipoInscricaoOab::Principal, StatusOab::Divergente);
@@ -42,12 +42,13 @@ final class ObterAvisoDaOabUseCaseTest extends TestCase
     #[TestDox('Pendente (ainda não consultada) e Confirmada não avisam')]
     public function testSemAviso(): void
     {
-        $user = new User();
+        $user = (new User())->setOabNumero('81269');
         $df   = $this->inscricao($user, 1, '81269', 'DF', TipoInscricaoOab::Principal, StatusOab::NaoVerificada);
         $go   = $this->inscricao($user, 2, '700', 'GO', TipoInscricaoOab::Suplementar, StatusOab::Confirmada);
 
         self::assertNull($this->sut([$df, $go])->executar($user));
         self::assertNull($this->sut([])->executar(new User()), 'sem OAB nenhuma');
+        self::assertNull($this->sut([$df])->executar(new User()), 'sem OAB no espelho nem consulta');
     }
 
     #[TestDox('OAB só no espelho do User, Divergente, avisa sem id (o perfil cria a principal ao abrir)')]
