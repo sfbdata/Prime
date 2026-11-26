@@ -12,6 +12,7 @@ use App\Voto\UseCase\ArquivarAssembleiaUseCase;
 use App\Voto\UseCase\CancelarPautaUseCase;
 use App\Voto\UseCase\DesarquivarAssembleiaUseCase;
 use App\Voto\UseCase\DevolverPautaUseCase;
+use App\Voto\UseCase\DefinirSalaVirtualDaAssembleiaUseCase;
 use App\Voto\UseCase\ExcluirAssembleiaEncerradaUseCase;
 use App\Voto\UseCase\ExcluirRascunhoDaAssembleiaUseCase;
 use App\Voto\UseCase\ExcluirSimulacaoDaAssembleiaUseCase;
@@ -161,6 +162,18 @@ final class CicloDaPautaController extends AbstractController
         return $this->executar($request, $id, static function () use ($apagar, $tenant, $id, $confirmacao): void {
             $apagar->executar($tenant, $id, $confirmacao);
         }, 'voto.assembleia.gestor.ciclo.encerrada_apagada');
+    }
+
+    /** Troca o link da sala virtual (campo `link_sala_virtual`; vazio apaga) da votação publicada. */
+    #[Route('/voto/assembleias/{id}/sala-virtual', name: 'voto_assembleia_sala_virtual', requirements: ['id' => '\d+'], methods: ['POST'])]
+    public function salaVirtual(int $id, Request $request, DefinirSalaVirtualDaAssembleiaUseCase $definir): RedirectResponse
+    {
+        $tenant = $this->guarda->exigir();
+        $link = trim((string) $request->request->get('link_sala_virtual', ''));
+
+        return $this->executar($request, $id, static function () use ($definir, $tenant, $id, $link): void {
+            $definir->executar($tenant, $id, $link);
+        }, 'voto.assembleia.gestor.ciclo.sala_virtual_salva');
     }
 
     private static function motivo(Request $request): string

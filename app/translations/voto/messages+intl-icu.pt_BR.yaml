@@ -880,6 +880,7 @@ voto:
                 simulacao_reiniciada: 'Simulação reiniciada: votos apagados, de volta a rascunho.'
                 simulacao_apagada: Simulação apagada.
                 encerrada_apagada: Votação apagada para sempre.
+                sala_virtual_salva: Link da sala virtual salvo.
             # ---- Voto redesign F1-2b e F1-3: telas do ciclo de vida da votação (desenho 18, 16/11).
             chip_ciclo:
                 arquivada: Arquivada
@@ -887,6 +888,10 @@ voto:
                 suspensa: Suspensa
             sala_virtual:
                 rotulo: 'Sala virtual:'
+                menu: Sala virtual
+                titulo: Sala virtual da votação
+                dica: 'Cole o link da reunião (Meet, Zoom, Teams...). Deixe vazio para tirar o link. O eleitor o abre pelo botão Abrir sala.'
+                salvar: Salvar link
             menu_ciclo:
                 retirar_ou_cancelar: Retirar de pauta ou cancelar
                 suspender: Suspender votação

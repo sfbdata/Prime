@@ -125,6 +125,67 @@ final class SalaVirtualDaAssembleiaTest extends JusPrimeWebTestCase
         self::assertNotNull($faixa->filter('[data-vc-sala-aviso]')->attr('hidden'));
     }
 
+    #[TestDox('Publicada e em andamento: o menu tem "Sala virtual" com a janela; POST troca o link, vazio apaga, inválido avisa')]
+    public function testTrocarDepoisDePublicar(): void
+    {
+        $assembleia = AssembleiaFactory::new(['tenant' => $this->escritorio, 'titulo' => 'AGO Troca'])->publicada()->create()->_real();
+        PautaDaAssembleiaFactory::new(['assembleia' => $assembleia])->comOpcoesPadrao()->aberta()->create();
+        $id = $assembleia->getId();
+
+        $tela = $this->client->request('GET', '/voto?aba=ges');
+        self::assertCount(1, $tela->filter('[data-voto-janela="#janela-sala-' . $id . '"]'));
+        self::assertCount(1, $tela->filter('#janela-sala-' . $id . ' form[action="/voto/assembleias/' . $id . '/sala-virtual"] input[name="link_sala_virtual"]'));
+
+        $this->postarSala($id, 'https://meet.google.com/abc-defg-hij');
+        self::assertSame('Link da sala virtual salvo.', $this->avisoDoPainel());
+        self::assertSame('https://meet.google.com/abc-defg-hij', $this->linkNoBanco($id));
+
+        $this->postarSala($id, 'ftp://sala');
+        self::assertSame('O link da sala virtual deve começar com http:// ou https://.', $this->avisoDoPainel());
+        self::assertSame('https://meet.google.com/abc-defg-hij', $this->linkNoBanco($id));
+
+        $this->postarSala($id, '');
+        self::assertNull($this->linkNoBanco($id));
+    }
+
+    #[TestDox('Sala virtual: CSRF inválido não muda nada; outro escritório dá 404; encerrada não tem o item no menu')]
+    public function testSalaCsrfPosseEEncerrada(): void
+    {
+        $assembleia = AssembleiaFactory::new(['tenant' => $this->escritorio, 'titulo' => 'AGO Csrf Sala'])->publicada()->create()->_real();
+        PautaDaAssembleiaFactory::new(['assembleia' => $assembleia])->comOpcoesPadrao()->encerrada()->create();
+        $alheia = AssembleiaFactory::new(['titulo' => 'AGO Alheia Sala'])->publicada()->create()->_real();
+
+        $this->client->request('POST', '/voto/assembleias/' . $assembleia->getId() . '/sala-virtual', ['_token' => 'invalido', 'link_sala_virtual' => 'https://zoom.us/j/1']);
+        self::assertSame('A sessão expirou. Recarregue a página e tente de novo.', $this->avisoDoPainel());
+        self::assertNull($this->linkNoBanco($assembleia->getId()));
+
+        $this->postarSala($alheia->getId(), 'https://zoom.us/j/1');
+        self::assertResponseStatusCodeSame(404);
+        self::assertNull($this->linkNoBanco($alheia->getId()));
+
+        $tela = $this->client->request('GET', '/voto?aba=ges');
+        self::assertCount(0, $tela->filter('[data-voto-janela="#janela-sala-' . $assembleia->getId() . '"]'));
+    }
+
+    private function postarSala(?int $id, string $link): void
+    {
+        $this->client->request('GET', '/voto?aba=ele');
+        $sessao = $this->client->getRequest()->getSession();
+        $sessao->set('_csrf/voto_assembleia_' . $id, 'token-de-teste');
+        $sessao->save();
+        $this->client->request('POST', '/voto/assembleias/' . $id . '/sala-virtual', ['_token' => 'token-de-teste', 'link_sala_virtual' => $link]);
+    }
+
+    private function avisoDoPainel(): string
+    {
+        if (!$this->client->getResponse()->isRedirect()) {
+            return '';
+        }
+        $tela = $this->client->followRedirect();
+
+        return trim($tela->filter('.voto-toast')->count() > 0 ? $tela->filter('.voto-toast')->first()->text() : '');
+    }
+
     /** @return array{0: \App\Voto\Entity\Assembleia, 1: \App\Voto\Entity\UnidadeDaAssembleia} */
     private function publicadaComUnidade(): array
     {
