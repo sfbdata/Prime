@@ -58,6 +58,12 @@
         <p>{{ resumo(r, t ~ 'comparecimento', {pc: r.quorumPct|number_format(2, ',', '.'), q: p.quorumTexto}) }}</p>
     {% endif %}
 {% endfor %}
+<h2>{{ 'voto.assembleia.gestor.ata.ocorrencias_registradas'|trans }}</h2>
+{% for o in ata.ocorrencias %}
+    <p>{{ 'voto.assembleia.gestor.ata.ocorrencia_eleitor'|trans({qualificacao: o.qualificacao, data: o.criadaEm|date(dh), escopo: o.pauta is not null ? 'voto.assembleia.gestor.ocorrencias.da_pauta'|trans({pauta: o.pauta}) : 'voto.assembleia.gestor.ocorrencias.da_votacao'|trans, texto: o.texto}) }}</p>
+{% else %}
+    <p>{{ (ata.totalDeOcorrencias > 0 ? 'voto.assembleia.gestor.ata.ocorrencias_so_total'|trans({n: ata.totalDeOcorrencias}) : 'voto.assembleia.gestor.ata.nenhuma_ocorrencia'|trans) }}</p>
+{% endfor %}
 <p>{{ (t ~ 'sigilo')|trans }}</p>
 <p>{{ (t ~ 'encerramento')|trans({
     quando: fim is not null ? (t ~ 'encerramento_em')|trans({data: fim|date('d/m/Y'), hora: fim|date('H:i')}) : (t ~ 'encerramento_as')|trans({hora: m.campo(marca, (t ~ 'marca_hora')|trans)}),

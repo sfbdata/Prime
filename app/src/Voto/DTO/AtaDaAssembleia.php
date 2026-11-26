@@ -23,6 +23,10 @@ final readonly class AtaDaAssembleia
         public array $blocos,
         /** @var list<AvaliacaoNaLista> as ocorrências com avaliação, para a seção "Ocorrências e avaliações de aptidão" (vazio sem elas ou sem permissão) */
         public array $avaliacoes = [],
+        /** @var list<OcorrenciaNaVotacao> o conteúdo das ocorrências do portal: só para quem gere a assembleia (LGPD); vazio para os demais */
+        public array $ocorrencias = [],
+        /** Quantas ocorrências o portal registrou (todas as pessoas veem o número; o conteúdo, só quem gere). */
+        public int $totalDeOcorrencias = 0,
     ) {
     }
 
@@ -47,6 +51,6 @@ final readonly class AtaDaAssembleia
     {
         $pautas = array_values(array_filter($this->assembleia->pautas, static fn (PautaNoPainel $p): bool => $p->id === $pautaId || $p->retirada()));
 
-        return new self($this->assembleia->comPautas($pautas), $this->emitidaEm, $this->emitidaPor, $this->relacao, $this->blocos, $this->avaliacoes);
+        return new self($this->assembleia->comPautas($pautas), $this->emitidaEm, $this->emitidaPor, $this->relacao, $this->blocos, $this->avaliacoes, $this->ocorrencias, $this->totalDeOcorrencias);
     }
 }

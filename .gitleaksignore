@@ -88,3 +88,5 @@ dec1ad624157d3a0ef467d4970f42c4f4f81b078:app/.env.test:segredo-em-variavel-pt:16
 
 # Comprovante do Voto (13/11/2026): token fictício sequencial do teste unitário, igual ao cenário de registro do voto.
 13734e54c378b1d367c175020eef60ea06a4c35c:app/tests/Voto/Unit/EnviarComprovantePorEmailUseCaseTest.php:generic-api-key:42
+# 26/11/2026 (#957): token de EXEMPLO num teste unitário (hex sequencial abcdef0123...), não é segredo; trocado no commit seguinte, mas o CI varre todos os commits do PR.
+5cc310eaee06c854acfb4177bdc62a85e06c5207:app/tests/Voto/Unit/RegistrarOcorrenciaDaVotacaoUseCaseTest.php:generic-api-key:41

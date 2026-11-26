@@ -17,7 +17,10 @@ use App\Voto\Exception\AssembleiaNaoEncontradaException;
 use App\Voto\Repository\AssembleiaRepository;
 use App\Voto\Entity\PautaDaAssembleia;
 use App\Voto\Entity\UnidadeDaAssembleia;
+use App\Voto\DTO\OcorrenciaNaVotacao;
+use App\Voto\Entity\OcorrenciaDaVotacao;
 use App\Voto\Repository\OcorrenciaDaUnidadeRepository;
+use App\Voto\Repository\OcorrenciaDaVotacaoRepository;
 use App\Voto\Repository\ParticipacaoNaPautaRepository;
 use App\Voto\Repository\UnidadeDaAssembleiaRepository;
 use App\Voto\Service\AcessoAAssembleia;
@@ -47,6 +50,7 @@ final class ObterAtaDaAssembleiaUseCase
         private readonly RegistrarAuditoriaDaRelacaoDeVotantesUseCase $auditoria,
         private readonly EntityManagerInterface $em,
         private readonly OcorrenciaDaUnidadeRepository $ocorrencias,
+        private readonly OcorrenciaDaVotacaoRepository $ocorrenciasDaVotacao,
     ) {
     }
 
@@ -60,7 +64,27 @@ final class ObterAtaDaAssembleiaUseCase
 
         $avaliacoes = $comVotantes && null !== $ator ? $this->avaliacoes($assembleia, $ator) : [];
 
-        return new AtaDaAssembleia($this->leitura->montar($assembleia), $agora ?? new \DateTimeImmutable(), $emitidaPor, $relacao, $blocos, $avaliacoes);
+        return new AtaDaAssembleia($this->leitura->montar($assembleia), $agora ?? new \DateTimeImmutable(), $emitidaPor, $relacao, $blocos, $avaliacoes, ...$this->ocorrenciasDosEleitores($assembleia, $ator));
+    }
+
+    /**
+     * "Ocorrências registradas": o texto e a qualificação do eleitor (dado pessoal, LGPD) só saem para quem gere a assembleia
+     * ({@see AcessoAAssembleia::podeRegistrarOcorrencia()}, a mesma regra da lista "Ocorrências"); para os demais, e sem
+     * `$ator`, só a quantidade.
+     *
+     * @return array{0: list<OcorrenciaNaVotacao>, 1: int} o conteúdo (vazio sem permissão) e o total
+     */
+    private function ocorrenciasDosEleitores(Assembleia $assembleia, ?User $ator): array
+    {
+        $todas = $this->ocorrenciasDaVotacao->listarDaAssembleia($assembleia);
+        if (null === $ator || !$this->acesso->podeRegistrarOcorrencia($ator, $assembleia)) {
+            return [[], \count($todas)];
+        }
+
+        return [
+            array_map(static fn (OcorrenciaDaVotacao $o): OcorrenciaNaVotacao => OcorrenciaNaVotacao::deOcorrencia($o), $todas),
+            \count($todas),
+        ];
     }
 
     /**

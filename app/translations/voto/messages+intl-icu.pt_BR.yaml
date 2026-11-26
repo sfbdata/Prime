@@ -219,6 +219,28 @@ voto:
             branco: BRANCO
             corrige: CORRIGE
             confirma: CONFIRMA
+        ocorrencia:
+            link: Registrar ocorrência
+            confirmar: Deseja registrar uma ocorrência nesta votação?
+            confirmar_texto: Você poderá escrever um texto curto. A ocorrência fica registrada com o seu nome e a sua unidade.
+            sim: Sim, registrar
+            nao: Não
+            titulo: Registrar ocorrência
+            assembleia: Votação
+            nome: Nome
+            unidade: Unidade
+            pauta: Sobre qual votação?
+            pauta_toda: Sobre a assembleia toda
+            texto: Descreva a ocorrência em poucas palavras
+            enviar: Enviar
+            voltar: Voltar
+            registrada: Ocorrência registrada.
+            limite: 'Você já registrou o máximo de {n} ocorrências nesta assembleia.'
+            pauta_invalida: Escolha uma votação desta assembleia.
+            texto_vazio: Escreva a ocorrência.
+            texto_longo: 'A ocorrência pode ter no máximo {n} caracteres.'
+            nao_publicada: 'A votação ainda não foi publicada: não é possível registrar ocorrência.'
+            arquivada: 'Esta votação foi arquivada: não é possível registrar ocorrência.'
         indisponivel: Link inválido ou eleição indisponível.
         limite: Muitas consultas. Tente novamente em alguns minutos.
     # ---- Assembleia de condomínio, telas do gestor (frente F2). Spec docs/specs/voto-assembleia-condominio.md;
@@ -236,6 +258,7 @@ voto:
                 conferencia: Conferência
                 perfis: Perfis
                 avaliacoes: Avaliações
+                ocorrencias: Ocorrências
             # Assistente de 5 passos do cadastro (desenho 18, trilho .vPas): nomes, título e frase de cada passo, revisão e aviso.
             assistente:
                 rotulo: Passos do cadastro da assembleia
@@ -712,6 +735,12 @@ voto:
                 hash: 'Hash da lista: {hash}'
                 alteracoes: '{n} alteração(ões) por decisão do conselho.'
                 nenhuma_unidade: Nenhum registro para mostrar.
+            ocorrencias:
+                titulo: Ocorrências
+                texto: Ocorrências que os eleitores registraram pelo Portal do Eleitor, da mais antiga para a mais recente.
+                da_pauta: 'Sobre a votação: {pauta}'
+                da_votacao: Sobre a assembleia toda
+                vazio: Nenhuma ocorrência registrada.
             avaliacoes:
                 titulo: Avaliações do conselho
                 texto: Cada ocorrência registrada para pessoa não apta abre uma avaliação. A decisão fica na trilha de auditoria, com data e hora em segundos.
@@ -865,6 +894,10 @@ voto:
                 ocorrencia_pendente: Avaliação pendente.
                 ocorrencia_tornado_apto: 'Tornado apto em {data}: {justificativa}.'
                 ocorrencia_mantida: 'Inaptidão mantida em {data}: {justificativa}.'
+                ocorrencias_registradas: Ocorrências registradas
+                ocorrencia_eleitor: '{qualificacao}, em {data}. {escopo}: {texto}'
+                nenhuma_ocorrencia: Nenhuma ocorrência registrada
+                ocorrencias_so_total: '{n, plural, one {# ocorrência registrada} other {# ocorrências registradas}}; o conteúdo fica com a gestão da assembleia.'
             email:
                 assunto: 'Seu link para votar: {assembleia}'
                 titulo: Link para votar

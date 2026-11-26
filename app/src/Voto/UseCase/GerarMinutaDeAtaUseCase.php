@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Voto\UseCase;
 
+use App\Entity\Auth\User;
 use App\Entity\Tenant\Tenant;
 use App\Shared\Service\GeradorDePdf;
 use App\Voto\DTO\AtaDaAssembleia;
@@ -39,15 +40,16 @@ final class GerarMinutaDeAtaUseCase
 
     /**
      * @param ?int    $pautaId    a minuta só dessa votação (o desenho oferece por eleição); null = a assembleia toda
+     * @param ?User   $ator       quem pede: só quem gere a assembleia leva o conteúdo das ocorrências do portal na minuta
      * @param ?string $modeloDocx bytes do .docx com o papel timbrado; só vale para o formato Word
      *
      * @throws AssembleiaNaoEncontradaException
      * @throws OperacaoInvalidaNaAssembleiaException
      * @throws ModeloDeAtaInvalidoException
      */
-    public function executar(Tenant $tenant, int $assembleiaId, string $emitidaPor, FormatoDaMinuta $formato, ?string $modeloDocx = null, ?int $pautaId = null, ?\DateTimeImmutable $agora = null): MinutaDeAtaGerada
+    public function executar(Tenant $tenant, int $assembleiaId, string $emitidaPor, FormatoDaMinuta $formato, ?string $modeloDocx = null, ?int $pautaId = null, ?\DateTimeImmutable $agora = null, ?User $ator = null): MinutaDeAtaGerada
     {
-        $ata = $this->ataApurada($tenant, $assembleiaId, $emitidaPor, $pautaId, $agora);
+        $ata = $this->ataApurada($tenant, $assembleiaId, $emitidaPor, $pautaId, $agora, $ator);
         $nome = 'minuta-ata-' . $assembleiaId . (null === $pautaId ? '' : '-pauta-' . $pautaId) . '.' . $formato->value;
 
         if (FormatoDaMinuta::Pdf === $formato) {
@@ -59,9 +61,9 @@ final class GerarMinutaDeAtaUseCase
     }
 
     /** A ata sem a lista nominal, só com a votação pedida (ou todas), conferindo que há votação encerrada e apurada. */
-    private function ataApurada(Tenant $tenant, int $assembleiaId, string $emitidaPor, ?int $pautaId, ?\DateTimeImmutable $agora): AtaDaAssembleia
+    private function ataApurada(Tenant $tenant, int $assembleiaId, string $emitidaPor, ?int $pautaId, ?\DateTimeImmutable $agora, ?User $ator): AtaDaAssembleia
     {
-        $ata = $this->obterAta->executar($tenant, $assembleiaId, $emitidaPor, $agora, comVotantes: false);
+        $ata = $this->obterAta->executar($tenant, $assembleiaId, $emitidaPor, $agora, comVotantes: false, ator: $ator);
         if (!$ata->assembleia->publicada()) {
             throw new AssembleiaNaoEncontradaException();
         }
