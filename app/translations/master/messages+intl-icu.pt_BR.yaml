@@ -1504,7 +1504,7 @@ master:
                 diaria: Diariamente
                 semanal: Semanalmente
             freq_sem_cna: Disponível quando a consulta ao CNA estiver ligada
-            ajuda: 'Confere formato, nome no CNA e situação. Nome igual confirma; nome diferente vai para Divergentes.'
+            ajuda: 'Confere o formato. Nome e situação no CNA são conferidos à mão pelo Verificar: nome igual confirma; nome diferente vai para Divergentes.'
             ultima_rodada: 'Última rodada: {quando}'
             ainda_nao_rodou: Ainda não rodou
             validar_agora: Validar agora
@@ -1534,7 +1534,12 @@ master:
                 pend: Pendente
             confirmar: Confirmar inscrição
             verificar: Verificar de novo (nome no CNA)
-            prompt: 'Nome que consta no CNA para a OAB {inscricao} (deixe em branco se não localizar: fica registrada como não encontrada no CNA):'
+            janela:
+                titulo: Verificar de novo
+                texto: 'Escreva o nome que consta no CNA para a OAB {inscricao}. Deixe em branco se não achou a inscrição: ela fica registrada como não encontrada no CNA.'
+                campo: Nome no CNA
+                cancelar: Cancelar
+                salvar: Salvar
             motivo:
                 nao_encontrada: Não encontrada no CNA
                 nome: Nome ou situação não confere

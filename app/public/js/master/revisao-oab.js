@@ -133,16 +133,59 @@
     postar(urlDaInscricao(ctx.urlConfirmar, l.id), { numero: l.numero, uf: l.uf });
   }
 
-  // Desenho (verificar): prompt com o nome do CNA ou o do usuário. Cancelar não faz nada (decisão do Coordenador
-  // 31/10); deixar em branco envia vazio e a inscrição fica registrada como não encontrada no CNA (Divergente, com a
-  // data; pedido do dono 26/11). Nome igual confirma; diferente diverge.
-  function verificar(l) {
-    const digitado = window.prompt(T('prompt', { inscricao: l.inscricao }), l.nomeCna || l.nome);
-    if (digitado === null) {
-      return;
-    }
-    const nomeCna = digitado.trim();
+  /* Verificar de novo (desenho: verificar): janela na página com o campo "Nome no CNA", já com o nome do CNA ou o do
+     usuário, no componente mp-conf do painel (sem o prompt do navegador; pedido do dono 26/11). Cancelar, Esc ou
+     clique fora não fazem nada (decisão do Coordenador 31/10). Salvar com o campo vazio registra a inscrição como não
+     encontrada no CNA (Divergente, com a data). Nome igual confirma; diferente diverge. A janela é uma só, criada na
+     primeira vez dentro do #master-painel (o painel troca o miolo da seção a cada abertura). */
+  let janela = null;
+  let emVerificacao = null;
+
+  function fecharJanela() {
+    if (!janela) return;
+    janela.hidden = true;
+    emVerificacao = null;
+  }
+
+  function salvarJanela() {
+    const l = emVerificacao;
+    if (!l) return;
+    const nomeCna = janela.querySelector('[data-roab-janela-nome]').value.trim();
+    fecharJanela();
     postar(urlDaInscricao(ctx.urlConferir, l.id), { numero: l.numero, uf: l.uf, nomeCna });
+  }
+
+  function criarJanela() {
+    const el = document.createElement('div');
+    el.className = 'mp-conf-fundo';
+    el.hidden = true;
+    el.setAttribute('data-roab-janela', '');
+    el.innerHTML = '<div class="mp-conf" role="dialog" aria-modal="true" aria-labelledby="roabJanelaTitulo">'
+      + '<div class="mp-conf-cab"><i class="bi bi-arrow-repeat"></i><span id="roabJanelaTitulo">' + T('janela.titulo') + '</span></div>'
+      + '<div class="mp-conf-texto" data-roab-janela-texto></div>'
+      + '<div class="mp-conf-campo"><label for="roabJanelaNome">' + T('janela.campo') + '</label>'
+      + '<input id="roabJanelaNome" class="roab-janela-nome" type="text" maxlength="255" autocomplete="off" spellcheck="false" data-roab-janela-nome></div>'
+      + '<div class="mp-conf-rodape"><button type="button" class="mp-conf-cancelar" data-roab-janela-cancelar>' + T('janela.cancelar') + '</button>'
+      + '<button type="button" class="mp-conf-ok" data-roab-janela-salvar>' + T('janela.salvar') + '</button></div></div>';
+    (document.getElementById('master-painel') || document.body).appendChild(el);
+    el.addEventListener('click', e => { if (e.target === el) fecharJanela(); });
+    el.querySelector('[data-roab-janela-cancelar]').addEventListener('click', fecharJanela);
+    el.querySelector('[data-roab-janela-salvar]').addEventListener('click', salvarJanela);
+    el.querySelector('[data-roab-janela-nome]').addEventListener('keydown', e => { if (e.key === 'Enter') { e.preventDefault(); salvarJanela(); } });
+    document.addEventListener('keydown', e => { if (e.key === 'Escape' && !el.hidden) fecharJanela(); });
+
+    return el;
+  }
+
+  function verificar(l) {
+    if (!janela) janela = criarJanela();
+    emVerificacao = l;
+    janela.querySelector('[data-roab-janela-texto]').textContent = T('janela.texto', { inscricao: l.inscricao });
+    const campo = janela.querySelector('[data-roab-janela-nome]');
+    campo.value = l.nomeCna || l.nome;
+    janela.hidden = false;
+    campo.focus();
+    campo.select();
   }
 
   function alterarAuto(ligada, frequencia) {

@@ -115,7 +115,7 @@ final class PainelRevisaoOabJsTest extends TestCase
             'freq.diaria' => 'Diariamente',
             'freq.semanal' => 'Semanalmente',
             'freq_sem_cna' => 'Disponível quando a consulta ao CNA estiver ligada',
-            'ajuda' => 'Confere formato, nome no CNA e situação. Nome igual confirma; nome diferente vai para Divergentes.',
+            'ajuda' => 'Confere o formato. Nome e situação no CNA são conferidos à mão pelo Verificar: nome igual confirma; nome diferente vai para Divergentes.',
             'ultima_rodada' => 'Última rodada: {quando}',
             'ainda_nao_rodou' => 'Ainda não rodou',
             'validar_agora' => 'Validar agora',
@@ -142,7 +142,11 @@ final class PainelRevisaoOabJsTest extends TestCase
             'status.pend' => 'Pendente',
             'confirmar' => 'Confirmar inscrição',
             'verificar' => 'Verificar de novo (nome no CNA)',
-            'prompt' => 'Nome que consta no CNA para a OAB {inscricao} (deixe em branco se não localizar: fica registrada como não encontrada no CNA):',
+            'janela.titulo' => 'Verificar de novo',
+            'janela.texto' => 'Escreva o nome que consta no CNA para a OAB {inscricao}. Deixe em branco se não achou a inscrição: ela fica registrada como não encontrada no CNA.',
+            'janela.campo' => 'Nome no CNA',
+            'janela.cancelar' => 'Cancelar',
+            'janela.salvar' => 'Salvar',
             'motivo.nao_encontrada' => 'Não encontrada no CNA',
             'motivo.nome' => 'Nome ou situação não confere',
             'motivo.formato' => 'Formato inválido',
@@ -164,14 +168,19 @@ final class PainelRevisaoOabJsTest extends TestCase
         self::assertStringContainsString("(f === 'cadastro' ? '' : ' disabled title=\"' + esc(T('freq_sem_cna')) + '\"')", $js);
     }
 
-    #[TestDox('ações: Confirmar sempre na linha, Verificar de novo pelo prompt com nomeCna ou nome (cancelar não faz nada), POST com X-CSRF-Token e recarga')]
+    #[TestDox('ações: Confirmar sempre na linha, Verificar de novo pela janela da página (mp-conf) com nomeCna ou nome, sem prompt do navegador, POST com X-CSRF-Token e recarga')]
     public function testAcoes(): void
     {
         $js = self::js();
 
         self::assertStringContainsString("'X-CSRF-Token': ctx.token", $js);
-        self::assertStringContainsString("const digitado = window.prompt(T('prompt', { inscricao: l.inscricao }), l.nomeCna || l.nome);", $js);
-        self::assertMatchesRegularExpression('/if \(digitado === null\) \{\s*return;\s*\}/', $js, 'cancelar o prompt não muda o status');
+        self::assertDoesNotMatchRegularExpression('/\b(?:window\.)?(?:prompt|confirm|alert)\(/', $js, 'sem janela nativa do navegador');
+        self::assertStringContainsString("el.className = 'mp-conf-fundo';", $js);
+        self::assertStringContainsString('<div class="mp-conf" role="dialog" aria-modal="true"', $js);
+        self::assertStringContainsString('campo.value = l.nomeCna || l.nome;', $js);
+        self::assertStringContainsString("el.querySelector('[data-roab-janela-cancelar]').addEventListener('click', fecharJanela);", $js);
+        self::assertMatchesRegularExpression('/function fecharJanela\(\) \{\s*if \(!janela\) return;\s*janela\.hidden = true;\s*emVerificacao = null;\s*\}/', $js, 'cancelar só fecha, não envia nada');
+        self::assertStringContainsString("const nomeCna = janela.querySelector('[data-roab-janela-nome]').value.trim();", $js);
         self::assertStringContainsString('{ numero: l.numero, uf: l.uf, nomeCna }', $js);
         self::assertStringContainsString('{ numero: l.numero, uf: l.uf }', $js);
         self::assertStringContainsString("msg = j.mensagem || '';", $js);

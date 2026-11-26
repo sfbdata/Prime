@@ -1446,7 +1446,7 @@ master:
                 diaria: Daily
                 semanal: Weekly
             freq_sem_cna: Available when the CNA lookup is turned on
-            ajuda: 'Checks format, name in the CNA, and status. A matching name confirms; a different name goes to Mismatched.'
+            ajuda: 'Checks the format. Name and status in the CNA are checked by hand with Verify: a matching name confirms; a different name goes to Mismatched.'
             ultima_rodada: 'Last run: {quando}'
             ainda_nao_rodou: Has not run yet
             validar_agora: Validate now
@@ -1476,7 +1476,12 @@ master:
                 pend: Pending
             confirmar: Confirm registration
             verificar: Check again (name in the CNA)
-            prompt: 'Name on file in the CNA for OAB {inscricao} (leave blank if not found: it is recorded as not found in the CNA):'
+            janela:
+                titulo: Verify again
+                texto: 'Type the name on file in the CNA for OAB {inscricao}. Leave it blank if you did not find the registration: it is recorded as not found in the CNA.'
+                campo: Name in the CNA
+                cancelar: Cancel
+                salvar: Save
             motivo:
                 nao_encontrada: Not found in the CNA
                 nome: Name or status does not match
