@@ -160,6 +160,7 @@ final class AgendarArtigoDoBlogUseCaseTest extends TestCase
         self::assertSame(SituacaoDoArtigo::Rascunho, $artigo->getSituacao());
         self::assertSame('rascunho', $saida->situacao);
         self::assertNull($saida->publicarEm);
+        self::assertNull($artigo->getPublicarEm());
         self::assertSame(1, $this->gravacoes);
 
         $this->expectException(\DomainException::class);

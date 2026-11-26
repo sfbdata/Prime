@@ -156,7 +156,7 @@ final class ArtigosDoBlogMasterController extends AbstractController
             $corpo = json_decode($request->getContent(), true);
             $texto = \is_array($corpo) && \is_string($corpo['publicarEm'] ?? null) ? $corpo['publicarEm'] : '';
             $quando = \DateTimeImmutable::createFromFormat('!Y-m-d\TH:i', $texto, new \DateTimeZone('America/Sao_Paulo'));
-            if ($quando === false) {
+            if ($quando === false || $quando->format('Y-m-d\TH:i') !== $texto) {
                 throw new ArtigoDoBlogRecusado('Informe a data e a hora do agendamento.', 'publicarEm');
             }
 

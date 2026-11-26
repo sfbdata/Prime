@@ -26,6 +26,8 @@ use PHPUnit\Framework\MockObject\MockObject;
 use PHPUnit\Framework\TestCase;
 use Psr\Log\NullLogger;
 use Symfony\Component\Clock\MockClock;
+use Symfony\Component\Messenger\Envelope;
+use Symfony\Component\Messenger\MessageBusInterface;
 
 /** O agendador (P5): publica só os agendados vencidos, um por vez, e a falha de um não trava os outros. */
 #[CoversClass(PublicarAgendadosDosBlogsUseCase::class)]
@@ -65,14 +67,14 @@ final class PublicarAgendadosDosBlogsUseCaseTest extends TestCase
         });
     }
 
-    private function agendador(): PublicarAgendadosDosBlogsUseCase
+    private function agendador(?MessageBusInterface $bus = null): PublicarAgendadosDosBlogsUseCase
     {
         $versao = new VersaoPublicadaDoArtigo($this->createStub(ImagemDoArtigoRepository::class), new ExportadorDeArtigo());
         $publicar = new PublicarArtigoDoBlogUseCase(
             $this->artigos,
             new ValidadorDoArtigo(),
             $versao,
-            new PedirPublicacaoDosBlogs($this->publicacoes, $this->escopo, $this->bus),
+            new PedirPublicacaoDosBlogs($this->publicacoes, $this->escopo, $bus ?? $this->bus),
             $this->relogio,
             new BusQueGuarda(),
         );
@@ -136,6 +138,46 @@ final class PublicarAgendadosDosBlogsUseCaseTest extends TestCase
         self::assertStringContainsString('Artigo 1 voltou a rascunho', $resumo['falhas'][0]);
         self::assertStringContainsString('Informe o título.', $resumo['falhas'][0]);
         self::assertSame(SituacaoDoArtigo::Rascunho, $ruim->getSituacao());
+        self::assertNull($ruim->getPublicarEm(), 'a data marcada cai com o agendamento');
         self::assertSame(SituacaoDoArtigo::Publicado, $bom->getSituacao());
+    }
+
+    #[TestDox('Artigo publicado à mão depois de listado (ou cancelado, ou ainda não vencido) é pulado, sem falha')]
+    public function testPulaOQueJaNaoEstaAgendado(): void
+    {
+        $aMao = $this->agendado(1, 'a-mao', '2026-11-26 10:00');
+        $aMao->publicar(new \DateTimeImmutable('2026-11-26 13:00', new \DateTimeZone('America/Sao_Paulo')));
+        $cancelado = $this->agendado(2, 'cancelado', '2026-11-26 10:00');
+        $cancelado->cancelarAgendamento();
+        $adiado = $this->agendado(3, 'adiado', '2026-11-26 10:00');
+        $adiado->agendar(new \DateTimeImmutable('2026-11-30 09:00', new \DateTimeZone('America/Sao_Paulo')), new \DateTimeImmutable('2026-11-26 10:00', new \DateTimeZone('America/Sao_Paulo')));
+        $this->artigos->method('idsAgendadosVencidos')->willReturn([1, 2, 3, 99]);
+
+        self::assertSame(['publicados' => 0, 'falhas' => []], $this->agendador()->executar());
+        self::assertSame([], $this->gravadas, 'nenhum pedido ao builder');
+        self::assertSame(SituacaoDoArtigo::Agendado, $adiado->getSituacao());
+    }
+
+    #[TestDox('Erro de infraestrutura: o artigo continua agendado (não é gravado como rascunho), vai para o resumo e o seguinte segue')]
+    public function testErroDeInfraMantemAgendado(): void
+    {
+        $busQueFalha = new class () implements MessageBusInterface {
+            public function dispatch(object $message, array $stamps = []): Envelope
+            {
+                throw new \RuntimeException('fila fora do ar');
+            }
+        };
+        $this->agendado(1, 'infra', '2026-11-26 10:00');
+        $outro = $this->agendado(2, 'outro', '2026-11-26 11:00');
+        $this->artigos->method('idsAgendadosVencidos')->willReturn([1, 2]);
+        $this->artigos->expects(self::atLeastOnce())->method('recuperarDoErro');
+
+        $resumo = $this->agendador($busQueFalha)->executar();
+
+        self::assertSame(1, $resumo['publicados']);
+        self::assertCount(1, $resumo['falhas']);
+        self::assertStringContainsString('continua agendado', $resumo['falhas'][0]);
+        self::assertStringContainsString('fila fora do ar', $resumo['falhas'][0]);
+        self::assertSame(SituacaoDoArtigo::Publicado, $outro->getSituacao());
     }
 }

@@ -107,7 +107,7 @@
     if (!a.data) return '';
     // A data do agendamento é a de Brasília, escrita como veio (sem passar pelo fuso da pessoa): dd/mm/aaaa hh:mm.
     if (a.situacao === 'agendado') return 'Agendado para ' + a.data.replace(/^(\d{4})-(\d{2})-(\d{2})T(\d{2}:\d{2}).*$/, '$3/$2/$1 $4');
-    return 'Publicado em ' + dataHora(a.data);
+    return a.situacao === 'publicado' || a.situacao === 'despublicado' ? 'Publicado em ' + dataHora(a.data) : '';
   }
 
   function linha(a) {

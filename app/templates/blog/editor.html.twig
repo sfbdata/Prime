@@ -95,7 +95,7 @@
             <div class="mp-card be-card">
                 <div class="mp-cab-simples"><i class="bi bi-send"></i><b>Publicação</b></div>
                 <div class="be-dentro">
-                    <div class="be-situacao">Situação: <span class="be-st be-st-{{ artigo.situacao }}" data-be-situacao>{{ artigo.situacaoRotulo }}</span></div>
+                    <div class="be-situacao">Situação: <span class="be-st be-st-{{ artigo.situacao }}" data-be-situacao>{{ artigo.situacaoRotulo }}</span><span class="be-agendado-para" data-be-agendado-para{{ artigo.agendadoPara ? '' : ' hidden' }}>{{ artigo.agendadoPara ? ' · Agendado para ' ~ artigo.agendadoPara : '' }}</span></div>
                     <div class="be-pendente" data-be-pendente {{ artigo.alteracoesPendentes ? '' : 'hidden' }}><i class="bi bi-exclamation-circle"></i>Alterações ainda não publicadas</div>
                     <div class="be-campo" data-be-campo="blogs">
                         <label for="be-blogs">Blog</label>

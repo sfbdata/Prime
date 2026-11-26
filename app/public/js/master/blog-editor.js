@@ -1104,6 +1104,9 @@
     qs('[data-be-pendente]').hidden = !j.alteracoesPendentes;
     qs('[data-be-publicar-rotulo]').textContent = situacao === 'publicado' ? 'Publicar alterações' : 'Publicar agora';
     qs('[data-be-despublicar]').hidden = situacao !== 'publicado';
+    const para = qs('[data-be-agendado-para]');
+    para.textContent = situacao === 'agendado' && j.publicarEmRotulo ? ' · Agendado para ' + j.publicarEmRotulo : '';
+    para.hidden = !para.textContent;
     qs('[data-be-agendar]').hidden = situacao !== 'rascunho';
     qs('[data-be-cancelar-agenda]').hidden = situacao !== 'agendado';
   }
@@ -1143,7 +1146,7 @@
       url: comId(URLS.agendar, id), token: TOKEN, titulo: 'Agendar artigo',
       aoAgendar: r => {
         limparErros();
-        mostrarSituacao({ situacao: r.situacao, situacaoRotulo: r.situacaoRotulo, alteracoesPendentes: false });
+        mostrarSituacao({ situacao: r.situacao, situacaoRotulo: r.situacaoRotulo, alteracoesPendentes: false, publicarEmRotulo: r.publicarEmRotulo });
         mostrarMsg('Artigo agendado para ' + r.publicarEmRotulo + '. Ele vai ao ar sozinho, em poucos minutos depois dessa hora.', 'ok');
       },
     });

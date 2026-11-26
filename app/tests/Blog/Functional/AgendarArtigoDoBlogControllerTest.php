@@ -93,12 +93,15 @@ final class AgendarArtigoDoBlogControllerTest extends JusPrimeWebTestCase
         self::assertResponseIsSuccessful();
         self::assertSame('rascunho', $this->json($client)['situacao']);
         self::assertSame(SituacaoDoArtigo::Rascunho, $this->reler($artigo)->getSituacao());
+        self::assertNull($this->reler($artigo)->getPublicarEm());
+        $client->request('GET', '/master/blog/artigos?busca=' . $artigo->getSlug());
+        self::assertNull($this->json($client)['itens'][0]['data'], 'rascunho não mostra data');
 
         $this->postar($client, '/master/blog/artigos/' . $artigo->getId() . '/cancelar-agendamento');
         self::assertResponseStatusCodeSame(409, 'rascunho não tem agendamento a cancelar');
     }
 
-    #[TestDox('Data no passado: 422 no campo publicarEm; data ausente ou torta: 422; artigo incompleto: 422 com os erros do zod')]
+    #[TestDox('Data no passado: 422 no campo publicarEm; data ausente, torta ou inexistente (31/02): 422; artigo incompleto: 422 com os erros do zod')]
     public function testRecusas(): void
     {
         $client = $this->cliente();
@@ -109,7 +112,7 @@ final class AgendarArtigoDoBlogControllerTest extends JusPrimeWebTestCase
         self::assertResponseStatusCodeSame(422);
         self::assertSame(['erros' => ['publicarEm' => ['Escolha uma data e uma hora no futuro.']]], $this->json($client));
 
-        foreach ([[], ['publicarEm' => 'amanhã']] as $corpo) {
+        foreach ([[], ['publicarEm' => 'amanhã'], ['publicarEm' => '2099-02-31T09:00']] as $corpo) {
             $this->postar($client, $url, $corpo);
             self::assertResponseStatusCodeSame(422);
             self::assertArrayHasKey('publicarEm', $this->json($client)['erros']);

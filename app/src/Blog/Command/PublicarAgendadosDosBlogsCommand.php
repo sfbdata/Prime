@@ -7,6 +7,7 @@ namespace App\Blog\Command;
 use App\Blog\UseCase\PublicarAgendadosDosBlogsUseCase;
 use Symfony\Component\Console\Attribute\AsCommand;
 use Symfony\Component\Console\Command\Command;
+use Symfony\Component\Console\Command\LockableTrait;
 use Symfony\Component\Console\Input\InputInterface;
 use Symfony\Component\Console\Output\OutputInterface;
 
@@ -20,6 +21,8 @@ use Symfony\Component\Console\Output\OutputInterface;
 #[AsCommand(name: 'blog:publicar-agendados', description: 'Publica os artigos dos blogs agendados cuja hora chegou')]
 final class PublicarAgendadosDosBlogsCommand extends Command
 {
+    use LockableTrait;
+
     public function __construct(private readonly PublicarAgendadosDosBlogsUseCase $publicarAgendados)
     {
         parent::__construct();
@@ -27,7 +30,16 @@ final class PublicarAgendadosDosBlogsCommand extends Command
 
     protected function execute(InputInterface $input, OutputInterface $output): int
     {
-        $resumo = $this->publicarAgendados->executar();
+        // Duas rodadas ao mesmo tempo (a anterior demorou) não podem publicar o mesmo artigo: a segunda sai sem fazer nada.
+        if (!$this->lock()) {
+            return Command::SUCCESS;
+        }
+
+        try {
+            $resumo = $this->publicarAgendados->executar();
+        } finally {
+            $this->release();
+        }
         if ($resumo['publicados'] === 0 && $resumo['falhas'] === []) {
             return Command::SUCCESS;
         }
