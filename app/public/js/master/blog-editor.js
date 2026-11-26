@@ -949,7 +949,7 @@
   const corpoHtml = () => (editor ? editor.getContent() : qs('[data-be-corpo]').value);
 
   /* ---------- salvar, verificar, pré-visualizar, publicar, despublicar, excluir ---------- */
-  const BOTOES = ['[data-be-salvar]', '[data-be-publicar]', '[data-be-despublicar]', '[data-be-verificar]', '[data-be-previa]', '[data-be-excluir]', '[data-be-capa-enviar]'];
+  const BOTOES = ['[data-be-salvar]', '[data-be-publicar]', '[data-be-agendar]', '[data-be-cancelar-agenda]', '[data-be-despublicar]', '[data-be-verificar]', '[data-be-previa]', '[data-be-excluir]', '[data-be-capa-enviar]'];
   function travar(sim) {
     BOTOES.forEach(sel => { qs(sel).disabled = sim || (sel !== '[data-be-salvar]' && !id); });
     if (envioDaCapa) btCapa.disabled = true;
@@ -1104,6 +1104,8 @@
     qs('[data-be-pendente]').hidden = !j.alteracoesPendentes;
     qs('[data-be-publicar-rotulo]').textContent = situacao === 'publicado' ? 'Publicar alterações' : 'Publicar agora';
     qs('[data-be-despublicar]').hidden = situacao !== 'publicado';
+    qs('[data-be-agendar]').hidden = situacao !== 'rascunho';
+    qs('[data-be-cancelar-agenda]').hidden = situacao !== 'agendado';
   }
 
   // Publicar agora: salva antes o que mudou na tela; a recusa do zod volta por campo (422).
@@ -1122,6 +1124,42 @@
         return;
       }
       if (res.status === 422 && res.j.erros) { mostrarErros(res.j.erros, 'O artigo não foi publicado. Falta corrigir:'); return; }
+      mostrarMsg(res.j.erro || ERRO_PADRAO, 'erro');
+    } catch (e) {
+      mostrarMsg(ERRO_PADRAO, 'erro');
+    } finally {
+      ocupado = false;
+      travar(false);
+    }
+  }
+
+  // Agendar: salva antes o que mudou na tela (o servidor confere o artigo salvo) e abre a janela de data e hora.
+  async function agendar() {
+    if (!id || ocupado) return;
+    await esperarEnvios();
+    if (sujo && !(await salvar())) return;
+    if (!window.BJBlogAgendar) return;
+    window.BJBlogAgendar.abrir({
+      url: comId(URLS.agendar, id), token: TOKEN, titulo: 'Agendar artigo',
+      aoAgendar: r => {
+        limparErros();
+        mostrarSituacao({ situacao: r.situacao, situacaoRotulo: r.situacaoRotulo, alteracoesPendentes: false });
+        mostrarMsg('Artigo agendado para ' + r.publicarEmRotulo + '. Ele vai ao ar sozinho, em poucos minutos depois dessa hora.', 'ok');
+      },
+    });
+  }
+
+  async function cancelarAgendamento() {
+    if (!id || ocupado) return;
+    ocupado = true;
+    travar(true);
+    try {
+      const res = await postar(comId(URLS.cancelarAgendamento, id), {});
+      if (res.ok && res.j.ok) {
+        mostrarSituacao({ situacao: res.j.situacao, situacaoRotulo: res.j.situacaoRotulo, alteracoesPendentes: false });
+        mostrarMsg('Agendamento cancelado. O artigo voltou a rascunho.', 'ok');
+        return;
+      }
       mostrarMsg(res.j.erro || ERRO_PADRAO, 'erro');
     } catch (e) {
       mostrarMsg(ERRO_PADRAO, 'erro');
@@ -1162,6 +1200,8 @@
   qs('[data-be-excluir]').addEventListener('click', excluir);
   qs('[data-be-publicar]').addEventListener('click', publicar);
   qs('[data-be-despublicar]').addEventListener('click', despublicar);
+  qs('[data-be-agendar]').addEventListener('click', agendar);
+  qs('[data-be-cancelar-agenda]').addEventListener('click', cancelarAgendamento);
 
   /* ---------- alterações na tela ---------- */
   const fora = el => el.matches('[data-be-marcador-input], [data-be-relacionado-input]');

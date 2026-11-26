@@ -104,6 +104,33 @@ class ArtigoDoBlogRepository extends ServiceEntityRepository
     }
 
     /**
+     * Ids dos artigos agendados cuja hora já chegou (publicarEm <= agora), do mais antigo ao mais novo.
+     *
+     * @return list<int>
+     */
+    public function idsAgendadosVencidos(\DateTimeImmutable $agora): array
+    {
+        $ids = $this->createQueryBuilder('a')
+            ->select('a.id')
+            ->andWhere('a.situacao = :agendado')
+            ->andWhere('a.publicarEm <= :agora')
+            ->setParameter('agendado', SituacaoDoArtigo::Agendado)
+            ->setParameter('agora', $agora)
+            ->orderBy('a.publicarEm', 'ASC')
+            ->addOrderBy('a.id', 'ASC')
+            ->getQuery()
+            ->getSingleColumnResult();
+
+        return array_values(array_map('intval', $ids));
+    }
+
+    /** Descarta o que o EntityManager guarda: depois de uma publicação que falhou no meio, o estado dele não é confiável. */
+    public function esquecerTudo(): void
+    {
+        $this->getEntityManager()->clear();
+    }
+
+    /**
      * Lista da seção "Artigos dos blogs" (P2): busca no título e no slug, filtros opcionais de situação e de blog,
      * os alterados por último primeiro.
      *
