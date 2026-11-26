@@ -35,6 +35,8 @@ use App\Shared\Doctrine\Filter\AcessoALixeira;
  */
 final class DocumentosEPecasNosDocumentos implements DocumentosEPecasGrupo
 {
+    public const AVISO_DA_COPIA = 'As cópias têm o mesmo conteúdo dos originais: a pasta passa a ter estes arquivos repetidos. Para conferir os repetidos, use ler_documentos_e_modelos com acao duplicados.';
+
     public function __construct(
         private readonly DocumentosEPecasResolvedor $resolvedor,
         private readonly AcessoALixeira $lixeira,
@@ -221,7 +223,14 @@ final class DocumentosEPecasNosDocumentos implements DocumentosEPecasGrupo
             $copias[] = ['id' => (int) $copia->getId(), 'nome' => $this->resolvedor->nome($contexto->escritorio, $copia->getNomeOriginal())];
         }
 
-        return DocumentosEPecasResultado::de($contexto, ['copias' => $copias], ['documento' => array_column($copias, 'id')], ['copias' => \count($copias)]);
+        // A cópia fica na mesma pasta e tem o mesmo conteúdo do original: é um repetido por definição (M9 de 26/11, aviso
+        // na carga, não bloqueio). O aviso diz isso e aponta o relatório, para o app de I.A. não copiar à toa.
+        $dados = ['copias' => $copias];
+        if ($copias !== []) {
+            $dados['aviso'] = self::AVISO_DA_COPIA;
+        }
+
+        return DocumentosEPecasResultado::de($contexto, $dados, ['documento' => array_column($copias, 'id')], ['copias' => \count($copias)]);
     }
 
     /** @param array<string, mixed> $campos */

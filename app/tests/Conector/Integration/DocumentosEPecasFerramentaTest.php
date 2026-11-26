@@ -13,6 +13,7 @@ use App\Conector\Enum\TipoDeClienteDoConector;
 use App\Conector\Exception\ErroDaFerramenta;
 use App\Conector\Ferramenta\ConfirmarAcaoFerramenta;
 use App\Conector\Ferramenta\DocumentosEPecasFerramenta;
+use App\Conector\Ferramenta\DocumentosEPecasNosDocumentos;
 use App\Conector\Ferramenta\TabelaDeAbaEChave;
 use App\Entity\Auth\User;
 use App\Entity\Tenant\Tenant;
@@ -139,7 +140,7 @@ final class DocumentosEPecasFerramentaTest extends KernelTestCase
         self::assertNull($volta->dados['resultado']['destino_id']);
     }
 
-    #[TestDox('copiar: a cópia nasce na pasta e na subpasta de destino, e o original fica')]
+    #[TestDox('copiar: a cópia nasce na pasta e na subpasta de destino, o original fica e a resposta avisa que o arquivo ficou repetido')]
     public function testCopiar(): void
     {
         $pasta = $this->pasta();
@@ -155,6 +156,8 @@ final class DocumentosEPecasFerramentaTest extends KernelTestCase
         self::assertSame($pasta->getId(), $copia?->getPasta()?->getId());
         self::assertSame($destino->getId(), $copia->getSecao()?->getId());
         self::assertSame($pasta->getId(), $doc->getPasta()?->getId());
+        // Aviso, não bloqueio (M9 de 26/11): a cópia é um repetido por definição.
+        self::assertSame(DocumentosEPecasNosDocumentos::AVISO_DA_COPIA, $resposta->dados['resultado']['aviso']);
     }
 
     #[TestDox('favoritar: marca e desmarca um documento e uma subpasta, pelo estado final pedido')]

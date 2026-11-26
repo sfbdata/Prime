@@ -30,9 +30,9 @@ use Symfony\Bundle\FrameworkBundle\KernelBrowser;
 use Zenstruck\Foundry\Test\Factories;
 
 /**
- * Passo 6 do assistente, Equipe (desenho 18, H266; spec docs/specs/voto-equipe-e-master-1611.md, seção 1.3): a
+ * Passo 4 do assistente, Equipe (desenho 18, H266; spec docs/specs/voto-equipe-e-master-1611.md, seção 1.3): a
  * Administração escolhe equipe padrão ou própria; os demais veem só leitura; "Indicar pessoas" leva à tela Perfis; e a
- * revisão (passo 7) avisa, sem bloquear, dos cargos sem pessoa indicada.
+ * revisão (passo 5) avisa, sem bloquear, dos cargos sem pessoa indicada.
  */
 #[CoversClass(AssembleiaController::class)]
 #[CoversClass(ObterEquipeDaAssembleiaUseCase::class)]
@@ -64,7 +64,7 @@ final class PassoEquipeDoAssistenteTest extends JusPrimeWebTestCase
         $a = $this->rascunho();
         $this->logarComTenant($this->client, $this->usuario(true), $this->escritorio);
 
-        $pagina = $this->client->request('GET', '/voto/assembleias/' . $a->getId() . '/passo/6');
+        $pagina = $this->client->request('GET', '/voto/assembleias/' . $a->getId() . '/passo/4');
 
         self::assertResponseIsSuccessful();
         self::assertSame('Usar a equipe padrão', trim($pagina->filter('[data-voto-equipe-padrao]')->text()));
@@ -81,9 +81,9 @@ final class PassoEquipeDoAssistenteTest extends JusPrimeWebTestCase
         $id = (int) $a->getId();
         $this->logarComTenant($this->client, $this->usuario(true), $this->escritorio);
 
-        $pagina = $this->client->request('GET', '/voto/assembleias/' . $id . '/passo/6');
+        $pagina = $this->client->request('GET', '/voto/assembleias/' . $id . '/passo/4');
         $this->client->submit($pagina->filter('form[data-voto-equipe-propria]')->form());
-        self::assertResponseRedirects('/voto/assembleias/' . $id . '/passo/6');
+        self::assertResponseRedirects('/voto/assembleias/' . $id . '/passo/4');
 
         $pagina = $this->client->followRedirect();
         $linhas = $pagina->filter('[data-voto-equipe-lista] > .voto-equipe-passo-linha');
@@ -94,7 +94,7 @@ final class PassoEquipeDoAssistenteTest extends JusPrimeWebTestCase
         self::assertSame($linhas->count(), $this->contarLinhas($a));
 
         $this->client->submit($pagina->filter('form[data-voto-equipe-padrao]')->form());
-        self::assertResponseRedirects('/voto/assembleias/' . $id . '/passo/6');
+        self::assertResponseRedirects('/voto/assembleias/' . $id . '/passo/4');
         $pagina = $this->client->followRedirect();
         self::assertCount(0, $pagina->filter('[data-voto-equipe-lista]'));
         self::assertCount(1, $pagina->filter('.vCats > button.vCatOn[data-voto-equipe-padrao]'));
@@ -110,7 +110,7 @@ final class PassoEquipeDoAssistenteTest extends JusPrimeWebTestCase
         $this->em->flush();
         $this->logarComTenant($this->client, $this->usuario(true), $this->escritorio);
 
-        $pagina = $this->client->request('GET', '/voto/assembleias/' . $id . '/passo/6');
+        $pagina = $this->client->request('GET', '/voto/assembleias/' . $id . '/passo/4');
         self::assertSame('Presidência da mesa', trim($pagina->filter('.voto-equipe-passo-linha > b')->text()));
         $link = $pagina->filter('a[data-voto-indicar-pessoas]');
         self::assertSame('Indicar pessoas', trim($link->text()));
@@ -132,7 +132,7 @@ final class PassoEquipeDoAssistenteTest extends JusPrimeWebTestCase
         $this->em->flush();
         $this->logarComTenant($this->client, $comissao, $this->escritorio);
 
-        $pagina = $this->client->request('GET', '/voto/assembleias/' . $id . '/passo/6');
+        $pagina = $this->client->request('GET', '/voto/assembleias/' . $id . '/passo/4');
 
         self::assertResponseIsSuccessful();
         self::assertCount(2, $pagina->filter('[data-voto-equipe-lista] > .voto-equipe-passo-linha'));
@@ -140,19 +140,19 @@ final class PassoEquipeDoAssistenteTest extends JusPrimeWebTestCase
         self::assertCount(0, $pagina->filter('[data-voto-indicar-pessoas]'));
         self::assertCount(1, $pagina->filter('.vCats > button.vCatOn[disabled][data-voto-equipe-propria]'));
 
-        $this->client->request('POST', '/voto/equipe/' . $id . '/padrao', ['_token' => $this->token('voto_equipe'), 'depois' => 'passo-6']);
+        $this->client->request('POST', '/voto/equipe/' . $id . '/padrao', ['_token' => $this->token('voto_equipe'), 'depois' => 'passo-4']);
         self::assertResponseStatusCodeSame(403);
         self::assertSame(2, $this->contarLinhas($a));
     }
 
-    #[TestDox('Assembleia de outro escritório dá 404 no passo 6')]
+    #[TestDox('Assembleia de outro escritório dá 404 no passo 4')]
     public function testOutroEscritorioDa404(): void
     {
         $outro = TenantFactory::createOne(['name' => 'Outro ' . uniqid()])->_real();
         $alheia = AssembleiaFactory::createOne(['tenant' => $outro])->_real();
         $this->logarComTenant($this->client, $this->usuario(true), $this->escritorio);
 
-        $this->client->request('GET', '/voto/assembleias/' . $alheia->getId() . '/passo/6');
+        $this->client->request('GET', '/voto/assembleias/' . $alheia->getId() . '/passo/4');
 
         self::assertResponseStatusCodeSame(404);
     }

@@ -1,7 +1,7 @@
 {% extends 'voto/assembleia/_moldura.html.twig' %}
 
 {#
-    Passo 7 do assistente de 7 passos, "Revisar" (desenho 18, L267: "Confira e publique"): o trilho, o quadro de revisão (cada
+    Passo 5 do assistente de 5 passos, "Revisar" (desenho 18, L267: "Confira e publique"): o trilho, o quadro de revisão (cada
     linha com "Alterar", que leva ao passo), as pendências (✗ bloqueia a publicação: vermelho #a3232b; aviso: âmbar #8a6200;
     cargo da equipe sem pessoa indicada também é aviso; sem nenhuma, "Tudo pronto para publicar." em verde #1e7b45) e o rodapé "Salvar e sair" | "Voltar" | "Publicar votação".
     As pendências vêm da MESMA validação da publicação (ConferirPublicacaoDaAssembleiaUseCase): a recusa da publicação e a
@@ -19,24 +19,23 @@
 {% block conteudo %}
 {% set a = assembleia %}
 {% set passo1 = path('voto_assembleia_editar', {id: a.id}) %}
-{% set passo2 = path('voto_assembleia_passo', {id: a.id, passo: 2}) %}
-{% set passo4 = path('voto_assembleia_pautas', {id: a.id}) %}
-{% set passo5 = path('voto_assembleia_unidades', {id: a.id}) %}
+{% set passo2 = path('voto_assembleia_pautas', {id: a.id}) %}
+{% set passo3 = path('voto_assembleia_unidades', {id: a.id}) %}
 <div class="vC voto-assistente" data-voto-conferencia data-voto-assistente>
     {% include 'voto/assembleia/_assistente_faixa.html.twig' with {a: a, icone: 'bi-check2-square'} only %}
     <div class="voto-assistente-corpo">
-        {% include 'voto/assembleia/_assistente_trilho.html.twig' with {a: a, passo: 7, em_form: false} only %}
+        {% include 'voto/assembleia/_assistente_trilho.html.twig' with {a: a, passo: 5, em_form: false} only %}
         <div class="vAviso">{{ 'voto.assembleia.gestor.conferencia.aviso'|trans }}</div>
         <div class="voto-revisao-quadro">
             {{ _self.linha('voto.assembleia.gestor.assistente.passo_1'|trans, a.cenario.rotulo, passo1) }}
             {{ _self.linha('voto.assembleia.gestor.assistente.revisao_entidade'|trans, a.entidade ?: '-', passo1) }}
             {{ _self.linha('voto.assembleia.gestor.form.evento'|trans, a.titulo, passo1) }}
-            {{ _self.linha('voto.assembleia.gestor.conferencia.peso'|trans, ('voto.assembleia.gestor.form.peso_' ~ a.peso.value)|trans, passo2) }}
+            {{ _self.linha('voto.assembleia.gestor.conferencia.peso'|trans, ('voto.assembleia.gestor.form.peso_' ~ a.peso.value)|trans, passo1) }}
             {% if a.simulacao %}{{ _self.linha('voto.assembleia.gestor.conferencia.tipo'|trans, 'voto.assembleia.gestor.conferencia.tipo_simulacao'|trans, passo1) }}{% endif %}
-            {{ _self.linha('voto.assembleia.gestor.assistente.revisao_cargos'|trans, a.pautas|map(p => p.titulo ~ ' (' ~ p.opcoes|length ~ ')')|join(', ') ?: 'voto.assembleia.gestor.assistente.revisao_sem_cargos'|trans, passo4) }}
-            {{ _self.linha('voto.assembleia.gestor.assistente.revisao_lista'|trans, (a.unidadesAptas + a.unidadesInaptas > 0) ? 'voto.assembleia.gestor.assistente.revisao_lista_resumo'|trans({aptos: a.unidadesAptas, inaptos: a.unidadesInaptas}) : 'voto.assembleia.gestor.assistente.revisao_sem_lista'|trans, passo5) }}
-            {{ _self.linha('voto.assembleia.gestor.assistente.revisao_equipe'|trans, conferencia.cargosDaEquipe > 0 ? 'voto.assembleia.gestor.assistente.revisao_equipe_propria'|trans({n: conferencia.cargosDaEquipe}) : 'voto.assembleia.gestor.assistente.revisao_equipe_padrao'|trans, path('voto_assembleia_passo', {id: a.id, passo: 6})) }}
-            {% if a.porFracao %}{{ _self.linha('voto.assembleia.gestor.conferencia.fracoes'|trans, a.pesoApto|number_format(6, ',', '.'), passo5) }}{% endif %}
+            {{ _self.linha('voto.assembleia.gestor.assistente.revisao_cargos'|trans, a.pautas|map(p => p.titulo ~ ' (' ~ p.opcoes|length ~ ')')|join(', ') ?: 'voto.assembleia.gestor.assistente.revisao_sem_cargos'|trans, passo2) }}
+            {{ _self.linha('voto.assembleia.gestor.assistente.revisao_lista'|trans, (a.unidadesAptas + a.unidadesInaptas > 0) ? 'voto.assembleia.gestor.assistente.revisao_lista_resumo'|trans({aptos: a.unidadesAptas, inaptos: a.unidadesInaptas}) : 'voto.assembleia.gestor.assistente.revisao_sem_lista'|trans, passo3) }}
+            {{ _self.linha('voto.assembleia.gestor.assistente.revisao_equipe'|trans, conferencia.cargosDaEquipe > 0 ? 'voto.assembleia.gestor.assistente.revisao_equipe_propria'|trans({n: conferencia.cargosDaEquipe}) : 'voto.assembleia.gestor.assistente.revisao_equipe_padrao'|trans, path('voto_assembleia_passo', {id: a.id, passo: 4})) }}
+            {% if a.porFracao %}{{ _self.linha('voto.assembleia.gestor.conferencia.fracoes'|trans, a.pesoApto|number_format(6, ',', '.'), passo3) }}{% endif %}
         </div>
         {% for p in a.pautas %}
             <div class="voto-revisao-quadro" data-voto-revisao-pauta>
@@ -62,7 +61,7 @@
         <div class="voto-rodape">
             <a class="vB" href="{{ path('voto_index', {aba: 'ges'}) }}#assembleia-{{ a.id }}">{{ 'voto.assembleia.gestor.form.salvar_sair'|trans }}</a>
             <span class="voto-espaco"></span>
-            <a class="vB" href="{{ path('voto_assembleia_passo', {id: a.id, passo: 6}) }}"><i class="bi bi-arrow-left"></i>{{ 'voto.assembleia.gestor.form.voltar'|trans }}</a>
+            <a class="vB" href="{{ path('voto_assembleia_passo', {id: a.id, passo: 4}) }}"><i class="bi bi-arrow-left"></i>{{ 'voto.assembleia.gestor.form.voltar'|trans }}</a>
             {% if voto_edita(a.id) %}
             <form method="post" action="{{ path('voto_assembleia_publicar', {id: a.id}) }}" data-voto-confirmar-publicacao>
                 <input type="hidden" name="_token" value="{{ csrf_token('voto_assembleia_' ~ a.id) }}">

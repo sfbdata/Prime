@@ -36,7 +36,7 @@
                 </div>
                 <div class="voto-votar-meta">
                     {% if p.abertaEm %}<span><i class="bi bi-calendar-event"></i> {{ (v.fim ? 'voto.votar.periodo'|trans({inicio: p.abertaEm|date('d/m/Y H:i'), fim: v.fim|date('d/m/Y H:i')}) : 'voto.votar.periodo_aberto'|trans({inicio: p.abertaEm|date('d/m/Y H:i')})) }}</span>{% endif %}
-                    <span><i class="bi bi-tags"></i> {{ [a.simulacao ? 'voto.votar.simulacao'|trans : null, a.entidade is not empty ? a.entidade : a.cenario.entidade, ('voto.votar.modalidade.' ~ v.modalidade)|trans]|filter(x => x)|join(' · ') }}</span>
+                    <span><i class="bi bi-tags"></i> {{ [a.simulacao ? 'voto.votar.simulacao'|trans : null, a.entidade is not empty ? a.entidade : a.cenario.entidade, (v.modalidade == 'individual' and p.vagas > 1 ? 'voto.votar.modalidade.individual_vagas'|trans({n: p.vagas}) : ('voto.votar.modalidade.' ~ v.modalidade)|trans)]|filter(x => x)|join(' · ') }}</span>
                     <span data-voto-votar-grupos><i class="bi bi-geo"></i> {{ p.grupos is empty ? 'voto.votar.todos_os_grupos'|trans : p.grupos|join(', ') }}</span>
                     <span><i class="bi bi-upc"></i> {{ 'voto.votar.codigo'|trans({codigo: v.divulgacao.codigoDeConferencia}) }}</span>
                 </div>

@@ -1,0 +1,24 @@
+{#
+    Janela "Apagar votação": mesma moldura das janelas de ciclo (.vModCiclo, nunca modal do Bootstrap nem confirm).
+    Explica que votos, unidades, candidaturas, edital e ata somem para sempre e exige digitar o nome da votação ou APAGAR
+    (o servidor confere de novo). Abre pelo item do menu de três pontos com data-voto-janela="#janela-apagar-{a.id}".
+    CONTRATO: `a` (AssembleiaNoPainel) e `token` (CSRF 'voto_assembleia_{a.id}'). Envia POST para voto_assembleia_apagar.
+#}
+{% set id = 'janela-apagar-' ~ a.id %}
+<div class="vModCiclo" data-voto-janela-raiz id="{{ id }}" hidden>
+    <div class="vModC" role="dialog" aria-modal="true" aria-labelledby="{{ id }}-titulo">
+        <div class="vH" style="background:#a3232b;"><i class="bi bi-trash"></i><span id="{{ id }}-titulo">{{ 'voto.assembleia.gestor.arquivar.apagar_titulo'|trans }}</span><span class="voto-espaco"></span><button type="button" class="vB" data-voto-janela-fechar>{{ 'voto.assembleia.gestor.janela_ciclo.fechar'|trans }}</button></div>
+        <form method="post" action="{{ path('voto_assembleia_apagar', {id: a.id}) }}" class="vModCorpo" data-voto-apagar>
+            <input type="hidden" name="_token" value="{{ token }}">
+            <b>{{ a.titulo }}</b>
+            <div>{{ 'voto.assembleia.gestor.arquivar.apagar_aviso'|trans }}</div>
+            <label class="vL">{{ 'voto.assembleia.gestor.arquivar.apagar_digite'|trans({nome: a.titulo}) }}
+                <input class="vF" name="confirmacao" maxlength="200" autocomplete="off" required placeholder="{{ 'voto.assembleia.gestor.arquivar.apagar_campo'|trans }}">
+            </label>
+            <div class="vModRodape">
+                <button type="button" class="vB" data-voto-janela-fechar>{{ 'voto.assembleia.gestor.arquivar.apagar_cancelar'|trans }}</button>
+                <button type="submit" class="vB vD"><i class="bi bi-trash"></i>{{ 'voto.assembleia.gestor.arquivar.apagar_sim'|trans }}</button>
+            </div>
+        </form>
+    </div>
+</div>

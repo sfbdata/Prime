@@ -5,9 +5,9 @@
     frequentes:", uma caixa por pauta (_pauta_form, com o menu de três pontos: Numerar, Duplicar, Mover, Remover), "Outro cargo ou pauta" e o rodapé
     "Salvar e sair" | "Voltar" | "Continuar", com o erro da etapa acima dele (edErro, L226; preenchido pelo JS quando
     uma pauta alterada é recusada ao sair). Publicada: a mesa por pauta (_pauta_linha, cartão "Votações").
-    Passo 4 do assistente de 7 passos (trilho + título: _assistente_trilho). "Ver na urna" é um link para esta mesma tela com
+    Passo 2 do assistente de 5 passos (trilho + título: _assistente_trilho). "Ver na urna" é um link para esta mesma tela com
     `urna=1`: o JS grava as pautas alteradas antes de sair (como em qualquer link da tela) e a recarga abre o treino da cabine
-    (_urna_do_rascunho, o mesmo da aba Votar, sem token e sem enviar nada). Voltar leva ao passo 3, Continuar ao 5.
+    (_urna_do_rascunho, o mesmo da aba Votar, sem token e sem enviar nada). Voltar leva ao passo 1, Continuar ao 3.
     Contexto: `assembleia` (AssembleiaNoPainel), `urna` (abre a urna), `atalhos` e `modelos` (os do cenário da assembleia, como `CG` e `modelos(id)` do
     desenho; sem nenhum, a linha some), `opcoes_padrao`, `agora`.
 #}
@@ -34,7 +34,7 @@
      data-voto-repetir="{{ 'voto.assembleia.gestor.aviso.repetir_sem_a_pauta'|trans }}" data-voto-incluida="{{ 'voto.assembleia.gestor.aviso.pauta_incluida'|trans }}">
     {% include 'voto/assembleia/_assistente_faixa.html.twig' with {a: a} only %}
     <div class="voto-assistente-corpo">
-        {% include 'voto/assembleia/_assistente_trilho.html.twig' with {a: a, passo: 4, em_form: false} only %}
+        {% include 'voto/assembleia/_assistente_trilho.html.twig' with {a: a, passo: 2, em_form: false} only %}
         {% if modelos is not empty %}
         <div class="voto-atalhos">
             <span><b>{{ 'voto.assembleia.gestor.modelos.prontos'|trans }}</b></span>
@@ -76,7 +76,7 @@
         <div class="voto-rodape">
             <a class="vB" href="{{ path('voto_index', {aba: 'ges'}) }}#assembleia-{{ a.id }}">{{ 'voto.assembleia.gestor.form.salvar_sair'|trans }}</a>
             <span class="voto-espaco"></span>
-            <a class="vB" href="{{ path('voto_assembleia_passo', {id: a.id, passo: 3}) }}"><i class="bi bi-arrow-left"></i>{{ 'voto.assembleia.gestor.form.voltar'|trans }}</a>
+            <a class="vB" href="{{ path('voto_assembleia_editar', {id: a.id}) }}"><i class="bi bi-arrow-left"></i>{{ 'voto.assembleia.gestor.form.voltar'|trans }}</a>
             <a class="vB vP" href="{{ path('voto_assembleia_unidades', {id: a.id}) }}">{{ 'voto.assembleia.gestor.form.continuar'|trans }}<i class="bi bi-arrow-right"></i></a>
         </div>
     </div>

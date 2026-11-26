@@ -24,6 +24,8 @@ final readonly class AssembleiaInput
         public bool $simulacao = false,
         public string $rotuloUnidade = '',
         public string $rotuloBloco = '',
+        /** Link da sala virtual do debate (Meet, Zoom, Teams...); opcional, só http ou https. */
+        public string $linkSalaVirtual = '',
     ) {
     }
 
