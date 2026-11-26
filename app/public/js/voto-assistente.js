@@ -1,4 +1,4 @@
-/* BlueJus Voto: assistente de 7 passos, passos que são um formulário (1 e 2) e abertura da urna do passo Cargos. Mostra "Alterações ainda não salvas" na
+/* BlueJus Voto: assistente de 5 passos, passo que é um formulário (1) e abertura da urna do passo Cargos. Mostra "Alterações ainda não salvas" na
    faixa do assistente (desenho 18, L254) assim que um campo muda e avisa o navegador antes de sair da página com
    alteração (beforeunload, como o editor do desenho). Enviar o formulário (qualquer botão do trilho ou do rodapé) grava
    e libera a saída. Sem JavaScript o formulário funciona do mesmo jeito. O passo Cargos tem o próprio controle

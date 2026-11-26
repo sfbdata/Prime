@@ -96,7 +96,7 @@ final class EquipeDoVotoController extends AbstractController
         return $this->executar($request, $id, 'voto.equipe.aviso.cargos_aplicados', fn (Tenant $t) => $aplicar->executar($this->pessoa(), $t, $id, $categoria));
     }
 
-    /** "Usar a equipe padrão" (o passo 6 do assistente chega aqui): apaga a equipe própria da assembleia em rascunho. */
+    /** "Usar a equipe padrão" (o passo 4 do assistente chega aqui): apaga a equipe própria da assembleia em rascunho. */
     #[Route('/{id}/padrao', name: 'voto_equipe_padrao', methods: ['POST'])]
     public function usarPadrao(int $id, Request $request, UsarEquipePadraoUseCase $usarPadrao): RedirectResponse
     {
@@ -126,11 +126,11 @@ final class EquipeDoVotoController extends AbstractController
         return $this->voltar($id, $request);
     }
 
-    /** Volta à tela Perfis; se a ação veio do passo 6 do assistente (`depois=passo-6`), volta ao passo 6. */
+    /** Volta à tela Perfis; se a ação veio do passo 4 do assistente (`depois=passo-4`), volta ao passo 4. */
     private function voltar(int $id, Request $request): RedirectResponse
     {
-        if ('passo-6' === $request->request->get('depois')) {
-            return $this->redirectToRoute('voto_assembleia_passo', ['id' => $id, 'passo' => 6]);
+        if ('passo-4' === $request->request->get('depois')) {
+            return $this->redirectToRoute('voto_assembleia_passo', ['id' => $id, 'passo' => 4]);
         }
 
         return $this->redirectToRoute('voto_equipe_index', ['grupo' => $id, '_fragment' => 'equipe-' . $id]);

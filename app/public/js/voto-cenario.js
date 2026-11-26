@@ -9,6 +9,14 @@
         return;
     }
     var form = grupo.closest('form');
+    var pesoMexido = false;
+    var pesoCampo = form.querySelector('[data-voto-cenario-peso]');
+    if (pesoCampo) {
+        /* Só o clique da pessoa no peso conta (o script muda o valor sem disparar "change"): depois disso a categoria não o troca mais. */
+        pesoCampo.addEventListener('change', function () {
+            pesoMexido = true;
+        });
+    }
 
     grupo.addEventListener('change', function (evento) {
         var radio = evento.target;
@@ -27,7 +35,7 @@
         if (ajuda) {
             ajuda.textContent = radio.getAttribute('data-ajuda');
         }
-        if (peso) {
+        if (peso && !pesoMexido) {
             peso.value = radio.getAttribute('data-peso');
         }
     });

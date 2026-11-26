@@ -112,6 +112,30 @@ final class LeitorDaListaDeUnidadesTest extends TestCase
         }
     }
 
+    #[TestDox('Modelos antigos da associação abriam com "CPF": esse cabeçalho continua sendo pulado')]
+    public function testCabecalhoCpfDosModelosAntigos(): void
+    {
+        $lidas = (new LeitorDaListaDeUnidades())->ler("CPF; Categoria\n77; X\n", PesoDoVoto::Unidade);
+
+        self::assertCount(1, $lidas['validas']);
+        self::assertSame('77', $lidas['validas'][0]->identificacao);
+    }
+
+    #[TestDox('Tabela da tela: não pula a 1ª linha chamada "Unidade", mantém aspas e ponto e vírgula do nome e numera como na tela')]
+    public function testTabelaDaTelaSemCabecalhoENumeracaoDaTela(): void
+    {
+        $lidas = (new LeitorDaListaDeUnidades())->lerTabela([
+            ['Unidade', '', '', '', 'Zé "Silva"; Júnior, filho', 'ze@exemplo.com', '', '', ''],
+            ['', '', '', '', '', '', '', '', ''],
+            ['', '', '', '', 'Sem unidade', '', '', '', ''],
+        ], PesoDoVoto::Unidade, pularCabecalho: false);
+
+        self::assertCount(1, $lidas['validas']);
+        self::assertSame('Unidade', $lidas['validas'][0]->identificacao);
+        self::assertSame('Zé "Silva"; Júnior, filho', $lidas['validas'][0]->responsavel);
+        self::assertSame([3], array_column($lidas['invalidas'], 'linha'), 'a linha 3 da tela, mesmo com a 2 vazia');
+    }
+
     #[TestDox('Mais de 3000 linhas de uma vez são recusadas')]
     public function testLimiteDeLinhas(): void
     {

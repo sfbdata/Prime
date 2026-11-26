@@ -155,6 +155,25 @@ final class AvaliacoesDoConselhoTelaTest extends JusPrimeWebTestCase
         self::assertTrue($this->em->getRepository(OcorrenciaDaUnidade::class)->find($pendente->getId())->pendente());
     }
 
+    #[TestDox('Aba padrão de /voto: quem só tem Visualizar (conselho) abre em Votar; quem gere (Administração) abre em Gestão eleitoral')]
+    public function testAbaPadraoPorPerfil(): void
+    {
+        $a = $this->assembleiaComUnidades();
+        $conselho = $this->colega();
+        $this->membro($a, PapelNaEquipe::Conselho, $conselho);
+        $this->entrar($conselho);
+
+        $tela = $this->client->request('GET', '/voto');
+        self::assertResponseIsSuccessful();
+        self::assertSame('Votar', trim($tela->filter('.voto-abas > a.vTabOn')->text()));
+        $tela = $this->client->request('GET', '/voto?aba=ges');
+        self::assertSame('Gestão eleitoral', trim($tela->filter('.voto-abas > a.vTabOn')->text()), 'aba pedida na URL continua valendo');
+
+        $this->entrar($this->primario());
+        $tela = $this->client->request('GET', '/voto');
+        self::assertSame('Gestão eleitoral', trim($tela->filter('.voto-abas > a.vTabOn')->text()));
+    }
+
     #[TestDox('Sem equipe própria só a Administração decide: o colega com o módulo recebe 403 e não vê a aba; o primário decide')]
     public function testSemEquipeSoAAdministracao(): void
     {

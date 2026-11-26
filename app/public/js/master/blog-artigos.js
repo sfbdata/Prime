@@ -105,8 +105,9 @@
 
   function dataDe(a) {
     if (!a.data) return '';
-    if (a.situacao === 'agendado') return 'Agendado para ' + dataHora(a.data);
-    return 'Publicado em ' + dataHora(a.data);
+    // A data do agendamento é a de Brasília, escrita como veio (sem passar pelo fuso da pessoa): dd/mm/aaaa hh:mm.
+    if (a.situacao === 'agendado') return 'Agendado para ' + a.data.replace(/^(\d{4})-(\d{2})-(\d{2})T(\d{2}:\d{2}).*$/, '$3/$2/$1 $4');
+    return a.situacao === 'publicado' || a.situacao === 'despublicado' ? 'Publicado em ' + dataHora(a.data) : '';
   }
 
   function linha(a) {
@@ -121,6 +122,8 @@
       + '<span class="bja-data">' + esc(dataDe(a)) + '</span>'
       + '<span class="bja-acoes">'
       + '<a class="bja-acao" href="' + esc(comId(ctx.urlEditar, a.id)) + '" title="Editar" aria-label="Editar"><i class="bi bi-pencil"></i></a>'
+      + (a.situacao === 'rascunho' ? '<button type="button" class="bja-acao" data-bja-agendar="' + a.id + '" title="Agendar" aria-label="Agendar"><i class="bi bi-calendar-event"></i></button>' : '')
+      + (a.situacao === 'agendado' ? '<button type="button" class="bja-acao" data-bja-cancelar-agenda="' + a.id + '" title="Cancelar agendamento" aria-label="Cancelar agendamento"><i class="bi bi-calendar-x"></i></button>' : '')
       + (publicado ? '<a class="bja-acao" href="' + esc(ctx.site + a.caminhoNoSite) + '" target="_blank" rel="noopener" title="Ver no site" aria-label="Ver no site"><i class="bi bi-box-arrow-up-right"></i></a>' : '')
       + '<button type="button" class="bja-acao" data-bja-duplicar="' + a.id + '" title="Duplicar" aria-label="Duplicar"><i class="bi bi-copy"></i></button>'
       + '<button type="button" class="bja-acao bja-acao-perigo" data-bja-excluir="' + a.id + '" title="Excluir" aria-label="Excluir"><i class="bi bi-trash3"></i></button>'
@@ -192,6 +195,18 @@
     postar(comId(ctx.urlDuplicar, a.id), () => { msg = 'Cópia de "' + a.titulo + '" criada como rascunho.'; });
   }
 
+  function agendar(a) {
+    if (!window.BJBlogAgendar) return;
+    window.BJBlogAgendar.abrir({
+      url: comId(ctx.urlAgendar, a.id), token: ctx.token, titulo: 'Agendar artigo',
+      aoAgendar: r => { msg = 'Artigo "' + a.titulo + '" agendado para ' + r.publicarEmRotulo + '.'; erro = ''; carregar(); },
+    });
+  }
+
+  function cancelarAgendamento(a) {
+    postar(comId(ctx.urlCancelarAgendamento, a.id), () => { msg = 'Agendamento do artigo "' + a.titulo + '" cancelado. Ele voltou a rascunho.'; });
+  }
+
   function excluir(a) {
     const enviar = () => postar(comId(ctx.urlExcluir, a.id), () => { msg = 'Artigo "' + a.titulo + '" excluído.'; });
     if (!window.BJMasterConf) {
@@ -214,6 +229,10 @@
       if (b.hasAttribute('data-bja-prox')) { filtro.pagina += 1; carregar(); return; }
       const ad = b.dataset.bjaDuplicar && artigoPorId(b.dataset.bjaDuplicar);
       if (ad) { duplicar(ad); return; }
+      const ag = b.dataset.bjaAgendar && artigoPorId(b.dataset.bjaAgendar);
+      if (ag) { agendar(ag); return; }
+      const ac = b.dataset.bjaCancelarAgenda && artigoPorId(b.dataset.bjaCancelarAgenda);
+      if (ac) { cancelarAgendamento(ac); return; }
       const ae = b.dataset.bjaExcluir && artigoPorId(b.dataset.bjaExcluir);
       if (ae) excluir(ae);
     });

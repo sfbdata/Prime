@@ -269,6 +269,64 @@ final class CenarioDaAssembleiaTest extends JusPrimeWebTestCase
         self::assertSame('Condomínio · Pautas de assembleia', trim($cedula->filter('.vcPauta .vcInfo > span')->first()->text()));
     }
 
+    #[TestDox('Associação: o portal mostra "Unidade Lote 07" (nunca "CPF Lote 07") e a lista de aptos pede Unidade')]
+    public function testAssociacaoMostraUnidadeEnaoCpf(): void
+    {
+        $a = AssembleiaFactory::new(['tenant' => $this->escritorio, 'cenario' => CenarioDaAssembleia::Associacao, 'entidadeNome' => 'Associação dos Lotes'])->publicada()->create()->_real();
+        PautaDaAssembleiaFactory::new(['assembleia' => $a, 'ordem' => 1, 'titulo' => 'Pauta única'])->comOpcoesPadrao()->aberta()->create();
+        $unidade = UnidadeDaAssembleiaFactory::createOne(['assembleia' => $a, 'bloco' => '', 'identificacao' => 'Lote 07'])->_real();
+        $this->em->flush();
+        $this->em->refresh($a);
+
+        $cedula = $this->client->request('GET', '/votar/' . UnidadeDaAssembleiaFactory::tokenDe($unidade));
+        self::assertResponseIsSuccessful();
+        self::assertStringContainsString('Unidade Lote 07', $cedula->filter('.vcUnidade')->text());
+        self::assertStringNotContainsString('CPF', $cedula->filter('.vcUnidade')->text());
+
+        $rascunho = AssembleiaFactory::new(['tenant' => $this->escritorio, 'cenario' => CenarioDaAssembleia::Associacao])->create()->_real();
+        $lista = $this->client->request('GET', '/voto/assembleias/' . $rascunho->getId() . '/unidades');
+        self::assertResponseIsSuccessful();
+        self::assertSame('Unidade', trim($lista->filter('form[data-voto-aptos] thead th')->first()->text()));
+        self::assertStringContainsString('unidade; categoria; situação', $lista->filter('.voto-assistente-corpo')->text());
+    }
+
+    #[TestDox('Eleição com mais de 1 vaga mostra "Eleição · N vagas" na cédula e na aba Votar; com 1 vaga segue "Eleição individual"')]
+    public function testEleicaoComVariasVagasMostraQuantidade(): void
+    {
+        $a = AssembleiaFactory::new(['tenant' => $this->escritorio, 'cenario' => CenarioDaAssembleia::Associacao, 'entidadeNome' => 'Associação dos Lotes'])->publicada()->create()->_real();
+        PautaDaAssembleiaFactory::new(['assembleia' => $a, 'ordem' => 1, 'titulo' => 'Conselho Fiscal', 'tipo' => TipoDaPauta::EleicaoDeCargo, 'digitos' => 2, 'vagas' => 3])->comOpcoesPadrao()->aberta()->create();
+        PautaDaAssembleiaFactory::new(['assembleia' => $a, 'ordem' => 2, 'titulo' => 'Presidente', 'tipo' => TipoDaPauta::EleicaoDeCargo, 'digitos' => 2, 'vagas' => 1])->comOpcoesPadrao()->aberta()->create();
+        $unidade = UnidadeDaAssembleiaFactory::createOne(['assembleia' => $a, 'identificacao' => '7'])->_real();
+        $this->em->flush();
+        $this->em->refresh($a);
+
+        $cedula = $this->client->request('GET', '/votar/' . UnidadeDaAssembleiaFactory::tokenDe($unidade));
+        $infos = $cedula->filter('.vcPauta .vcInfo > span:first-child')->each(static fn (Crawler $c): string => trim($c->text()));
+        self::assertContains('Associação dos Lotes · Eleição · 3 vagas', $infos);
+        self::assertContains('Associação dos Lotes · Eleição individual', $infos);
+    }
+
+    #[TestDox('Regras prontas: fora do condomínio falam em associados e estatuto, nunca em frações nem condôminos')]
+    public function testRegrasProntasPorCategoria(): void
+    {
+        $associacao = AssembleiaFactory::new(['tenant' => $this->escritorio, 'cenario' => CenarioDaAssembleia::Associacao])->create()->_real();
+        PautaDaAssembleiaFactory::new(['assembleia' => $associacao, 'titulo' => 'Conselho Fiscal', 'tipo' => TipoDaPauta::EleicaoDeCargo])->comOpcoesPadrao()->create();
+        $pagina = $this->client->request('GET', '/voto/assembleias/' . $associacao->getId() . '/pautas');
+        self::assertResponseIsSuccessful();
+        $opcoes = implode(' | ', $pagina->filter('select[data-voto-regra-pronta] option')->each(static fn (Crawler $c): string => trim($c->text())));
+        self::assertStringContainsString('metade dos associados', $opcoes);
+        self::assertStringContainsString('Dois terços dos votos dos associados (ex.: estatuto)', $opcoes);
+        self::assertStringNotContainsString('fraç', $opcoes);
+        self::assertStringNotContainsString('condômin', $opcoes);
+
+        $condominio = AssembleiaFactory::new(['tenant' => $this->escritorio, 'cenario' => CenarioDaAssembleia::Condominio])->create()->_real();
+        PautaDaAssembleiaFactory::new(['assembleia' => $condominio, 'titulo' => 'Contas'])->comOpcoesPadrao()->create();
+        $pagina = $this->client->request('GET', '/voto/assembleias/' . $condominio->getId() . '/pautas');
+        $opcoes = implode(' | ', $pagina->filter('select[data-voto-regra-pronta] option')->each(static fn (Crawler $c): string => trim($c->text())));
+        self::assertStringContainsString('metade das frações', $opcoes);
+        self::assertStringContainsString('Dois terços dos votos dos condôminos (ex.: convenção)', $opcoes);
+    }
+
     private function publicadaComPauta(CenarioDaAssembleia $cenario, ?string $entidade, bool $simulacao = false, bool $aberta = false): Assembleia
     {
         $a = AssembleiaFactory::new(['tenant' => $this->escritorio, 'cenario' => $cenario, 'entidadeNome' => $entidade, 'simulacao' => $simulacao])->publicada()->create()->_real();

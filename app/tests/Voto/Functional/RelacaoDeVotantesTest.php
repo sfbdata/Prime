@@ -132,7 +132,7 @@ final class RelacaoDeVotantesTest extends JusPrimeWebTestCase
         $this->entrar($this->colega());
 
         $ata = $this->client->request('GET', '/voto/assembleias/' . $assembleia->getId() . '/ata');
-        self::assertSame(['Nome', 'CPF', 'Situação'], $ata->filter('[data-voto-relacao] thead th')->each(static fn (Crawler $c): string => trim($c->text())));
+        self::assertSame(['Nome', 'Unidade', 'Situação'], $ata->filter('[data-voto-relacao] thead th')->each(static fn (Crawler $c): string => trim($c->text())));
         self::assertSame('***.456.789-**', trim($ata->filter('[data-voto-relacao] tbody tr td')->eq(1)->text()));
     }
 

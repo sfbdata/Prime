@@ -84,7 +84,7 @@ final class JornadaDaAssembleiaTest extends JusPrimeWebTestCase
         $this->entrarComoSindica();
         $form = $this->client->request('GET', '/voto/assembleias/nova')->selectButton('Continuar')->form(['titulo' => 'AGO Jornada 2026', 'peso' => 'fracao']);
         $this->client->submit($form);
-        self::assertSame(1, preg_match('#/voto/assembleias/(\d+)/passo/2$#', (string) $this->client->getResponse()->headers->get('Location'), $m), 'Continuar leva ao passo 2');
+        self::assertSame(1, preg_match('#/voto/assembleias/(\d+)/pautas$#', (string) $this->client->getResponse()->headers->get('Location'), $m), 'Continuar leva ao passo 2 (Cargos)');
         $id = (int) $m[1];
 
         // 2. Importa a lista de unidades colando o texto na tela.

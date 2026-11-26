@@ -203,7 +203,7 @@ final class ImportarArtigoDoRepositorioUseCaseTest extends TestCase
         self::assertStringContainsString('publicadoEm: 2026-11-03', $versao['arquivos']['blog']);
     }
 
-    #[TestDox('rascunho: true vira rascunho; com data futura, a data fica guardada')]
+    #[TestDox('rascunho: true vira rascunho e não guarda data, mesmo com data futura no arquivo')]
     public function testRascunho(): void
     {
         $this->importar(self::realCom(['rascunho' => true]));
@@ -213,7 +213,7 @@ final class ImportarArtigoDoRepositorioUseCaseTest extends TestCase
         self::assertNull($this->salvos[0]->getPublicarEm());
         self::assertNull($this->salvos[0]->getVersaoPublicada());
         self::assertSame(SituacaoDoArtigo::Rascunho, $this->salvos[1]->getSituacao());
-        self::assertSame('2026-12-01', $this->salvos[1]->getPublicarEm()?->format('Y-m-d'));
+        self::assertNull($this->salvos[1]->getPublicarEm());
     }
 
     #[TestDox('Marcadores e revisor do frontmatter entram')]

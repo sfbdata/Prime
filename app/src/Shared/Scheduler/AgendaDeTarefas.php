@@ -173,6 +173,12 @@ final class AgendaDeTarefas implements ScheduleProviderInterface
             'comando' => 'blog:conferir-publicacoes --no-interaction',
             'cron'    => '* * * * *',
         ],
+        // A cada 5 minutos: publica os artigos dos blogs agendados cuja hora chegou (spec painel-artigos-blogs, P5).
+        // Sem artigo vencido, termina na hora. Sai com erro quando algum falhou e voltou a rascunho.
+        'blog:publicar-agendados' => [
+            'comando' => 'blog:publicar-agendados --no-interaction',
+            'cron'    => '*/5 * * * *',
+        ],
         // A cada minuto: horário programado do Voto. Abre as pautas que chegaram na hora de abrir e encerra as que
         // chegaram na de encerrar (abre e encerra sozinha, sem ação da mesa). Sem pauta programada, termina na hora.
         'voto:executar-programacao' => [

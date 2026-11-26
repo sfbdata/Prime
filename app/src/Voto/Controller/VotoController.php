@@ -7,6 +7,9 @@ namespace App\Voto\Controller;
 use App\Entity\Auth\User;
 use App\Service\PermissionChecker;
 use App\Service\Tenant\TenantContext;
+use App\Voto\Enum\NivelNaAssembleia;
+use App\Voto\Repository\AssembleiaRepository;
+use App\Voto\Service\AcessoAAssembleia;
 use App\Voto\Service\LiberacaoDoVotoNoEscritorio;
 use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
 use Symfony\Component\HttpFoundation\Request;
@@ -28,14 +31,16 @@ final class VotoController extends AbstractController
 {
     private const MODULO = 'voto';
 
-    /** Abas do desenho, na ordem da barra: Votar, Resultados, Gestão eleitoral, Acompanhar. */
-    public const ABAS = ['ele', 'tra', 'ges', 'aco'];
+    /** Abas do desenho, na ordem da barra: Gestão eleitoral (padrão), Acompanhar, Votar, Resultados. */
+    public const ABAS = ['ges', 'aco', 'ele', 'tra'];
 
     public function __construct(
         private readonly TenantContext $tenantContext,
         private readonly PermissionChecker $permissionChecker,
         private readonly LiberacaoDoVotoNoEscritorio $liberacao,
         private readonly TranslatorInterface $tradutor,
+        private readonly AcessoAAssembleia $acesso,
+        private readonly AssembleiaRepository $assembleias,
     ) {
     }
 
@@ -43,11 +48,33 @@ final class VotoController extends AbstractController
     public function index(Request $request): Response
     {
         $this->assertAcesso();
-        $aba = (string) $request->query->get('aba', 'ele');
+        // Sem ?aba (ou aba desconhecida): quem gere abre em Gestão eleitoral; quem só vota abre em Votar.
+        $padrao = $this->podeGerir() ? 'ges' : 'ele';
+        $aba = (string) $request->query->get('aba', $padrao);
 
         return $this->render('voto/index.html.twig', [
-            'aba' => in_array($aba, self::ABAS, true) ? $aba : 'ele',
+            'aba' => in_array($aba, self::ABAS, true) ? $aba : $padrao,
         ]);
+    }
+
+    /**
+     * Quem gere: a Administração, o escritório sem nenhuma assembleia ainda, ou quem edita pelo menos uma assembleia
+     * (comissão ou módulo sem equipe própria). Quem só tem Visualizar ou Oculto em todas (auditoria, fiscal, conselho,
+     * fora da equipe) só vota: abre em Votar.
+     */
+    private function podeGerir(): bool
+    {
+        $usuario = $this->getUser();
+        $tenant = $this->tenantContext->getCurrentTenant();
+        if (!$usuario instanceof User || null === $tenant) {
+            return false;
+        }
+        $todas = $this->assembleias->listarDoEscritorio($tenant);
+        if ([] === $todas || $this->acesso->ehAdministracao($usuario, $tenant)) {
+            return true;
+        }
+
+        return \in_array(NivelNaAssembleia::Editar, $this->acesso->niveisEmLote($usuario, $todas), true);
     }
 
     private function assertAcesso(): void
