@@ -39,7 +39,7 @@ use Symfony\Contracts\Translation\TranslatorInterface;
 #[Group('voto')]
 final class RegistrarOcorrenciaDaVotacaoUseCaseTest extends TestCase
 {
-    private const TOKEN = 'abcdef0123456789abcdef0123456789abcdef01';
+    private const TOKEN = 'a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1';
 
     private UnidadeDaAssembleiaRepository&MockObject $unidades;
     private PautaDaAssembleiaRepository&MockObject $pautas;
