@@ -27,15 +27,17 @@ use App\Pasta\Service\VisibilidadeDasAbasDaPasta;
  *  - sem `pasta_id`, o escritório inteiro: os totais e as pastas com repetidos (id, número, grupos e cópias a mais),
  *    da que tem mais cópias para a que tem menos, {@see PASTAS_POR_PAGINA} por página;
  *  - com `pasta_id`, os grupos daquela pasta, cada um com os documentos (id, nome, categoria, subpasta, data de envio
- *    e tamanho), {@see GRUPOS_POR_PAGINA} por página.
+ *    e tamanho), {@see GRUPOS_POR_PAGINA} por página e até {@see DOCUMENTOS_POR_GRUPO} documentos por grupo (o total do
+ *    grupo vem em `documentos_no_grupo`), para a resposta caber no teto do despacho mesmo com um grupo enorme.
  *
  * Os critérios ({@see PastaDocumentoRepository::linhasDeDuplicadosDoEscritorio()}) nunca se misturam: `conteudo` é o
  * mesmo hash (arquivo idêntico); `provavel` é o mesmo nome e tamanho entre documentos ainda sem hash, indício e não
  * prova. O `aviso` diz quantos documentos ainda não têm hash.
  *
  * Acesso, como as outras leituras de várias pastas do conector ({@see LerClientesFerramenta::pastasDoRecorte()}): pasta
- * em segredo de justiça sai pela {@see SegredoNasListas} e é contada; pasta que a guarda da linha recusa (cadeado, a
- * pessoa não vê, aba Documentos oculta) sai e é contada como sem acesso; o contrato de honorários sai onde a aba
+ * em segredo de justiça sai pela {@see SegredoNasListas}; pasta que a guarda da linha recusa (cadeado, a pessoa não vê,
+ * aba Documentos oculta) sai. Só é CONTADA como omitida a pasta que tem repetidos: a que só entra pela contagem dos
+ * documentos sem hash sai calada, para o número de omitidas não revelar pastas que a pessoa não vê; o contrato de honorários sai onde a aba
  * Financeiro está oculta ({@see VisibilidadeDasAbasDaPasta::documentoVisivel()}). No recorte de uma pasta, a pasta já
  * chega liberada pela ferramenta (guarda e {@see \App\Central\Service\PastaDoContextoDaIa}). Nenhum valor de documento,
  * só nomes pela {@see ProtecaoDoTextoDoChat}; o hash nunca sai.
@@ -44,7 +46,9 @@ final class LerDocumentosDuplicados
 {
     public const ACAO = 'duplicados';
     public const PASTAS_POR_PAGINA = 100;
-    public const GRUPOS_POR_PAGINA = 30;
+    public const GRUPOS_POR_PAGINA = 20;
+    /** Documentos listados por grupo (os mais antigos); `documentos_no_grupo` conta todos. 20 grupos x 8 cabem no teto do despacho. */
+    public const DOCUMENTOS_POR_GRUPO = 8;
     private const TAMANHO_DO_NOME = 150;
 
     public const AVISO_SEM_HASH = '%d documento(s) ainda sem o hash do conteúdo calculado: para eles a comparação é por nome e tamanho (critério provavel), que é indício e não prova.';
@@ -75,8 +79,10 @@ final class LerDocumentosDuplicados
         $linhas = $this->documentos->linhasDeDuplicadosDoEscritorio($escritorio);
         $semHash = $this->documentos->semSha256PorPasta($escritorio);
 
-        $ids = array_values(array_unique(array_merge(array_column($linhas, 'pasta_id'), array_keys($semHash))));
-        $recorte = $this->pastasDoRecorte($ids, $chamada);
+        $comRepetidos = array_values(array_unique(array_column($linhas, 'pasta_id')));
+        $recorte = $this->pastasDoRecorte($comRepetidos, $chamada);
+        // As pastas só com documentos sem hash passam pela mesma porta, mas as que saem não entram nas omitidas.
+        $soSemHash = $this->pastasDoRecorte(array_values(array_diff(array_keys($semHash), $comRepetidos)), $chamada)['pastas'];
         $ocultasPorPasta = $this->abasOcultasPorPasta($chamada);
 
         /** @var array<int, list<array{pasta_id: int, criterio: string, chave: string, categoria: string, total: int, ids: list<int>}>> $porPasta */
@@ -110,8 +116,10 @@ final class LerDocumentosDuplicados
         usort($itens, static fn (array $a, array $b): int => [self::copias($b), $a['pasta_id']] <=> [self::copias($a), $b['pasta_id']]);
 
         $semHashVisivel = 0;
-        foreach ($semHash as $pastaId => $n) {
-            $semHashVisivel += isset($recorte['pastas'][$pastaId]) ? $n : 0;
+        foreach ($semHash as $pastaId => $porCategoria) {
+            if (isset($recorte['pastas'][$pastaId]) || isset($soSemHash[$pastaId])) {
+                $semHashVisivel += self::semHashVisivel($porCategoria, $ocultasPorPasta[$pastaId] ?? []);
+            }
         }
 
         $daPagina = \array_slice($itens, ($pagina - 1) * self::PASTAS_POR_PAGINA, self::PASTAS_POR_PAGINA);
@@ -146,12 +154,12 @@ final class LerDocumentosDuplicados
         $escritorio = $chamada->contexto->escritorio;
         $pastaId = (int) $pasta->getId();
         $grupos = self::grupos($this->documentos->linhasDeDuplicadosDoEscritorio($escritorio, $pastaId), $abasOcultas);
-        $semHash = $this->documentos->semSha256PorPasta($escritorio, $pastaId)[$pastaId] ?? 0;
+        $semHash = self::semHashVisivel($this->documentos->semSha256PorPasta($escritorio, $pastaId)[$pastaId] ?? [], $abasOcultas);
 
         $daPagina = \array_slice($grupos, ($pagina - 1) * self::GRUPOS_POR_PAGINA, self::GRUPOS_POR_PAGINA);
         $proxima = \count($grupos) > $pagina * self::GRUPOS_POR_PAGINA ? $pagina + 1 : null;
 
-        $idsDaPagina = array_merge([], ...array_column($daPagina, 'ids'));
+        $idsDaPagina = array_merge([], ...array_map(static fn (array $g): array => \array_slice($g['ids'], 0, self::DOCUMENTOS_POR_GRUPO), $daPagina));
         $porId = [];
         if ($idsDaPagina !== []) {
             foreach ($this->documentos->findBy(['id' => $idsDaPagina, 'tenant' => $escritorio, 'pasta' => $pasta]) as $documento) {
@@ -162,12 +170,17 @@ final class LerDocumentosDuplicados
         $itens = [];
         foreach ($daPagina as $grupo) {
             $documentos = [];
-            foreach ($grupo['ids'] as $id) {
+            foreach (\array_slice($grupo['ids'], 0, self::DOCUMENTOS_POR_GRUPO) as $id) {
                 if (isset($porId[$id])) {
                     $documentos[] = $this->documento($escritorio, $porId[$id]);
                 }
             }
-            $itens[] = ['criterio' => $grupo['criterio'], 'copias_a_mais' => \count($grupo['ids']) - 1, 'documentos' => $documentos];
+            $itens[] = [
+                'criterio' => $grupo['criterio'],
+                'documentos_no_grupo' => \count($grupo['ids']),
+                'copias_a_mais' => \count($grupo['ids']) - 1,
+                'documentos' => $documentos,
+            ];
         }
 
         return new RespostaDaFerramenta(
@@ -238,7 +251,7 @@ final class LerDocumentosDuplicados
 
     /**
      * Os grupos de uma pasta com o que a pessoa vê: as categorias que as abas ocultas escondem saem, e o grupo que
-     * fica com um documento só deixa de ser grupo. Do grupo de envio mais antigo ao mais novo.
+     * fica com um documento só deixa de ser grupo. Ordem pelo menor id de cada grupo (o mais antigo primeiro).
      *
      * @param list<array{pasta_id: int, criterio: string, chave: string, categoria: string, total: int, ids: list<int>}> $linhas
      * @param list<string> $abasOcultas
@@ -289,6 +302,20 @@ final class LerDocumentosDuplicados
     private static function copias(array $item): int
     {
         return $item['conteudo']['copias_a_mais'] + $item['provavel']['copias_a_mais'];
+    }
+
+    /**
+     * @param array<string, int> $porCategoria
+     * @param list<string>       $abasOcultas
+     */
+    private static function semHashVisivel(array $porCategoria, array $abasOcultas): int
+    {
+        $n = 0;
+        foreach ($porCategoria as $categoria => $quantos) {
+            $n += VisibilidadeDasAbasDaPasta::documentoVisivel((string) $categoria, $abasOcultas) ? $quantos : 0;
+        }
+
+        return $n;
     }
 
     private static function aviso(int $semHash): ?string

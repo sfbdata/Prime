@@ -862,7 +862,7 @@ Todas: `readOnlyHint: true`, escopo `mcp:leitura`, sem confirmação.
   `ListarLixeiraDaPastaUseCase`), `modelos` (modelos de peça do escritório) e `modelo` (corpo de um modelo, **sem preencher**).
 - `duplicados` (M9 do dono de 26/11/2026, item 3; só leitura, nada é excluído): sem `pasta_id` (a única ação em que ele
   é opcional), os totais do escritório e as pastas com documentos repetidos, 100 por página; com `pasta_id`, os grupos da
-  pasta com os documentos de cada um, 30 por página. Critério `conteudo` = mesmo `sha256`; `provavel` = mesmo nome original
+  pasta com os documentos de cada um, 20 grupos por página e até 8 documentos listados por grupo. Critério `conteudo` = mesmo `sha256`; `provavel` = mesmo nome original
   e tamanho entre documentos ainda sem hash (o acervo anterior ao `app:documentos:calcular-hash`). Lixeira, pasta com lápide
   e arquivo de 0 byte ficam fora. Acesso: `SegredoNasListas` e a guarda da linha por pasta (contadas como omitidas) e o
   contrato com a aba Financeiro oculta (`LerDocumentosDuplicados`, consulta em

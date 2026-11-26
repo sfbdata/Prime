@@ -176,29 +176,31 @@ class PastaDocumentoRepository extends ServiceEntityRepository
     }
 
     /**
-     * Quantos documentos vivos de cada pasta do escritório ainda estão sem `sha256` (pasta com lápide fora). É o
-     * tamanho do que o relatório de duplicados só compara pelo critério `provavel`.
+     * Quantos documentos vivos de cada pasta do escritório ainda estão sem `sha256`, por categoria (pasta com lápide e
+     * arquivo de 0 byte fora, como no {@see linhasDeDuplicadosDoEscritorio()}). É o tamanho do que o relatório de
+     * duplicados só compara pelo critério `provavel`; a categoria é para a ferramenta tirar o que a aba Financeiro esconde.
      *
-     * @return array<int, int> id da pasta => documentos sem hash (só pastas com algum)
+     * @return array<int, array<string, int>> id da pasta => categoria => documentos sem hash (só pastas com algum)
      */
     public function semSha256PorPasta(Tenant $tenant, ?int $pastaId = null): array
     {
         $qb = $this->createQueryBuilder('d')
-            ->select('IDENTITY(d.pasta) AS pasta_id', 'COUNT(d.id) AS n')
+            ->select('IDENTITY(d.pasta) AS pasta_id', 'd.categoria AS categoria', 'COUNT(d.id) AS n')
             ->innerJoin('d.pasta', 'p')
             ->andWhere('d.tenant = :tenant')
             ->andWhere('d.sha256 IS NULL')
             ->andWhere('d.excluidoEm IS NULL')
+            ->andWhere('d.tamanhoBytes > 0')
             ->andWhere('p.excluidaEm IS NULL')
             ->setParameter('tenant', $tenant)
-            ->groupBy('d.pasta');
+            ->groupBy('d.pasta', 'd.categoria');
         if ($pastaId !== null) {
             $qb->andWhere('IDENTITY(d.pasta) = :pasta')->setParameter('pasta', $pastaId);
         }
 
         $porPasta = [];
         foreach ($qb->getQuery()->getArrayResult() as $linha) {
-            $porPasta[(int) $linha['pasta_id']] = (int) $linha['n'];
+            $porPasta[(int) $linha['pasta_id']][(string) $linha['categoria']] = (int) $linha['n'];
         }
 
         return $porPasta;

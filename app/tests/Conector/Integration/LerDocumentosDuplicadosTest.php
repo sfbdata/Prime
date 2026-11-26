@@ -108,9 +108,9 @@ final class LerDocumentosDuplicadosTest extends KernelTestCase
         self::assertSame(['grupos' => 3, 'copias_a_mais' => 4, 'pastas' => 2], $resposta->dados['totais']['conteudo']);
         self::assertSame(['grupos' => 1, 'copias_a_mais' => 1, 'pastas' => 1], $resposta->dados['totais']['provavel']);
         self::assertSame(2, $resposta->dados['totais']['pastas_com_repetidos']);
-        // Sem hash e vivos: os 4 da pasta cheia e os 2 vazios.
-        self::assertSame(6, $resposta->dados['totais']['documentos_sem_hash']);
-        self::assertSame(sprintf(LerDocumentosDuplicados::AVISO_SEM_HASH, 6), $resposta->dados['aviso']);
+        // Sem hash, vivos e com bytes: os 4 da pasta cheia (os 2 vazios não contam, como nos grupos).
+        self::assertSame(4, $resposta->dados['totais']['documentos_sem_hash']);
+        self::assertSame(sprintf(LerDocumentosDuplicados::AVISO_SEM_HASH, 4), $resposta->dados['aviso']);
         self::assertSame([(int) $muitas->getId(), (int) $poucas->getId()], array_column($resposta->dados['pastas'], 'pasta_id'));
         self::assertSame([
             'pasta_id' => (int) $muitas->getId(),
@@ -161,6 +161,11 @@ final class LerDocumentosDuplicadosTest extends KernelTestCase
         $this->documento($semDocumentos, 'd.pdf', 10, self::HASH_A);
         $this->documento($semDocumentos, 'd.pdf', 10, self::HASH_A);
         $this->ocultar($semDocumentos, AbaDaPasta::Documentos);
+        // Trancada só com documentos sem hash e sem repetido: sai calada (não conta nas omitidas nem no sem hash).
+        $trancadaSemRepetido = $this->pasta();
+        $this->documento($trancadaSemRepetido, 'u.pdf', 10, null);
+        $this->em()->persist(new CadeadoDaPasta($this->escritorio, $trancadaSemRepetido, ModoDoCadeado::Todos, null, new \DateTimeImmutable()));
+        $this->em()->flush();
 
         $resposta = $this->executar([]);
 
@@ -168,9 +173,26 @@ final class LerDocumentosDuplicadosTest extends KernelTestCase
         self::assertSame(1, $resposta->dados['totais']['pastas_omitidas_em_segredo']);
         self::assertSame(2, $resposta->dados['totais']['pastas_omitidas_sem_acesso']);
         self::assertSame(0, $resposta->dados['totais']['conteudo']['grupos']);
+        self::assertSame(0, $resposta->dados['totais']['documentos_sem_hash']);
         $this->assertMotivo(['pasta_id' => $emSegredo->getId()], ErroDaFerramenta::MOTIVO_EM_SEGREDO);
         $this->assertMotivo(['pasta_id' => $trancada->getId()], ErroDaFerramenta::MOTIVO_NAO_ENCONTRADO);
         $this->assertMotivo(['pasta_id' => $semDocumentos->getId()], ErroDaFerramenta::MOTIVO_NAO_ENCONTRADO);
+    }
+
+    #[TestDox('grupo enorme: lista só os mais antigos, até o teto por grupo, e diz o tamanho do grupo inteiro')]
+    public function testGrupoEnorme(): void
+    {
+        $pasta = $this->pasta();
+        $ids = [];
+        for ($i = 0; $i < LerDocumentosDuplicados::DOCUMENTOS_POR_GRUPO + 2; ++$i) {
+            $ids[] = (int) $this->documento($pasta, 'rg.pdf', 10, self::HASH_A)->getId();
+        }
+
+        $grupo = $this->executar(['pasta_id' => $pasta->getId()])->dados['grupos'][0];
+
+        self::assertSame(LerDocumentosDuplicados::DOCUMENTOS_POR_GRUPO + 2, $grupo['documentos_no_grupo']);
+        self::assertSame(LerDocumentosDuplicados::DOCUMENTOS_POR_GRUPO + 1, $grupo['copias_a_mais']);
+        self::assertSame(\array_slice($ids, 0, LerDocumentosDuplicados::DOCUMENTOS_POR_GRUPO), array_column($grupo['documentos'], 'id'));
     }
 
     #[TestDox('com a aba Financeiro oculta, o contrato de honorários não entra no grupo (e o grupo que sobra com um só some)')]
@@ -179,9 +201,11 @@ final class LerDocumentosDuplicadosTest extends KernelTestCase
         $pasta = $this->pasta();
         $this->documento($pasta, 'contrato.pdf', 10, self::HASH_A, categoria: PastaDocumento::CATEGORIA_CONTRATO);
         $this->documento($pasta, 'contrato.pdf', 10, self::HASH_A);
+        $this->documento($pasta, 'contrato-velho.pdf', 70, null, categoria: PastaDocumento::CATEGORIA_CONTRATO);
         $this->ocultar($pasta, AbaDaPasta::Financeiro);
 
         self::assertSame([], $this->executar([])->dados['pastas']);
+        self::assertSame(0, $this->executar([])->dados['totais']['documentos_sem_hash']);
         self::assertSame([], $this->executar(['pasta_id' => $pasta->getId()])->dados['grupos']);
     }
 
