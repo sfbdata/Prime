@@ -12,10 +12,12 @@
             "layout/_globais/fechar.html.twig",
             "layout/_globais/lembretes.html.twig",
             "layout/_globais/tema_comemorativo.html.twig",
-            "layout/_globais/genero.html.twig"
+            "layout/_globais/genero.html.twig",
+            "layout/_globais/aviso_oab.html.twig"
         ],
         "js": [
             "janela-genero.js",
+            "aviso-oab.js",
             "central-flutuante.js",
             "presenca-cabecalho.js"
         ],

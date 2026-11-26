@@ -119,6 +119,23 @@ final class RevisaoOabDoMasterControllerTest extends JusPrimeWebTestCase
         self::assertNotNull($linha['verificadaEm']);
     }
 
+    #[TestDox('conferir com o nome em branco registra "não encontrada no CNA": Divergente, sem nome, com data e motivo')]
+    public function testConferirEmBrancoRegistraNaoEncontrada(): void
+    {
+        $i = $this->inscricao('Dalva Digito', '81269', 'DF', TipoInscricaoOab::Principal);
+        $this->entrarComoMaster();
+        $linha = array_column($this->listar()['linhas'], null, 'id')[$i->getId()];
+        self::assertSame(['nao_verificada', null, null], [$linha['status'], $linha['motivo'], $linha['verificadaEm']], 'antes: ainda não consultada');
+
+        $this->postar('/master/revisao-oab/' . $i->getId() . '/conferir', ['numero' => '81269', 'uf' => 'DF', 'nomeCna' => '  ']);
+        self::assertResponseIsSuccessful();
+        self::assertSame(['divergente', null], [$this->resposta()['status'], $this->resposta()['nomeCna']]);
+
+        $linha = array_column($this->listar()['linhas'], null, 'id')[$i->getId()];
+        self::assertSame(['divergente', null, 'nao_encontrada'], [$linha['status'], $linha['nomeCna'], $linha['motivo']]);
+        self::assertNotNull($linha['verificadaEm'], 'o resultado fica registrado com a data');
+    }
+
     #[TestDox('validação automática: "Ao cadastrar" liga e grava; Diária é recusada com a dica, sem travessão')]
     public function testValidacaoAutomatica(): void
     {

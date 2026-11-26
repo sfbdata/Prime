@@ -42,15 +42,26 @@ final class ConferirInscricaoOabPeloCnaUseCaseTest extends TestCase
         self::assertNull($user->getOabStatus());
     }
 
-    #[TestDox('nome em branco (não localizado no CNA) volta a Não verificada, sem nome e sem data')]
-    public function testEmBrancoVoltaANaoVerificada(): void
+    #[TestDox('nome em branco (não localizado no CNA) registra "não encontrada": Divergente, sem nome, com data; a principal espelha no User')]
+    public function testEmBrancoRegistraNaoEncontrada(): void
     {
-        [, $i] = $this->inscricao(TipoInscricaoOab::Suplementar);
+        [$user, $i] = $this->inscricao(TipoInscricaoOab::Principal);
         $i->registrarVerificacao(StatusOab::Divergente, 'Antigo');
 
         $this->sut($i)->executar(1, '   ');
 
-        self::assertSame([StatusOab::NaoVerificada, null, null], [$i->getStatus(), $i->getNomeOficial(), $i->getVerificadaEm()]);
+        self::assertSame([StatusOab::Divergente, null], [$i->getStatus(), $i->getNomeOficial()]);
+        self::assertNotNull($i->getVerificadaEm(), 'resultado registrado, diferente de "ainda não consultada"');
+        self::assertSame([StatusOab::Divergente, null], [$user->getOabStatus(), $user->getOabNomeOficial()]);
+        self::assertNotNull($user->getOabVerificadaEm());
+    }
+
+    #[TestDox('inscrição ainda não consultada fica Não verificada e sem data: o "não encontrada" é outro resultado')]
+    public function testNaoConsultadaFicaSemRegistro(): void
+    {
+        [, $i] = $this->inscricao(TipoInscricaoOab::Suplementar);
+
+        self::assertSame([StatusOab::NaoVerificada, null], [$i->getStatus(), $i->getVerificadaEm()]);
     }
 
     #[TestDox('id inexistente é "Inscrição não encontrada"')]

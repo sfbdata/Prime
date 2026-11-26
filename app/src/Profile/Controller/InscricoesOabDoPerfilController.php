@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Profile\Controller;
 
+use App\Auth\Enum\StatusOab;
 use App\Auth\Enum\TipoInscricaoOab;
 use App\Entity\Auth\User;
 use App\Profile\DTO\InscricaoOabInput;
@@ -49,8 +50,14 @@ final class InscricoesOabDoPerfilController extends AbstractController
         );
 
         try {
-            $pendente = $this->salvar->executar($user, $input);
-            $this->addFlash('success', $pendente ? 'Inscrição salva. Ela fica Pendente até o Master validar.' : 'Inscrição atualizada');
+            // A validação roda de novo ao salvar número/UF novos: a mensagem diz o resultado (null = nada mudou).
+            [$tipo, $mensagem] = match ($this->salvar->executar($user, $input)) {
+                null                     => ['success', 'Inscrição atualizada'],
+                StatusOab::Confirmada    => ['success', 'Inscrição salva e confirmada no Cadastro Nacional dos Advogados.'],
+                StatusOab::Divergente    => ['warning', 'Inscrição salva, mas ela não confere com o Cadastro Nacional dos Advogados. Confira o número.'],
+                StatusOab::NaoVerificada => ['success', 'Inscrição salva. Ela fica Pendente até o Master validar.'],
+            };
+            $this->addFlash($tipo, $mensagem);
         } catch (\DomainException $e) {
             $request->getSession()->set(self::ERRO_NA_SESSAO, [
                 'erro' => $e->getMessage(), 'id' => $id, 'numero' => $input->numero, 'uf' => $input->uf, 'tipo' => $input->tipo->value,

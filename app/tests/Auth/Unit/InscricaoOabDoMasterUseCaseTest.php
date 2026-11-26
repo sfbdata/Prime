@@ -59,18 +59,35 @@ final class InscricaoOabDoMasterUseCaseTest extends TestCase
         $sut->executar(99, StatusOab::NaoVerificada);
     }
 
-    #[TestDox('verificar com o CNA dormente deixa a inscrição Pendente, sem data')]
-    public function testVerificarDormente(): void
+    #[TestDox('verificar com o CNA sem resposta não sobrescreve o resultado registrado (Divergente com data, ou Confirmada)')]
+    public function testVerificarSemRespostaNaoSobrescreve(): void
+    {
+        $user = new User();
+        $user->setFullName('Farlei Assis da Rocha');
+        $div = $this->inscricao($user, TipoInscricaoOab::Suplementar, 'GO');
+        $div->registrarNaoEncontrada(new \DateTimeImmutable('2026-11-03 10:00'));
+        $conf = $this->inscricao($user, TipoInscricaoOab::Principal, 'DF');
+        $conf->registrarVerificacao(StatusOab::Confirmada, 'FARLEI ASSIS DA ROCHA');
+        $sut = new VerificarInscricaoOabUseCase($this->repo([1 => $div, 2 => $conf]), new ValidadorOab((new OabWebServiceClientFake())->indisponivel()));
+
+        self::assertFalse($sut->executar(1)->houveResposta());
+        self::assertSame([StatusOab::Divergente, '2026-11-03 10:00'], [$div->getStatus(), $div->getVerificadaEm()?->format('Y-m-d H:i')]);
+        $sut->executar(2);
+        self::assertSame([StatusOab::Confirmada, 'FARLEI ASSIS DA ROCHA'], [$conf->getStatus(), $conf->getNomeOficial()]);
+        self::assertNull($user->getOabStatus(), 'nada foi espelhado');
+    }
+
+    #[TestDox('verificar com o CNA respondendo "não existe" registra a não encontrada, com data')]
+    public function testVerificarComRespostaRegistra(): void
     {
         $user = new User();
         $user->setFullName('Farlei Assis da Rocha');
         $i = $this->inscricao($user, TipoInscricaoOab::Suplementar, 'GO');
-        $i->registrarVerificacao(StatusOab::Divergente, null);
+        $cna = (new OabWebServiceClientFake())->comResultado(new \App\Auth\DTO\ConsultaOabResultado(false, null, null));
 
-        (new VerificarInscricaoOabUseCase($this->repo([1 => $i]), new ValidadorOab((new OabWebServiceClientFake())->indisponivel())))->executar(1);
-
-        self::assertSame(StatusOab::NaoVerificada, $i->getStatus());
-        self::assertNull($i->getVerificadaEm());
+        self::assertTrue((new VerificarInscricaoOabUseCase($this->repo([1 => $i]), new ValidadorOab($cna)))->executar(1)->houveResposta());
+        self::assertSame([StatusOab::Divergente, null], [$i->getStatus(), $i->getNomeOficial()]);
+        self::assertNotNull($i->getVerificadaEm());
     }
 
     /** @param array<int, InscricaoOab> $porId */

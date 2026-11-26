@@ -21,6 +21,9 @@ use Doctrine\ORM\EntityManagerInterface;
  *
  * Regra do `verificadaEm`: só marca quando houve um veredicto real (Confirmada/Divergente);
  * NaoVerificada = nada foi verificado → limpa o timestamp.
+ *
+ * Consulta sem resposta (CNA dormente ou fora do ar) nunca sobrescreve um resultado registrado: quem já está
+ * Confirmada ou Divergente (com a data) continua como estava; só quem ainda não tinha resultado fica NaoVerificada.
  */
 final class VerificarOabUseCase
 {
@@ -41,6 +44,9 @@ final class VerificarOabUseCase
         }
 
         $resultado = $this->validadorOab->verificar($numero, $uf, (string) $user->getFullName());
+        if (!$resultado->houveResposta() && \in_array($user->getOabStatus(), [StatusOab::Confirmada, StatusOab::Divergente], true)) {
+            return $resultado;
+        }
 
         $user->setOabStatus($resultado->status);
         $user->setOabNomeOficial($resultado->nomeOficial);
