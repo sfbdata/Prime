@@ -282,7 +282,7 @@ final class OabReviewTest extends JusPrimeWebTestCase
         self::assertSame(StatusOab::NaoVerificada, $this->recarregarUsuario($adv)->getOabStatus());
     }
 
-    #[TestDox('Re-verificar uma suplementar com backend dormente a deixa Não verificada e não mexe na principal')]
+    #[TestDox('Re-verificar uma suplementar com backend dormente não apaga o resultado registrado (continua Divergente) e não mexe na principal')]
     public function testReverificarSuplementarDormente(): void
     {
         $client = static::createClient();
@@ -296,7 +296,7 @@ final class OabReviewTest extends JusPrimeWebTestCase
         $client->submit($crawler->filter('form[action*="/' . $supId . '/reverificar"]')->form());
 
         self::assertResponseRedirects();
-        self::assertSame(StatusOab::NaoVerificada, $this->recarregarInscricao($supId)->getStatus());
+        self::assertSame(StatusOab::Divergente, $this->recarregarInscricao($supId)->getStatus(), 'consulta sem resposta não sobrescreve');
         self::assertSame(StatusOab::Divergente, $this->recarregarInscricao($principalId)->getStatus());
         self::assertSame(StatusOab::Divergente, $this->recarregarUsuario($adv)->getOabStatus());
 

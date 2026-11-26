@@ -24,7 +24,19 @@ final class ObterAvisoDaOabUseCaseTest extends TestCase
         $df   = $this->inscricao($user, 1, '81269', 'DF', TipoInscricaoOab::Principal, StatusOab::Divergente);
         $go   = $this->inscricao($user, 2, '700', 'GO', TipoInscricaoOab::Suplementar, StatusOab::Confirmada);
 
-        self::assertSame(['id' => 1, 'numero' => '81269', 'uf' => 'DF'], $this->sut([$df, $go])->executar($user));
+        self::assertSame(['id' => 1, 'numero' => '81269', 'uf' => 'DF', 'motivo' => 'nao_encontrada'], $this->sut([$df, $go])->executar($user));
+    }
+
+    #[TestDox('o motivo é o mesmo da Revisão do Master: nome lido no CNA dá "nome"; número fora da regra dá "formato"')]
+    public function testMotivos(): void
+    {
+        $user = new User();
+        $nome = new InscricaoOab($user, '81269', 'DF', TipoInscricaoOab::Principal);
+        $nome->registrarVerificacao(StatusOab::Divergente, 'Outra Pessoa');
+        $formato = $this->inscricao($user, 2, '12', 'GO', TipoInscricaoOab::Principal, StatusOab::Divergente);
+
+        self::assertSame('nome', $this->sut([$nome])->executar($user)['motivo'] ?? null);
+        self::assertSame('formato', $this->sut([$formato])->executar($user)['motivo'] ?? null);
     }
 
     #[TestDox('Pendente (ainda não consultada) e Confirmada não avisam')]
@@ -43,7 +55,7 @@ final class ObterAvisoDaOabUseCaseTest extends TestCase
     {
         $user = (new User())->setOabNumero('81269')->setOabUf('DF')->setOabStatus(StatusOab::Divergente);
 
-        self::assertSame(['id' => null, 'numero' => '81269', 'uf' => 'DF'], $this->sut([])->executar($user));
+        self::assertSame(['id' => null, 'numero' => '81269', 'uf' => 'DF', 'motivo' => 'nao_encontrada'], $this->sut([])->executar($user));
     }
 
     /** @param list<InscricaoOab> $lista */

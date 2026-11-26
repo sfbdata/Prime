@@ -244,6 +244,40 @@ final class ProfileOabTest extends JusPrimeWebTestCase
         self::assertCount(0, $client->request('GET', '/novidades')->filter('[data-aviso-oab]'), 'só uma vez na sessão');
     }
 
+    #[TestDox('o texto do aviso segue o motivo: nome ou situação diferente no CNA, e formato inválido')]
+    public function testTextoDoAvisoPorMotivo(): void
+    {
+        [$client, $user] = $this->logado(oabNumero: '81269', oabUf: 'DF', status: StatusOab::Divergente);
+        $client->request('GET', '/perfil');
+        $conexao = static::getContainer()->get(EntityManagerInterface::class)->getConnection();
+        $conexao->executeStatement("UPDATE inscricao_oab SET nome_oficial = 'Outra Pessoa' WHERE user_id = ?", [$user->getId()]);
+
+        $aviso = $client->request('GET', '/perfil')->filter('[data-mp-oab-aviso]');
+        self::assertSame('nome', $aviso->attr('data-motivo'));
+        self::assertSame('A OAB nº 81269/DF está com nome ou situação diferente no CNA. Confira seus dados ou fale com o suporte.', trim($aviso->filter('span')->text()));
+        self::assertSame('A OAB nº 81269/DF está com nome ou situação diferente no CNA. Confira seus dados ou fale com o suporte.', trim($client->request('GET', '/novidades')->filter('[data-aviso-oab] .ae-texto')->text()));
+
+        $conexao->executeStatement("UPDATE inscricao_oab SET numero = '12', nome_oficial = NULL WHERE user_id = ?", [$user->getId()]);
+        $aviso = $client->request('GET', '/perfil')->filter('[data-mp-oab-aviso]');
+        self::assertSame(['formato', 'O número da OAB 12/DF está em formato inválido.'], [$aviso->attr('data-motivo'), trim($aviso->filter('span')->text())]);
+    }
+
+    #[TestDox('a marca da sessão só é gravada quando o aviso é desenhado: o Meu Perfil e a tela pública não gastam a vez')]
+    public function testMarcaSoQuandoMostrado(): void
+    {
+        [$client] = $this->logado(oabNumero: '81269', oabUf: 'DF', status: StatusOab::Divergente);
+        $chave = \App\Profile\Twig\AvisoDaOabExtension::SESSAO;
+
+        $client->request('GET', '/perfil');
+        self::assertFalse($client->getRequest()->getSession()->has($chave), 'Meu Perfil');
+        $client->request('GET', '/politica-de-privacidade');
+        self::assertCount(0, $client->getCrawler()->filter('[data-aviso-oab]'), 'tela pública não mostra');
+        self::assertFalse($client->getRequest()->getSession()->has($chave), 'tela pública');
+
+        self::assertCount(1, $client->request('GET', '/novidades')->filter('[data-aviso-oab="nao_encontrada"]'));
+        self::assertTrue($client->getRequest()->getSession()->get($chave));
+    }
+
     #[TestDox('quem tem a OAB Pendente não vê o aviso do topo, nem o da OAB não encontrada de outra pessoa')]
     public function testSemAvisoParaPendenteNemDeOutraPessoa(): void
     {

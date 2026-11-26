@@ -384,12 +384,18 @@ input[type="range"].img-slider {
                 <span class="mp-oab-situacao {{ o.situacaoClasse }}"><i class="bi {{ o.situacaoIcone }}"></i>{{ o.situacao }}</span>
                 <i class="bi bi-pencil mp-oab-lapis"></i>
             </button>
-            {# O CNA não achou o número (ou não confere): aviso com o atalho que abre a inscrição no modal (pedido do dono, 26/11). #}
-            {% if o.precisaCorrigir %}
-                <div class="mp-oab-aviso" id="mpOabAviso{{ o.id }}" data-mp-oab-aviso="{{ o.id }}" role="status">
+            {# Divergente: aviso com o texto do motivo (não encontrada no CNA, nome ou situação, formato; o mesmo motivo da
+               Revisão do Master) e o atalho que abre a inscrição no modal (pedido do dono, 26/11). #}
+            {% if o.motivoDivergencia %}
+                <div class="mp-oab-aviso" id="mpOabAviso{{ o.id }}" data-mp-oab-aviso="{{ o.id }}" data-motivo="{{ o.motivoDivergencia }}" role="status">
                     <i class="bi bi-exclamation-triangle-fill" aria-hidden="true"></i>
-                    <span>{{ 'perfil.oab.nao_encontrada'|trans({numero: o.numero, uf: o.uf}) }}</span>
-                    <button type="button" class="mp-oab-corrigir" data-mp-oab-corrigir="{{ o.id }}">{{ 'perfil.oab.corrigir'|trans }}</button>
+                    {% if o.motivoDivergencia == 'nome' %}
+                        <span>{{ 'perfil.oab.aviso.nome'|trans({numero: o.numero, uf: o.uf}) }}</span>
+                        <button type="button" class="mp-oab-corrigir" data-mp-oab-corrigir="{{ o.id }}">{{ 'perfil.oab.conferir'|trans }}</button>
+                    {% else %}
+                        <span>{{ o.motivoDivergencia == 'formato' ? 'perfil.oab.aviso.formato'|trans({numero: o.numero, uf: o.uf}) : 'perfil.oab.aviso.nao_encontrada'|trans({numero: o.numero, uf: o.uf}) }}</span>
+                        <button type="button" class="mp-oab-corrigir" data-mp-oab-corrigir="{{ o.id }}">{{ 'perfil.oab.corrigir'|trans }}</button>
+                    {% endif %}
                 </div>
             {% endif %}
         {% else %}

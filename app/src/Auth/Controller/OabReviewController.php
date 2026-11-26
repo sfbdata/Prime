@@ -118,9 +118,10 @@ final class OabReviewController extends AbstractController
     public function reverificarAcao(int $id, Request $request): Response
     {
         $this->validarCsrf($request, 'oab_reverificar_' . $id);
-        $inscricao = $this->executarOu404(fn () => $this->verificar->executar($id));
+        $resultado = $this->executarOu404(fn () => $this->verificar->executar($id));
 
-        if ($inscricao->getStatus() === StatusOab::NaoVerificada) {
+        // Sem resposta do CNA, a inscrição fica como estava (o resultado registrado não é apagado).
+        if (!$resultado->houveResposta()) {
             $this->addFlash('info', $this->tradutor->trans('plataforma.flash.oab_verificada_sem_automatico'));
         } else {
             $this->addFlash('info', $this->tradutor->trans('plataforma.flash.oab_verificada'));
