@@ -879,7 +879,7 @@ voto:
                 rascunho_excluido: Rascunho excluído.
                 simulacao_reiniciada: 'Simulação reiniciada: votos apagados, de volta a rascunho.'
                 simulacao_apagada: Simulação apagada.
-                encerrada_apagada: Votação apagada para sempre.
+                votacao_apagada: Votação apagada para sempre.
                 sala_virtual_salva: Link da sala virtual salvo.
             # ---- Voto redesign F1-2b e F1-3: telas do ciclo de vida da votação (desenho 18, 16/11).
             chip_ciclo:
@@ -898,7 +898,7 @@ voto:
                 retomar: Retomar votação
                 cancelar: Cancelar votação
                 excluir_rascunho: Excluir rascunho
-                apagar_encerrada: Apagar votação
+                apagar: Apagar votação
                 reiniciar_simulacao: Reiniciar simulação
                 apagar_simulacao: Apagar simulação
                 arquivar: Arquivar
@@ -959,7 +959,7 @@ voto:
                 faixa: 'Arquivada em {em}{sem}. Motivo: {motivo}. Dados e evidências preservados; não aparece em Votar, Resultados e Acompanhar.'
                 sem_deliberacao: ', sem deliberação'
                 retirada_motivo: 'Retirada de pauta: {motivo}'
-                apagar_titulo: Apagar votação encerrada
+                apagar_titulo: Apagar votação
                 apagar_aviso: 'Votos, unidades, candidaturas, edital e ata desta votação somem para sempre. Não há como desfazer.'
                 apagar_digite: 'Para confirmar, digite o nome da votação ({nome}) ou APAGAR:'
                 apagar_campo: Nome da votação ou APAGAR

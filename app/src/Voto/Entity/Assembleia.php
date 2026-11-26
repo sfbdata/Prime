@@ -390,26 +390,18 @@ class Assembleia implements TenantAware, Auditavel
     }
 
     /**
-     * Apagar a votação encerrada (prova inclusive): só publicada, sem pauta aberta (nem suspensa) e sem pauta programada para
-     * abrir. Fora arquivada, também não pode haver pauta que ainda não abriu: só se apaga o que já terminou.
+     * Apagar a votação (prova inclusive): vale para toda votação que não está ativa (teste, irrelevante, arquivada, nunca
+     * aberta ou sem pauta). Só recusa com pauta aberta (nem suspensa) ou programada para abrir (publicada e não arquivada).
      */
-    public function exigirApagavelEncerrada(): void
+    public function exigirApagavel(): void
     {
-        if (EstadoDaAssembleia::Publicada !== $this->estado) {
-            throw new OperacaoInvalidaNaAssembleiaException('Só votação publicada e encerrada pode ser apagada. Rascunho se exclui.');
-        }
         foreach ($this->pautas as $pauta) {
-            if ($pauta->retirada()) {
-                continue;
-            }
             if (EstadoDaPauta::Aberta === $pauta->getEstado()) {
-                throw new OperacaoInvalidaNaAssembleiaException('Há votação aberta: encerre antes de apagar.');
+                throw new OperacaoInvalidaNaAssembleiaException('Só votação sem pauta aberta ou programada pode ser apagada.');
             }
-            if (EstadoDaPauta::Aguardando === $pauta->getEstado() && $pauta->programada()) {
-                throw new OperacaoInvalidaNaAssembleiaException('Há votação programada para abrir: cancele a programação ou retire a pauta antes de apagar.');
-            }
-            if (EstadoDaPauta::Aguardando === $pauta->getEstado() && !$this->arquivada()) {
-                throw new OperacaoInvalidaNaAssembleiaException('Só se apaga votação encerrada: há pauta que ainda não foi aberta.');
+            if (EstadoDaPauta::Aguardando === $pauta->getEstado() && $pauta->programada() && !$pauta->retirada()
+                && EstadoDaAssembleia::Publicada === $this->estado && !$this->arquivada()) {
+                throw new OperacaoInvalidaNaAssembleiaException('Só votação sem pauta aberta ou programada pode ser apagada.');
             }
         }
     }

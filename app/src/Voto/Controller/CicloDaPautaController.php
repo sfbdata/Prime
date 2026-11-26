@@ -13,7 +13,7 @@ use App\Voto\UseCase\CancelarPautaUseCase;
 use App\Voto\UseCase\DesarquivarAssembleiaUseCase;
 use App\Voto\UseCase\DevolverPautaUseCase;
 use App\Voto\UseCase\DefinirSalaVirtualDaAssembleiaUseCase;
-use App\Voto\UseCase\ExcluirAssembleiaEncerradaUseCase;
+use App\Voto\UseCase\ApagarAssembleiaUseCase;
 use App\Voto\UseCase\ExcluirRascunhoDaAssembleiaUseCase;
 use App\Voto\UseCase\ExcluirSimulacaoDaAssembleiaUseCase;
 use App\Voto\UseCase\ReiniciarSimulacaoDaAssembleiaUseCase;
@@ -153,15 +153,15 @@ final class CicloDaPautaController extends AbstractController
     }
 
     /** Apaga para sempre a votação encerrada; o campo `confirmacao` leva o nome da votação ou APAGAR (o UseCase confere). */
-    #[Route('/voto/assembleias/{id}/apagar', name: 'voto_assembleia_apagar_encerrada', requirements: ['id' => '\d+'], methods: ['POST'])]
-    public function apagarEncerrada(int $id, Request $request, ExcluirAssembleiaEncerradaUseCase $apagar): RedirectResponse
+    #[Route('/voto/assembleias/{id}/apagar', name: 'voto_assembleia_apagar', requirements: ['id' => '\d+'], methods: ['POST'])]
+    public function apagarEncerrada(int $id, Request $request, ApagarAssembleiaUseCase $apagar): RedirectResponse
     {
         $tenant = $this->guarda->exigir();
         $confirmacao = (string) $request->request->get('confirmacao', '');
 
         return $this->executar($request, $id, static function () use ($apagar, $tenant, $id, $confirmacao): void {
             $apagar->executar($tenant, $id, $confirmacao);
-        }, 'voto.assembleia.gestor.ciclo.encerrada_apagada');
+        }, 'voto.assembleia.gestor.ciclo.votacao_apagada');
     }
 
     /** Troca o link da sala virtual (campo `link_sala_virtual`; vazio apaga) da votação publicada. */

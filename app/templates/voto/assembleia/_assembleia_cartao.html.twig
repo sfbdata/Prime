@@ -68,10 +68,10 @@
     {% if podeSala %}
         {% set itens = itens|merge([{rotulo: 'voto.assembleia.gestor.sala_virtual.menu'|trans, icone: 'bi-camera-video', janela: '#janela-sala-' ~ a.id}]) %}
     {% endif %}
-    {# Apagar votação encerrada (depois de Arquivar): só quem edita; janela que exige digitar o nome ou APAGAR. #}
-    {% set podeApagar = edita and not a.simulacao and a.podeApagarEncerrada %}
+    {# Apagar votação (depois de Arquivar): só quem edita; janela que exige digitar o nome ou APAGAR. #}
+    {% set podeApagar = edita and not a.simulacao and a.podeApagar %}
     {% if podeApagar %}
-        {% set itens = itens|merge([{rotulo: 'voto.assembleia.gestor.menu_ciclo.apagar_encerrada'|trans, icone: 'bi-trash', janela: '#janela-apagar-' ~ a.id, destrutivo: true}]) %}
+        {% set itens = itens|merge([{rotulo: 'voto.assembleia.gestor.menu_ciclo.apagar'|trans, icone: 'bi-trash', janela: '#janela-apagar-' ~ a.id, destrutivo: true}]) %}
     {% endif %}
     {% if a.arquivada %}
         {% set itens = itens|merge([{rotulo: 'voto.assembleia.gestor.menu_ciclo.desarquivar'|trans, icone: 'bi-box-arrow-up', acao: path('voto_assembleia_desarquivar', {id: a.id}), token: csrf_token('voto_assembleia_' ~ a.id)}]) %}

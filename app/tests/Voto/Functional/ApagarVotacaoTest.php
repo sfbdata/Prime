@@ -26,13 +26,13 @@ use Symfony\Bundle\FrameworkBundle\KernelBrowser;
 use Zenstruck\Foundry\Test\Factories;
 
 /**
- * "Apagar votação" da assembleia encerrada (POST /voto/assembleias/{id}/apagar): CSRF, confirmação digitada (nome ou
+ * "Apagar votação" da assembleia sem pauta aberta ou programada (POST /voto/assembleias/{id}/apagar): CSRF, confirmação digitada (nome ou
  * APAGAR), recusa com votação aberta, tudo some junto e outro escritório dá 404. O item do menu só aparece quando a
  * votação pode ser apagada.
  */
 #[CoversClass(CicloDaPautaController::class)]
 #[Group('voto')]
-final class ApagarVotacaoEncerradaTest extends JusPrimeWebTestCase
+final class ApagarVotacaoTest extends JusPrimeWebTestCase
 {
     use Factories;
 
@@ -96,24 +96,37 @@ final class ApagarVotacaoEncerradaTest extends JusPrimeWebTestCase
         self::assertNotFalse($this->em->getConnection()->fetchOne('SELECT id FROM voto.assembleia WHERE id = ?', [$id]));
     }
 
-    #[TestDox('Com votação aberta, programada ou rascunho: recusa e nada é apagado')]
+    #[TestDox('Com votação aberta ou suspensa: recusa e nada é apagado')]
     public function testRecusas(): void
     {
         $aberta = AssembleiaFactory::new(['tenant' => $this->escritorio, 'titulo' => 'AGO Aberta'])->publicada()->create()->_real();
         PautaDaAssembleiaFactory::new(['assembleia' => $aberta])->comOpcoesPadrao()->aberta()->create();
-        $rascunho = AssembleiaFactory::new(['tenant' => $this->escritorio, 'titulo' => 'AGO Rascunho'])->create()->_real();
-        $espera = AssembleiaFactory::new(['tenant' => $this->escritorio, 'titulo' => 'AGO Espera'])->publicada()->create()->_real();
-        PautaDaAssembleiaFactory::new(['assembleia' => $espera])->comOpcoesPadrao()->create();
 
         $this->postar($aberta->getId(), 'APAGAR');
-        self::assertSame('Há votação aberta: encerre antes de apagar.', $this->avisoDoPainel());
-        $this->postar($rascunho->getId(), 'APAGAR');
-        self::assertSame('Só votação publicada e encerrada pode ser apagada. Rascunho se exclui.', $this->avisoDoPainel());
-        $this->postar($espera->getId(), 'APAGAR');
-        self::assertSame('Só se apaga votação encerrada: há pauta que ainda não foi aberta.', $this->avisoDoPainel());
+        self::assertSame('Só votação sem pauta aberta ou programada pode ser apagada.', $this->avisoDoPainel());
 
-        foreach ([$aberta, $rascunho, $espera] as $a) {
-            self::assertNotFalse($this->em->getConnection()->fetchOne('SELECT id FROM voto.assembleia WHERE id = ?', [$a->getId()]));
+        self::assertNotFalse($this->em->getConnection()->fetchOne('SELECT id FROM voto.assembleia WHERE id = ?', [$aberta->getId()]));
+    }
+
+    #[TestDox('Nunca aberta, arquivada ou sem pauta: apaga; a programada para abrir recusa')]
+    public function testNaoAtivaApaga(): void
+    {
+        $espera = AssembleiaFactory::new(['tenant' => $this->escritorio, 'titulo' => 'AGO Espera'])->publicada()->create()->_real();
+        PautaDaAssembleiaFactory::new(['assembleia' => $espera])->comOpcoesPadrao()->create();
+        $semPauta = AssembleiaFactory::new(['tenant' => $this->escritorio, 'titulo' => 'AGO Sem Pauta'])->publicada()->create()->_real();
+        $programada = AssembleiaFactory::new(['tenant' => $this->escritorio, 'titulo' => 'AGO Programada'])->publicada()->create()->_real();
+        $pautaProgramada = PautaDaAssembleiaFactory::new(['assembleia' => $programada])->comOpcoesPadrao()->create()->_real();
+        $this->em->getConnection()->executeStatement("UPDATE voto.assembleia_pauta SET abre_em = now() + interval '1 day', encerra_em = now() + interval '2 days' WHERE id = ?", [$pautaProgramada->getId()]);
+        $this->em->clear();
+
+        $this->postar($programada->getId(), 'APAGAR');
+        self::assertSame('Só votação sem pauta aberta ou programada pode ser apagada.', $this->avisoDoPainel());
+        self::assertNotFalse($this->em->getConnection()->fetchOne('SELECT id FROM voto.assembleia WHERE id = ?', [$programada->getId()]));
+
+        foreach ([$espera, $semPauta] as $a) {
+            $this->postar($a->getId(), 'APAGAR');
+            self::assertSame('Votação apagada para sempre.', $this->avisoDoPainel());
+            self::assertFalse($this->em->getConnection()->fetchOne('SELECT id FROM voto.assembleia WHERE id = ?', [$a->getId()]));
         }
     }
 
@@ -142,7 +155,7 @@ final class ApagarVotacaoEncerradaTest extends JusPrimeWebTestCase
         self::assertResponseStatusCodeSame(405);
     }
 
-    #[TestDox('Menu de três pontos: "Apagar votação" só na encerrada, com a janela que pede o nome; na aberta não aparece')]
+    #[TestDox('Menu de três pontos: "Apagar votação" quando não há pauta aberta, com a janela que pede o nome; na aberta não aparece')]
     public function testMenuEJanela(): void
     {
         $encerrada = $this->encerrada('AGO Menu');

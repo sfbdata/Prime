@@ -146,19 +146,16 @@ final readonly class AssembleiaNoPainel
     }
 
     /**
-     * Pode ser apagada para sempre (a mesma regra de Assembleia::exigirApagavelEncerrada()): publicada, sem pauta aberta nem
-     * programada para abrir e, fora arquivada, sem pauta que ainda não abriu.
+     * Pode ser apagada para sempre (a mesma regra de Assembleia::exigirApagavel()): sem pauta aberta (nem suspensa) e sem
+     * pauta programada para abrir (publicada e não arquivada). Rascunho e simulação têm o próprio "Excluir"/"Apagar".
      */
-    public function podeApagarEncerrada(): bool
+    public function podeApagar(): bool
     {
         if (!$this->publicada()) {
             return false;
         }
         foreach ($this->pautas as $pauta) {
-            if ($pauta->retirada()) {
-                continue;
-            }
-            if ($pauta->aberta() || (!$pauta->encerrada() && ($pauta->programada() || null === $this->arquivadaEm))) {
+            if ($pauta->aberta() || (!$pauta->retirada() && !$pauta->encerrada() && $pauta->programada() && null === $this->arquivadaEm)) {
                 return false;
             }
         }
