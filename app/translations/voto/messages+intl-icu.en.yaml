@@ -106,6 +106,17 @@ voto:
                 aguardando: Voting not open yet
                 aberta: Voting open
                 encerrada: Voting closed
+        acompanhar:
+            titulo: Follow along
+            participacao: '{votaram} of {aptas} units have voted'
+            percentual: '{pct}% participation'
+            nota: While voting is open, only participation is shown. The result appears after voting closes.
+            estado:
+                aguardando: Voting not open yet
+                aberta: Voting open
+                suspensa: Voting suspended
+                encerrada: Voting closed
+                cancelada: Voting cancelled
         grupos: All groups
         grupos_da_pauta: 'Groups: {grupos}'
         aviso_voto_aberto: 'OPEN VOTE: your name and your vote will be visible'
@@ -181,6 +192,7 @@ voto:
             som_desligar: Turn sounds off
             som_ligar: Turn sounds on
             numero_tecla: 'Number {n}'
+            cartao_aria: 'Candidate {numero}, {nome}'
             fala_digite: 'Vote for {pauta}. Type the number.'
             fala_abstencao: Abstention. Confirm or correct.
             fala_branco: Blank vote. Confirm or correct.

@@ -30,6 +30,7 @@ final class CedulaSemTenantFilterListener
         'voto_assembleia_cedula_comprovante_email',
         'voto_assembleia_cedula_foto',
         'voto_assembleia_cedula_ocorrencia', 'voto_assembleia_cedula_ocorrencia_enviar',
+        'voto_assembleia_cedula_participacao',
         'voto_assembleia_portal',
         'voto_assembleia_portal_localizar',
         'voto_assembleia_portal_solicitar',
