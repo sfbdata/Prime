@@ -47,6 +47,8 @@ final readonly class AssembleiaNoPainel
         public ?ChaveDeArquivo $editalChave = null,
         /** O edital ainda pode ser anexado, trocado ou removido (nenhum resultado saiu e a votação não está arquivada). */
         public bool $editalAlteravel = true,
+        /** Link da sala virtual do debate (Meet, Zoom, Teams...); nulo se a organização não informou. */
+        public ?string $linkSalaVirtual = null,
     ) {
     }
 
@@ -75,7 +77,7 @@ final readonly class AssembleiaNoPainel
             $pautas, $this->arquivadaEm, $this->arquivadaMotivo, $this->arquivadaPorNome, $this->entidade, $this->cnpj, $this->cenario,
             rotuloUnidade: $this->rotuloUnidade, rotuloBloco: $this->rotuloBloco,
             editalNome: $this->editalNome, editalTamanho: $this->editalTamanho, editalSha256: $this->editalSha256,
-            editalChave: $this->editalChave, editalAlteravel: $this->editalAlteravel,
+            editalChave: $this->editalChave, editalAlteravel: $this->editalAlteravel, linkSalaVirtual: $this->linkSalaVirtual,
         );
     }
 
@@ -141,6 +143,27 @@ final readonly class AssembleiaNoPainel
     public function podeExcluir(): bool
     {
         return !$this->publicada() && null === $this->publicadaEm;
+    }
+
+    /**
+     * Pode ser apagada para sempre (a mesma regra de Assembleia::exigirApagavelEncerrada()): publicada, sem pauta aberta nem
+     * programada para abrir e, fora arquivada, sem pauta que ainda não abriu.
+     */
+    public function podeApagarEncerrada(): bool
+    {
+        if (!$this->publicada()) {
+            return false;
+        }
+        foreach ($this->pautas as $pauta) {
+            if ($pauta->retirada()) {
+                continue;
+            }
+            if ($pauta->aberta() || (!$pauta->encerrada() && ($pauta->programada() || null === $this->arquivadaEm))) {
+                return false;
+            }
+        }
+
+        return true;
     }
 
     /** Na seleção em lote: rascunho nunca publicado ou simulação (a simulação se apaga, nunca se arquiva). */

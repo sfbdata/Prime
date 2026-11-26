@@ -173,7 +173,7 @@ final class AssembleiaController extends AbstractController
         }
 
         $assembleia = $this->lida($tenant, $id);
-        $input ??= new AssembleiaInput($assembleia->titulo, $assembleia->peso->value, $assembleia->entidade ?? '', $assembleia->cnpj ?? '', $assembleia->cenario->value, $assembleia->simulacao, $assembleia->rotuloUnidade ?? '', $assembleia->rotuloBloco ?? '');
+        $input ??= new AssembleiaInput($assembleia->titulo, $assembleia->peso->value, $assembleia->entidade ?? '', $assembleia->cnpj ?? '', $assembleia->cenario->value, $assembleia->simulacao, $assembleia->rotuloUnidade ?? '', $assembleia->rotuloBloco ?? '', $assembleia->linkSalaVirtual ?? '');
 
         return $this->render('voto/assembleia/form.html.twig', self::contextoDoForm($assembleia, $input, $erro ?? null, self::passoDoForm($request)));
     }
@@ -192,7 +192,7 @@ final class AssembleiaController extends AbstractController
             return $this->redirectToRoute('voto_assembleia_pautas', ['id' => $id]);
         }
         if (2 === $passo) {
-            $input = new AssembleiaInput($assembleia->titulo, $assembleia->peso->value, $assembleia->entidade ?? '', $assembleia->cnpj ?? '', $assembleia->cenario->value, $assembleia->simulacao, $assembleia->rotuloUnidade ?? '', $assembleia->rotuloBloco ?? '');
+            $input = new AssembleiaInput($assembleia->titulo, $assembleia->peso->value, $assembleia->entidade ?? '', $assembleia->cnpj ?? '', $assembleia->cenario->value, $assembleia->simulacao, $assembleia->rotuloUnidade ?? '', $assembleia->rotuloBloco ?? '', $assembleia->linkSalaVirtual ?? '');
 
             return $this->render('voto/assembleia/form.html.twig', self::contextoDoForm($assembleia, $input, null, 2));
         }
@@ -361,6 +361,7 @@ final class AssembleiaController extends AbstractController
             '1' === (string) $request->request->get('simulacao', ''),
             trim((string) $request->request->get('rotulo_unidade', '')),
             trim((string) $request->request->get('rotulo_bloco', '')),
+            trim((string) $request->request->get('link_sala_virtual', '')),
         );
     }
 }

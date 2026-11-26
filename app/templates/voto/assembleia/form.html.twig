@@ -40,6 +40,8 @@
                 <label class="vL">{{ 'voto.assembleia.gestor.form.rotulo_unidade'|trans }}<input class="vF" name="rotulo_unidade" maxlength="40" placeholder="Unidade" value="{{ input.rotuloUnidade }}"></label>
                 <label class="vL">{{ 'voto.assembleia.gestor.form.rotulo_bloco'|trans }}<input class="vF" name="rotulo_bloco" maxlength="40" placeholder="Bloco" value="{{ input.rotuloBloco }}"></label>
                 <div class="voto-etapa-sub">{{ 'voto.assembleia.gestor.form.rotulo_dica'|trans }}</div>
+                <label class="vL">{{ 'voto.assembleia.gestor.form.sala_virtual'|trans }}<input class="vF" type="url" name="link_sala_virtual" maxlength="500" inputmode="url" placeholder="https://meet.google.com/..." value="{{ input.linkSalaVirtual }}"></label>
+                <div class="voto-etapa-sub">{{ 'voto.assembleia.gestor.form.sala_virtual_dica'|trans }}</div>
             </div>
             <input type="hidden" name="peso" value="{{ input.peso }}" data-voto-cenario-peso>
         {% else %}
@@ -50,6 +52,7 @@
             <input type="hidden" name="titulo" value="{{ input.titulo }}">
             <input type="hidden" name="rotulo_unidade" value="{{ input.rotuloUnidade }}">
             <input type="hidden" name="rotulo_bloco" value="{{ input.rotuloBloco }}">
+            <input type="hidden" name="link_sala_virtual" value="{{ input.linkSalaVirtual }}">
             <div class="vG2">
                 <label class="vL">{{ 'voto.assembleia.gestor.form.peso'|trans }}<select class="vF" name="peso">
                     <option value="fracao" {{ input.peso == 'fracao' ? 'selected' }}>{{ 'voto.assembleia.gestor.form.peso_fracao'|trans }}</option>
