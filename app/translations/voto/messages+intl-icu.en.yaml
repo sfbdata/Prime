@@ -214,6 +214,10 @@ voto:
             registrada: Occurrence recorded.
             limite: 'You have already reported the maximum of {n} occurrences in this assembly.'
             pauta_invalida: Choose a vote from this assembly.
+            texto_vazio: Write the occurrence.
+            texto_longo: 'The occurrence can have at most {n} characters.'
+            nao_publicada: 'This vote has not been published yet: occurrences cannot be recorded.'
+            arquivada: 'This vote was archived: occurrences cannot be recorded.'
         indisponivel: Invalid link or election unavailable.
         limite: Too many requests. Try again in a few minutes.
     assembleia:
@@ -833,6 +837,7 @@ voto:
                 ocorrencias_registradas: Recorded occurrences
                 ocorrencia_eleitor: '{qualificacao}, on {data}. {escopo}: {texto}'
                 nenhuma_ocorrencia: No occurrences recorded
+                ocorrencias_so_total: '{n, plural, one {# occurrence recorded} other {# occurrences recorded}}; the content stays with the assembly management.'
             email:
                 assunto: 'Your link to vote: {assembleia}'
                 titulo: Link to vote

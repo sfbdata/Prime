@@ -6,7 +6,6 @@ namespace App\Voto\Entity;
 
 use App\Entity\Tenant\Tenant;
 use App\Shared\Contract\TenantAware;
-use App\Voto\Exception\OperacaoInvalidaNaAssembleiaException;
 use App\Voto\Repository\OcorrenciaDaVotacaoRepository;
 use Doctrine\ORM\Mapping as ORM;
 
@@ -63,15 +62,18 @@ class OcorrenciaDaVotacao implements TenantAware
         $this->rotuloDaUnidade = mb_substr($rotuloDaUnidade, 0, 180);
     }
 
-    /** Texto limpo, de 1 a 500 caracteres; vazio ou maior que isso é recusado (nunca corta em silêncio). */
+    /**
+     * Texto limpo, de 1 a 500 caracteres; vazio ou maior que isso é recusado (nunca corta em silêncio). Defesa da
+     * invariante: o UseCase confere antes e recusa com a mensagem do catálogo de tradução.
+     */
     public static function textoValido(string $texto): string
     {
         $texto = trim($texto);
         if ('' === $texto) {
-            throw new OperacaoInvalidaNaAssembleiaException('Escreva a ocorrência.');
+            throw new \InvalidArgumentException('Ocorrência vazia.');
         }
         if (mb_strlen($texto) > self::MAXIMO_DO_TEXTO) {
-            throw new OperacaoInvalidaNaAssembleiaException('A ocorrência pode ter no máximo ' . self::MAXIMO_DO_TEXTO . ' caracteres.');
+            throw new \InvalidArgumentException('Ocorrência maior que ' . self::MAXIMO_DO_TEXTO . ' caracteres.');
         }
 
         return $texto;

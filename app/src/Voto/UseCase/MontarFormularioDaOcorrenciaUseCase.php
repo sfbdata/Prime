@@ -37,6 +37,6 @@ final class MontarFormularioDaOcorrenciaUseCase
         }
         $restantes = max(0, OcorrenciaDaVotacao::MAXIMO_POR_UNIDADE - $this->ocorrencias->contarDaUnidade($unidade));
 
-        return new FormularioDaOcorrencia($assembleia->getTitulo(), QualificacaoDoEleitor::nome($unidade), QualificacaoDoEleitor::rotulo($unidade), $pautas, $restantes);
+        return new FormularioDaOcorrencia($assembleia->getTitulo(), QualificacaoDoEleitor::nome($unidade), QualificacaoDoEleitor::rotulo($unidade), $pautas, $restantes, OcorrenciaDaVotacao::MAXIMO_DO_TEXTO, OcorrenciaDaVotacao::MAXIMO_POR_UNIDADE);
     }
 }

@@ -196,6 +196,9 @@
                 <li>{{ 'voto.assembleia.gestor.ata.ocorrencia_eleitor'|trans({qualificacao: o.qualificacao, data: o.criadaEm|date(dh), escopo: o.pauta is not null ? 'voto.assembleia.gestor.ocorrencias.da_pauta'|trans({pauta: o.pauta}) : 'voto.assembleia.gestor.ocorrencias.da_votacao'|trans, texto: o.texto}) }}</li>
             {% endfor %}
         </ul>
+    {% elseif ata.totalDeOcorrencias > 0 %}
+        {# Sem nível Editar: só o número; nome, unidade e texto do eleitor ficam com a gestão (LGPD). #}
+        <p data-voto-ata-ocorrencias-total>{{ 'voto.assembleia.gestor.ata.ocorrencias_so_total'|trans({n: ata.totalDeOcorrencias}) }}</p>
     {% else %}
         <p data-voto-ata-sem-ocorrencias>{{ 'voto.assembleia.gestor.ata.nenhuma_ocorrencia'|trans }}</p>
     {% endif %}

@@ -19,7 +19,7 @@
                 <dt>{{ 'voto.assembleia.cedula.ocorrencia.unidade'|trans }}</dt><dd>{{ formulario.unidade }}</dd>
             </dl>
             {% if formulario.restantes < 1 %}
-                <div class="vAviso" data-vc-ocorrencia-limite>{{ 'voto.assembleia.cedula.ocorrencia.limite'|trans({n: 5}) }}</div>
+                <div class="vAviso" data-vc-ocorrencia-limite>{{ 'voto.assembleia.cedula.ocorrencia.limite'|trans({n: formulario.maximoPorUnidade}) }}</div>
             {% else %}
                 <form method="post" action="{{ path('voto_assembleia_cedula_ocorrencia_enviar', {token: token}) }}" data-vc-ocorrencia-form>
                     <input type="hidden" name="_token" value="{{ csrf_token('voto_cedula_' ~ token) }}">
@@ -31,8 +31,8 @@
                         </select>
                     {% endif %}
                     <label class="vcOcorrenciaRotulo" for="ocorrencia-texto">{{ 'voto.assembleia.cedula.ocorrencia.texto'|trans }}</label>
-                    <textarea class="vcOcorrenciaCampo" id="ocorrencia-texto" name="texto" rows="5" maxlength="500" required data-vc-ocorrencia-texto></textarea>
-                    <div class="vcOcorrenciaContador" data-vc-ocorrencia-contador aria-live="polite">0/500</div>
+                    <textarea class="vcOcorrenciaCampo" id="ocorrencia-texto" name="texto" rows="5" maxlength="{{ formulario.maximoDoTexto }}" required data-vc-ocorrencia-texto></textarea>
+                    <div class="vcOcorrenciaContador" data-vc-ocorrencia-contador aria-live="polite">0/{{ formulario.maximoDoTexto }}</div>
                     <div class="vcOcorrenciaAcoes">
                         <a class="vB" href="{{ path('voto_assembleia_cedula', {token: token}) }}">{{ 'voto.assembleia.cedula.ocorrencia.voltar'|trans }}</a>
                         <button type="submit" class="vB vP">{{ 'voto.assembleia.cedula.ocorrencia.enviar'|trans }}</button>

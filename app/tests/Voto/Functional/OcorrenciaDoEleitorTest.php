@@ -211,6 +211,48 @@ final class OcorrenciaDoEleitorTest extends JusPrimeWebTestCase
         self::assertStringContainsString('Microfone falhou', $documento);
     }
 
+    #[TestDox('LGPD: quem só visualiza (fiscal) vê a quantidade na ata e na minuta, nunca nome nem texto; quem gere vê tudo')]
+    public function testAtaEMinutaSoComAQuantidadeParaQuemNaoGere(): void
+    {
+        $a = $this->assembleiaComUnidades('encerrada');
+        $fiscal = $this->colega();
+        $this->membro($a, PapelNaEquipe::Fiscal, $fiscal);
+        $this->enviar($this->link($a, '101'), 'Segredo do eleitor');
+        $this->entrar($fiscal);
+
+        $this->client->request('GET', '/voto/assembleias/' . $a->getId() . '/ata');
+        self::assertResponseIsSuccessful();
+        $html = (string) $this->client->getResponse()->getContent();
+        self::assertStringContainsString('1 ocorrência registrada; o conteúdo fica com a gestão da assembleia.', $html);
+        self::assertStringNotContainsString('Segredo do eleitor', $html);
+        self::assertStringNotContainsString('Ana Apta · A · 101', $html, 'a relação de votantes (outra seção) traz o nome; a ocorrência não');
+
+        $this->client->request('POST', '/voto/assembleias/' . $a->getId() . '/minuta/docx', ['_token' => $this->token('voto_assembleia_' . $a->getId())]);
+        self::assertResponseIsSuccessful();
+        $documento = $this->documentoDoDocx((string) $this->client->getResponse()->getContent());
+        self::assertStringContainsString('1 ocorrência registrada', $documento);
+        self::assertStringNotContainsString('Segredo do eleitor', $documento);
+        self::assertStringNotContainsString('Ana Apta', $documento, 'a minuta não leva a relação nominal');
+    }
+
+    #[TestDox('Votação arquivada recusa a ocorrência com a mensagem clara e nada é gravado')]
+    public function testArquivadaRecusa(): void
+    {
+        $a = $this->assembleiaComUnidades('encerrada');
+        $link = $this->link($a, '101');
+        $csrf = (string) $this->client->request('GET', $link . '/ocorrencia')->filter('input[name=_token]')->attr('value');
+        $a = $this->em->find(Assembleia::class, $a->getId());
+        $a->arquivar('Encerrada', 'Gestor');
+        $this->em->flush();
+
+        $this->enviar($link, 'Tarde demais', '', $csrf);
+
+        self::assertResponseRedirects($link . '/ocorrencia');
+        self::assertCount(0, $this->ocorrencias($a));
+        $this->client->followRedirect();
+        self::assertStringContainsString('Esta votação foi arquivada: não é possível registrar ocorrência.', (string) $this->client->getResponse()->getContent());
+    }
+
     private function enviar(string $link, string $texto, string $pauta = '', ?string $csrf = null): void
     {
         $csrf ??= (string) $this->client->request('GET', $link . '/ocorrencia')->filter('input[name=_token]')->attr('value');

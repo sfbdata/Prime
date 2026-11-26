@@ -64,21 +64,27 @@ final class ObterAtaDaAssembleiaUseCase
 
         $avaliacoes = $comVotantes && null !== $ator ? $this->avaliacoes($assembleia, $ator) : [];
 
-        return new AtaDaAssembleia($this->leitura->montar($assembleia), $agora ?? new \DateTimeImmutable(), $emitidaPor, $relacao, $blocos, $avaliacoes, $this->ocorrenciasDosEleitores($assembleia));
+        return new AtaDaAssembleia($this->leitura->montar($assembleia), $agora ?? new \DateTimeImmutable(), $emitidaPor, $relacao, $blocos, $avaliacoes, ...$this->ocorrenciasDosEleitores($assembleia, $ator));
     }
 
     /**
-     * "Ocorrências registradas": o que os eleitores escreveram pelo portal, da mais antiga para a mais recente. Entra na ata e
-     * na minuta sem depender da relação de votantes (a ata em si já é entregue só a quem a emite).
+     * "Ocorrências registradas": o texto e a qualificação do eleitor (dado pessoal, LGPD) só saem para quem gere a assembleia
+     * ({@see AcessoAAssembleia::podeRegistrarOcorrencia()}, a mesma regra da lista "Ocorrências"); para os demais, e sem
+     * `$ator`, só a quantidade.
      *
-     * @return list<OcorrenciaNaVotacao>
+     * @return array{0: list<OcorrenciaNaVotacao>, 1: int} o conteúdo (vazio sem permissão) e o total
      */
-    private function ocorrenciasDosEleitores(Assembleia $assembleia): array
+    private function ocorrenciasDosEleitores(Assembleia $assembleia, ?User $ator): array
     {
-        return array_map(
-            static fn (OcorrenciaDaVotacao $o): OcorrenciaNaVotacao => OcorrenciaNaVotacao::deOcorrencia($o),
-            $this->ocorrenciasDaVotacao->listarDaAssembleia($assembleia),
-        );
+        $todas = $this->ocorrenciasDaVotacao->listarDaAssembleia($assembleia);
+        if (null === $ator || !$this->acesso->podeRegistrarOcorrencia($ator, $assembleia)) {
+            return [[], \count($todas)];
+        }
+
+        return [
+            array_map(static fn (OcorrenciaDaVotacao $o): OcorrenciaNaVotacao => OcorrenciaNaVotacao::deOcorrencia($o), $todas),
+            \count($todas),
+        ];
     }
 
     /**

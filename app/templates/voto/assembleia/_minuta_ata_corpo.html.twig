@@ -62,7 +62,7 @@
 {% for o in ata.ocorrencias %}
     <p>{{ 'voto.assembleia.gestor.ata.ocorrencia_eleitor'|trans({qualificacao: o.qualificacao, data: o.criadaEm|date(dh), escopo: o.pauta is not null ? 'voto.assembleia.gestor.ocorrencias.da_pauta'|trans({pauta: o.pauta}) : 'voto.assembleia.gestor.ocorrencias.da_votacao'|trans, texto: o.texto}) }}</p>
 {% else %}
-    <p>{{ 'voto.assembleia.gestor.ata.nenhuma_ocorrencia'|trans }}</p>
+    <p>{{ (ata.totalDeOcorrencias > 0 ? 'voto.assembleia.gestor.ata.ocorrencias_so_total'|trans({n: ata.totalDeOcorrencias}) : 'voto.assembleia.gestor.ata.nenhuma_ocorrencia'|trans) }}</p>
 {% endfor %}
 <p>{{ (t ~ 'sigilo')|trans }}</p>
 <p>{{ (t ~ 'encerramento')|trans({

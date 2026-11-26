@@ -14,6 +14,8 @@ final readonly class FormularioDaOcorrencia
         public string $unidade,
         public array $pautas,
         public int $restantes,
+        public int $maximoDoTexto,
+        public int $maximoPorUnidade,
     ) {
     }
 }

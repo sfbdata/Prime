@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Voto\Controller;
 
+use App\Entity\Auth\User;
 use App\Voto\DTO\MinutaDeAtaGerada;
 use App\Voto\Enum\FormatoDaMinuta;
 use App\Voto\Exception\AssembleiaNaoEncontradaException;
@@ -63,7 +64,7 @@ final class MinutaDaAtaController extends AbstractController
         try {
             $modelo = FormatoDaMinuta::Docx === $formato ? $this->modeloEnviado($request) : null;
 
-            return $this->arquivo($this->gerar->executar($tenant, $id, $this->guarda->nomeDeQuemOpera(), $formato, $modelo, $pauta));
+            return $this->arquivo($this->gerar->executar($tenant, $id, $this->guarda->nomeDeQuemOpera(), $formato, $modelo, $pauta, ator: $this->getUser() instanceof User ? $this->getUser() : null));
         } catch (AssembleiaNaoEncontradaException) {
             throw $this->createNotFoundException();
         } catch (OperacaoInvalidaNaAssembleiaException|ModeloDeAtaInvalidoException $e) {

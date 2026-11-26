@@ -8,6 +8,7 @@ use App\Entity\Tenant\Tenant;
 use App\Voto\Entity\Assembleia;
 use App\Voto\Entity\LiberacaoDoVoto;
 use App\Voto\Entity\OcorrenciaDaVotacao;
+use App\Voto\Entity\OpcaoDaPauta;
 use App\Voto\Entity\PautaDaAssembleia;
 use App\Voto\Entity\UnidadeDaAssembleia;
 use App\Voto\Enum\PesoDoVoto;
@@ -49,20 +50,37 @@ final class RegistrarOcorrenciaDaVotacaoUseCaseTest extends TestCase
     /** @var list<OcorrenciaDaVotacao> */
     private array $salvas = [];
     private int $jaRegistradas = 0;
+    private bool $publicar = true;
+    private PautaDaAssembleia $pautaBase;
+    /** @var list<int> ids das unidades travadas antes da contagem */
+    private array $travadas = [];
 
     protected function setUp(): void
     {
         $this->relogio = new MockClock('2026-11-26 10:00:00');
         $this->assembleia = new Assembleia(new Tenant(), 'AGO 2026', PesoDoVoto::Unidade, 'Gestor');
         $tokens = new TokenDaUnidade('segredo-de-teste');
+        $this->publicar = true;
+        $this->pautaBase = new PautaDaAssembleia($this->assembleia, 1, 'Aprovação das contas');
+        new OpcaoDaPauta($this->pautaBase, 1, 'Sim', false);
+        new OpcaoDaPauta($this->pautaBase, 2, 'Não', false);
         $this->unidade = new UnidadeDaAssembleia($this->assembleia, '101', str_repeat('a', 32), $tokens->hash(self::TOKEN), 'Bloco A', null, null, 'Ana Souza');
         $this->unidades = $this->createMock(UnidadeDaAssembleiaRepository::class);
+        $this->unidades->method('buscarDaAssembleiaTravada')->willReturnCallback(function (int $id): UnidadeDaAssembleia {
+            $this->travadas[] = $id;
+
+            return $this->unidade;
+        });
         $this->unidades->method('findOneByTokenHash')->willReturnCallback(
             fn (string $hash): ?UnidadeDaAssembleia => $hash === $tokens->hash(self::TOKEN) ? $this->unidade : null,
         );
         $this->pautas = $this->createMock(PautaDaAssembleiaRepository::class);
         $this->ocorrencias = $this->createMock(OcorrenciaDaVotacaoRepository::class);
-        $this->ocorrencias->method('contarDaUnidade')->willReturnCallback(fn (): int => $this->jaRegistradas);
+        $this->ocorrencias->method('contarDaUnidade')->willReturnCallback(function (): int {
+            self::assertNotSame([], $this->travadas, 'a unidade é travada ANTES da contagem');
+
+            return $this->jaRegistradas;
+        });
         $this->ocorrencias->method('salvar')->willReturnCallback(function (OcorrenciaDaVotacao $o): void {
             $this->salvas[] = $o;
         });
@@ -86,13 +104,13 @@ final class RegistrarOcorrenciaDaVotacaoUseCaseTest extends TestCase
     #[TestDox('Texto vazio é recusado e nada é gravado')]
     public function testRecusaTextoVazio(): void
     {
-        $this->assertRecusa('Escreva a ocorrência.', '   ');
+        $this->assertRecusa('voto.assembleia.cedula.ocorrencia.texto_vazio', '   ');
     }
 
     #[TestDox('Texto de 501 caracteres é recusado; o de 500 passa')]
     public function testRecusaTextoLongo(): void
     {
-        $this->assertRecusa('A ocorrência pode ter no máximo 500 caracteres.', str_repeat('a', 501));
+        $this->assertRecusa('voto.assembleia.cedula.ocorrencia.texto_longo', str_repeat('a', 501));
 
         $ocorrencia = $this->caso()->executar(self::TOKEN, null, str_repeat('b', 500));
         self::assertSame(500, mb_strlen($ocorrencia->getTexto()));
@@ -121,7 +139,7 @@ final class RegistrarOcorrenciaDaVotacaoUseCaseTest extends TestCase
     #[TestDox('Com pauta da assembleia, a ocorrência guarda a pauta')]
     public function testComPauta(): void
     {
-        $pauta = new PautaDaAssembleia($this->assembleia, 1, 'Aprovação das contas');
+        $pauta = $this->pautaBase;
         $this->pautas->method('buscarDaAssembleia')->willReturn($pauta);
 
         $ocorrencia = $this->caso()->executar(self::TOKEN, 10, 'Sobre a pauta');
@@ -139,6 +157,26 @@ final class RegistrarOcorrenciaDaVotacaoUseCaseTest extends TestCase
         } finally {
             self::assertSame([], $this->salvas);
         }
+    }
+
+    #[TestDox('Assembleia arquivada e rascunho (não publicada) recusam com mensagem clara')]
+    public function testRecusaArquivadaERascunho(): void
+    {
+        $this->assembleia->publicar($this->relogio->now()->modify('-1 hour'));
+        $this->assembleia->arquivar('Encerrada', 'Gestor', $this->relogio->now());
+        $this->assertRecusa('voto.assembleia.cedula.ocorrencia.arquivada', 'Texto');
+
+        $this->setUp();
+        $this->publicar = false;
+        $this->assertRecusa('voto.assembleia.cedula.ocorrencia.nao_publicada', 'Texto');
+    }
+
+    #[TestDox('A unidade é travada antes de contar o limite')]
+    public function testTravaAUnidade(): void
+    {
+        $this->caso()->executar(self::TOKEN, null, 'Texto');
+
+        self::assertCount(1, $this->travadas);
     }
 
     private function assertRecusa(string $mensagem, string $texto, ?int $pauta = null): void
@@ -172,6 +210,10 @@ final class RegistrarOcorrenciaDaVotacaoUseCaseTest extends TestCase
         };
         $link = new UnidadeDoLink(new TokenDaUnidade('segredo-de-teste'), $this->unidades, $liberacoes);
 
-        return new RegistrarOcorrenciaDaVotacaoUseCase($link, $this->pautas, $this->ocorrencias, $transacao, $this->relogio, $tradutor);
+        if ($this->publicar && \App\Voto\Enum\EstadoDaAssembleia::Publicada !== $this->assembleia->getEstado()) {
+            $this->assembleia->publicar($this->relogio->now()->modify('-1 hour'));
+        }
+
+        return new RegistrarOcorrenciaDaVotacaoUseCase($link, $this->pautas, $this->unidades, $this->ocorrencias, $transacao, $this->relogio, $tradutor);
     }
 }

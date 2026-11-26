@@ -225,6 +225,10 @@ voto:
             registrada: Ocorrência registrada.
             limite: 'Você já registrou o máximo de {n} ocorrências nesta assembleia.'
             pauta_invalida: Escolha uma votação desta assembleia.
+            texto_vazio: Escreva a ocorrência.
+            texto_longo: 'A ocorrência pode ter no máximo {n} caracteres.'
+            nao_publicada: 'A votação ainda não foi publicada: não é possível registrar ocorrência.'
+            arquivada: 'Esta votação foi arquivada: não é possível registrar ocorrência.'
         indisponivel: Link inválido ou eleição indisponível.
         limite: Muitas consultas. Tente novamente em alguns minutos.
     # ---- Assembleia de condomínio, telas do gestor (frente F2). Spec docs/specs/voto-assembleia-condominio.md;
@@ -881,6 +885,7 @@ voto:
                 ocorrencias_registradas: Ocorrências registradas
                 ocorrencia_eleitor: '{qualificacao}, em {data}. {escopo}: {texto}'
                 nenhuma_ocorrencia: Nenhuma ocorrência registrada
+                ocorrencias_so_total: '{n, plural, one {# ocorrência registrada} other {# ocorrências registradas}}; o conteúdo fica com a gestão da assembleia.'
             email:
                 assunto: 'Seu link para votar: {assembleia}'
                 titulo: Link para votar
