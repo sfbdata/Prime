@@ -642,7 +642,7 @@
 .mp .roab-linha:nth-child(even) { background: #f7f9fb; }
 .mp .roab-linha:hover { background: #2b7ab0 !important; box-shadow: inset 4px 0 0 #1f6f9c !important; transition: background .18s; }
 /* M6: o botão de verificar de novo (fundo branco) guarda a cor própria na linha azul. */
-.mp .roab-linha:hover *:not(:is(.roab-reverif, .roab-reverif *, .roab-site, .roab-site *)) { color: #fff !important; border-color: rgba(255,255,255,.45) !important; }
+.mp .roab-linha:hover *:not(:is(.roab-reverif, .roab-reverif *)) { color: #fff !important; border-color: rgba(255,255,255,.45) !important; }
 .mp .roab-linha:hover .roab-selo, .mp .roab-linha:hover .roab-st { background: rgba(255,255,255,.2) !important; color: #fff !important; }
 .mp .roab-linha > b { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .mp .roab-esc { color: #4a6373; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
@@ -664,5 +664,5 @@
 .mp .roab-confirmar:hover { background: #17633a; }
 .mp .roab-reverif { width: 32px; height: 30px; border: 1px solid #c5d2db; border-radius: 3px; background: #fff; color: #34505f; cursor: pointer; }
 .mp .roab-reverif:hover { border-color: #0a6fa0; color: #0a6fa0; }
-.mp .roab-site { display: inline-flex; align-items: center; justify-content: center; width: 32px; height: 30px; border: 1px solid #c5d2db; border-radius: 3px; background: #fff; color: #34505f; text-decoration: none; }
-.mp .roab-site:hover { border-color: #0a6fa0; color: #0a6fa0; }
+.mp .roab-site { display: inline-flex; align-items: center; justify-content: center; width: 22px; height: 22px; border-radius: 3px; color: #34505f; text-decoration: none; font-size: 12px; flex: none; }
+.mp .roab-site:hover { color: #0a6fa0; background: #eef4f8; }

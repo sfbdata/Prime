@@ -174,7 +174,7 @@ final class PainelRevisaoOabJsTest extends TestCase
         $js = self::js();
 
         self::assertStringContainsString('href="https://cna.oab.org.br/" target="_blank" rel="noopener noreferrer"', $js);
-        self::assertStringContainsString("T('conferir_site', { inscricao: l.inscricao })", $js);
+        self::assertStringContainsString("esc(T('conferir_site', { inscricao: l.inscricao }))", $js);
         self::assertSame(1, substr_count($js, 'class="roab-site"'));
     }
 
