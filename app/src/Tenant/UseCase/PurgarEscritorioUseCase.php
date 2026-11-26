@@ -450,6 +450,7 @@ final class PurgarEscritorioUseCase
         ['voto.membro_da_equipe', 'tenant_id = :tenant'],
         // Ocorrências e avaliações do conselho (W2-7b): filha da assembleia e da unidade, sai antes das duas.
         ['voto.ocorrencia_da_unidade', 'tenant_id = :tenant'],
+        ['voto.ocorrencia_da_votacao', 'tenant_id = :tenant'],
         ['voto.assembleia_participacao', 'tenant_id = :tenant'],
         ['voto.assembleia_opcao', 'tenant_id = :tenant'],
         ['voto.assembleia_unidade', 'tenant_id = :tenant'],

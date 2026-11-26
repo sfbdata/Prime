@@ -1,0 +1,54 @@
+{% extends 'voto/cedula/_layout.html.twig' %}
+
+{#
+    "Registrar ocorrência" do eleitor (pedido do Farlei de 26/11/2026), aberta depois da janela de confirmação da cédula.
+    Mostra a qualificação dele (só leitura), a pauta (opcional) e o texto curto, de até 500 caracteres, com contador.
+    Contexto: `formulario` (App\Voto\DTO\FormularioDaOcorrencia) e `token` (o do link; o CSRF é o da cédula).
+#}
+
+{% block titulo %}{{ 'voto.assembleia.cedula.ocorrencia.titulo'|trans }}{% endblock %}
+
+{% block conteudo %}
+    <link rel="stylesheet" href="/css/voto-ocorrencia.css">
+    <div class="vC vcOcorrencia">
+        <div class="vH"><i class="bi bi-chat-left-text" aria-hidden="true"></i>{{ 'voto.assembleia.cedula.ocorrencia.titulo'|trans }}</div>
+        <div class="vcOcorrenciaCorpo">
+            <dl class="vcOcorrenciaQualificacao" data-vc-ocorrencia-qualificacao>
+                <dt>{{ 'voto.assembleia.cedula.ocorrencia.assembleia'|trans }}</dt><dd>{{ formulario.assembleia }}</dd>
+                {% if formulario.nome is not empty %}<dt>{{ 'voto.assembleia.cedula.ocorrencia.nome'|trans }}</dt><dd>{{ formulario.nome }}</dd>{% endif %}
+                <dt>{{ 'voto.assembleia.cedula.ocorrencia.unidade'|trans }}</dt><dd>{{ formulario.unidade }}</dd>
+            </dl>
+            {% if formulario.restantes < 1 %}
+                <div class="vAviso" data-vc-ocorrencia-limite>{{ 'voto.assembleia.cedula.ocorrencia.limite'|trans({n: 5}) }}</div>
+            {% else %}
+                <form method="post" action="{{ path('voto_assembleia_cedula_ocorrencia_enviar', {token: token}) }}" data-vc-ocorrencia-form>
+                    <input type="hidden" name="_token" value="{{ csrf_token('voto_cedula_' ~ token) }}">
+                    {% if formulario.pautas is not empty %}
+                        <label class="vcOcorrenciaRotulo" for="ocorrencia-pauta">{{ 'voto.assembleia.cedula.ocorrencia.pauta'|trans }}</label>
+                        <select class="vcOcorrenciaCampo" id="ocorrencia-pauta" name="pauta">
+                            <option value="">{{ 'voto.assembleia.cedula.ocorrencia.pauta_toda'|trans }}</option>
+                            {% for id, titulo in formulario.pautas %}<option value="{{ id }}">{{ titulo }}</option>{% endfor %}
+                        </select>
+                    {% endif %}
+                    <label class="vcOcorrenciaRotulo" for="ocorrencia-texto">{{ 'voto.assembleia.cedula.ocorrencia.texto'|trans }}</label>
+                    <textarea class="vcOcorrenciaCampo" id="ocorrencia-texto" name="texto" rows="5" maxlength="500" required data-vc-ocorrencia-texto></textarea>
+                    <div class="vcOcorrenciaContador" data-vc-ocorrencia-contador aria-live="polite">0/500</div>
+                    <div class="vcOcorrenciaAcoes">
+                        <a class="vB" href="{{ path('voto_assembleia_cedula', {token: token}) }}">{{ 'voto.assembleia.cedula.ocorrencia.voltar'|trans }}</a>
+                        <button type="submit" class="vB vP">{{ 'voto.assembleia.cedula.ocorrencia.enviar'|trans }}</button>
+                    </div>
+                </form>
+            {% endif %}
+        </div>
+    </div>
+{% endblock %}
+
+{% block depois %}
+    <script src="/js/voto-ocorrencia.js" defer></script>
+    {% for mensagem in app.flashes('voto_cedula_ok') %}
+        <div class="vcToast" role="status" data-vc-toast>{{ mensagem }}</div>
+    {% endfor %}
+    {% for mensagem in app.flashes('voto_cedula_erro') %}
+        <div class="vcToast vcToastErro" role="status" data-vc-toast>{{ mensagem }}</div>
+    {% endfor %}
+{% endblock %}

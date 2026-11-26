@@ -468,6 +468,9 @@ final class AuditavelCoberturaTest extends KernelTestCase
         // e a justificativa, ligados a uma unidade, ao audit_log lido por quem administra; a linha só acrescenta e a
         // decisão não se refaz.
         \App\Voto\Entity\OcorrenciaDaUnidade::class,
+        // Ocorrência do eleitor no Portal (M4.4): texto livre e nome do eleitor ficam só na tabela, lidos por quem gere a
+        // assembleia; no audit_log chegariam a todo administrador. Só acrescenta.
+        \App\Voto\Entity\OcorrenciaDaVotacao::class,
         // Folha emitida e aceite da folha (E16): como o comprovante, cada linha é o próprio rastro selado e só se
         // acrescenta; o ato entra na trilha do Ponto (folha_emitida, folha_assinada). Auditavel levaria nome, IP e
         // ressalva ao audit_log lido por quem administra.

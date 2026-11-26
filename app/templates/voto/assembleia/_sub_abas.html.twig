@@ -24,6 +24,10 @@
 {% if assembleia is not null and voto_decide_avaliacao(assembleia.id) %}
     {% set itens = itens|merge([{id: 'avaliacoes', icone: 'bi-clipboard-check', href: path('voto_assembleia_avaliacoes', {id: assembleia.id})}]) %}
 {% endif %}
+{# Ocorrências dos eleitores (portal): só para quem gere a assembleia, e só publicada (rascunho ainda não tem link). #}
+{% if assembleia is not null and not assembleia.podeAlterarPautas and voto_edita(assembleia.id) %}
+    {% set itens = itens|merge([{id: 'ocorrencias', icone: 'bi-chat-left-text', href: path('voto_assembleia_ocorrencias', {id: assembleia.id})}]) %}
+{% endif %}
 <nav class="vC voto-sub-abas" aria-label="{{ 'voto.assembleia.gestor.sub.rotulo'|trans }}">
     {% for item in itens %}
         <a class="vTab {{ sub == item.id ? 'vTabOn' : '' }}" href="{{ item.href }}" {% if sub == item.id %}aria-current="page"{% endif %}><i class="bi {{ item.icone }}"></i>{{ ('voto.assembleia.gestor.sub.' ~ item.id)|trans }}</a>

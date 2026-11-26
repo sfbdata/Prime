@@ -1,0 +1,23 @@
+{#
+    Link discreto "Registrar ocorrência" do Portal do Eleitor e a janela de confirmação (pedido do Farlei de 26/11/2026).
+    A janela é a .vModAbrir do Voto (voto-janela.js/css), nunca modal do Bootstrap: "Sim" leva ao formulário
+    (voto_assembleia_cedula_ocorrencia). Incluída numa linha só em cedula.html.twig. Contexto: `token` (o do link).
+#}
+<link rel="stylesheet" href="/css/voto-janela.css">
+<link rel="stylesheet" href="/css/voto-ocorrencia.css">
+<p class="vcOcorrenciaRodape">
+    <button type="button" class="vcOcorrenciaLink" data-voto-janela="#janela-ocorrencia" data-vc-ocorrencia-abrir>{{ 'voto.assembleia.cedula.ocorrencia.link'|trans }}</button>
+</p>
+<div class="vModAbrir" data-voto-janela-raiz id="janela-ocorrencia" hidden>
+    <div class="vModC" role="dialog" aria-modal="true" aria-labelledby="janela-ocorrencia-titulo">
+        <div class="vModCorpo">
+            <b id="janela-ocorrencia-titulo">{{ 'voto.assembleia.cedula.ocorrencia.confirmar'|trans }}</b>
+            <div>{{ 'voto.assembleia.cedula.ocorrencia.confirmar_texto'|trans }}</div>
+            <div class="vModRodape">
+                <button type="button" class="vB" data-voto-janela-fechar>{{ 'voto.assembleia.cedula.ocorrencia.nao'|trans }}</button>
+                <a class="vB vP" href="{{ path('voto_assembleia_cedula_ocorrencia', {token: token}) }}" data-vc-ocorrencia-sim>{{ 'voto.assembleia.cedula.ocorrencia.sim'|trans }}</a>
+            </div>
+        </div>
+    </div>
+</div>
+<script src="/js/voto-janela.js" defer></script>

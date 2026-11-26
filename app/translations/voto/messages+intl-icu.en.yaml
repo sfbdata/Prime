@@ -196,6 +196,24 @@ voto:
             branco: BLANK
             corrige: CORRECT
             confirma: CONFIRM
+        ocorrencia:
+            link: Report an occurrence
+            confirmar: Do you want to report an occurrence in this vote?
+            confirmar_texto: You will be able to write a short text. The occurrence is recorded with your name and unit.
+            sim: Yes, report
+            nao: No
+            titulo: Report an occurrence
+            assembleia: Vote
+            nome: Name
+            unidade: Unit
+            pauta: About which vote?
+            pauta_toda: About the whole assembly
+            texto: Describe the occurrence in a few words
+            enviar: Send
+            voltar: Back
+            registrada: Occurrence recorded.
+            limite: 'You have already reported the maximum of {n} occurrences in this assembly.'
+            pauta_invalida: Choose a vote from this assembly.
         indisponivel: Invalid link or election unavailable.
         limite: Too many requests. Try again in a few minutes.
     assembleia:
@@ -211,6 +229,7 @@ voto:
                 conferencia: Review
                 perfis: Roles
                 avaliacoes: Reviews
+                ocorrencias: Occurrences
             assistente:
                 rotulo: Assembly setup steps
                 nao_salvas: Changes not saved yet
@@ -653,6 +672,12 @@ voto:
                 hash: 'List hash: {hash}'
                 alteracoes: '{n} change(s) by council decision.'
                 nenhuma_unidade: No record to show.
+            ocorrencias:
+                titulo: Occurrences
+                texto: Occurrences that voters reported through the Voter Portal, from oldest to newest.
+                da_pauta: 'About the vote: {pauta}'
+                da_votacao: About the whole assembly
+                vazio: No occurrences reported.
             avaliacoes:
                 titulo: Council reviews
                 texto: Each occurrence recorded for an ineligible person opens a review. The decision is kept in the audit trail, with date and time down to the second.
@@ -805,6 +830,9 @@ voto:
                 ocorrencia_pendente: Review pending.
                 ocorrencia_tornado_apto: 'Made eligible on {data}: {justificativa}.'
                 ocorrencia_mantida: 'Ineligibility upheld on {data}: {justificativa}.'
+                ocorrencias_registradas: Recorded occurrences
+                ocorrencia_eleitor: '{qualificacao}, on {data}. {escopo}: {texto}'
+                nenhuma_ocorrencia: No occurrences recorded
             email:
                 assunto: 'Your link to vote: {assembleia}'
                 titulo: Link to vote

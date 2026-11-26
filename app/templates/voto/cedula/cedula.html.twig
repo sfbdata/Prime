@@ -71,6 +71,8 @@
     </div>
     {% endif %}
 
+    {% include 'voto/cedula/_ocorrencia.html.twig' with {token: token} only %}
+
     {# A cabine é fixa na tela; fica no mesmo bloco por causa de `todas` e `votaveis`, que só existem aqui. #}
     {% if todas is not empty %}
         {% include 'voto/cedula/_cabine.html.twig' with {cedula: cedula, token: token, votaveis: votaveis, todas: todas} only %}

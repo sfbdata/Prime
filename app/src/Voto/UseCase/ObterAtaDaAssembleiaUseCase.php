@@ -17,7 +17,10 @@ use App\Voto\Exception\AssembleiaNaoEncontradaException;
 use App\Voto\Repository\AssembleiaRepository;
 use App\Voto\Entity\PautaDaAssembleia;
 use App\Voto\Entity\UnidadeDaAssembleia;
+use App\Voto\DTO\OcorrenciaNaVotacao;
+use App\Voto\Entity\OcorrenciaDaVotacao;
 use App\Voto\Repository\OcorrenciaDaUnidadeRepository;
+use App\Voto\Repository\OcorrenciaDaVotacaoRepository;
 use App\Voto\Repository\ParticipacaoNaPautaRepository;
 use App\Voto\Repository\UnidadeDaAssembleiaRepository;
 use App\Voto\Service\AcessoAAssembleia;
@@ -47,6 +50,7 @@ final class ObterAtaDaAssembleiaUseCase
         private readonly RegistrarAuditoriaDaRelacaoDeVotantesUseCase $auditoria,
         private readonly EntityManagerInterface $em,
         private readonly OcorrenciaDaUnidadeRepository $ocorrencias,
+        private readonly OcorrenciaDaVotacaoRepository $ocorrenciasDaVotacao,
     ) {
     }
 
@@ -60,7 +64,21 @@ final class ObterAtaDaAssembleiaUseCase
 
         $avaliacoes = $comVotantes && null !== $ator ? $this->avaliacoes($assembleia, $ator) : [];
 
-        return new AtaDaAssembleia($this->leitura->montar($assembleia), $agora ?? new \DateTimeImmutable(), $emitidaPor, $relacao, $blocos, $avaliacoes);
+        return new AtaDaAssembleia($this->leitura->montar($assembleia), $agora ?? new \DateTimeImmutable(), $emitidaPor, $relacao, $blocos, $avaliacoes, $this->ocorrenciasDosEleitores($assembleia));
+    }
+
+    /**
+     * "Ocorrências registradas": o que os eleitores escreveram pelo portal, da mais antiga para a mais recente. Entra na ata e
+     * na minuta sem depender da relação de votantes (a ata em si já é entregue só a quem a emite).
+     *
+     * @return list<OcorrenciaNaVotacao>
+     */
+    private function ocorrenciasDosEleitores(Assembleia $assembleia): array
+    {
+        return array_map(
+            static fn (OcorrenciaDaVotacao $o): OcorrenciaNaVotacao => OcorrenciaNaVotacao::deOcorrencia($o),
+            $this->ocorrenciasDaVotacao->listarDaAssembleia($assembleia),
+        );
     }
 
     /**

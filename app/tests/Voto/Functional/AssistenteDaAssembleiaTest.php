@@ -292,14 +292,14 @@ final class AssistenteDaAssembleiaTest extends JusPrimeWebTestCase
         }
     }
 
-    #[TestDox('Publicada: não há assistente; o passo 4 leva para a mesa e as sub-abas são Perfis (Administração), Painel, Pautas, Unidades e Avaliações')]
+    #[TestDox('Publicada: não há assistente; o passo 4 leva para a mesa e as sub-abas são Perfis (Administração), Painel, Pautas, Unidades, Avaliações e Ocorrências')]
     public function testPublicadaSemAssistente(): void
     {
         $assembleia = AssembleiaFactory::new(['tenant' => $this->escritorio])->publicada()->create()->_real();
         $this->client->request('GET', '/voto/assembleias/' . $assembleia->getId() . '/passo/4');
         self::assertResponseRedirects('/voto/assembleias/' . $assembleia->getId() . '/pautas');
         $pagina = $this->client->request('GET', '/voto/assembleias/' . $assembleia->getId() . '/pautas');
-        self::assertSame(['Perfis', 'Painel', 'Pautas', 'Unidades e links', 'Avaliações'], $pagina->filter('.voto-sub-abas > a.vTab')->each(static fn (Crawler $c): string => trim($c->text())));
+        self::assertSame(['Perfis', 'Painel', 'Pautas', 'Unidades e links', 'Avaliações', 'Ocorrências'], $pagina->filter('.voto-sub-abas > a.vTab')->each(static fn (Crawler $c): string => trim($c->text())));
         self::assertCount(0, $pagina->filter('.voto-trilho'));
         self::assertCount(1, $pagina->filter('.voto-etapas'));
     }

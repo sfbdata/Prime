@@ -1,0 +1,30 @@
+{% extends 'voto/assembleia/_moldura.html.twig' %}
+
+{#
+    Sub-aba "Ocorrências": o que os eleitores registraram pelo Portal do Eleitor (pedido do Farlei de 26/11/2026).
+    Só para quem gere a assembleia; o servidor confere de novo. Contexto: `assembleia` (AssembleiaNoPainel) e
+    `ocorrencias` (list<OcorrenciaNaVotacao>), da mais antiga para a mais recente.
+#}
+
+{% set sub = 'ocorrencias' %}
+
+{% block conteudo %}
+<div class="vC voto-ocorrencias">
+    <div class="vH"><i class="bi bi-chat-left-text"></i>{{ 'voto.assembleia.gestor.ocorrencias.titulo'|trans }}</div>
+    <div class="vLin voto-texto">{{ 'voto.assembleia.gestor.ocorrencias.texto'|trans }}</div>
+    {% for o in ocorrencias %}
+        <div class="vLin voto-ocorrencia" data-voto-ocorrencia>
+            <div class="voto-avaliacao-topo">
+                <b>{{ o.qualificacao }}</b>
+                <span>{{ o.criadaEm|date('d/m/Y H:i') }}</span>
+            </div>
+            <div class="voto-avaliacao-corpo">
+                {{ o.pauta is not null ? 'voto.assembleia.gestor.ocorrencias.da_pauta'|trans({pauta: o.pauta}) : 'voto.assembleia.gestor.ocorrencias.da_votacao'|trans }}<br>
+                {{ o.texto }}
+            </div>
+        </div>
+    {% else %}
+        <div class="vLin voto-vazio">{{ 'voto.assembleia.gestor.ocorrencias.vazio'|trans }}</div>
+    {% endfor %}
+</div>
+{% endblock %}

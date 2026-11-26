@@ -188,6 +188,18 @@
         </ul>
     {% endif %}
 
+    {# Ocorrências registradas pelos eleitores no portal; sem nenhuma, a frase diz isso. #}
+    <h2>{{ 'voto.assembleia.gestor.ata.ocorrencias_registradas'|trans }}</h2>
+    {% if ata.ocorrencias is not empty %}
+        <ul data-voto-ata-ocorrencias-eleitores>
+            {% for o in ata.ocorrencias %}
+                <li>{{ 'voto.assembleia.gestor.ata.ocorrencia_eleitor'|trans({qualificacao: o.qualificacao, data: o.criadaEm|date(dh), escopo: o.pauta is not null ? 'voto.assembleia.gestor.ocorrencias.da_pauta'|trans({pauta: o.pauta}) : 'voto.assembleia.gestor.ocorrencias.da_votacao'|trans, texto: o.texto}) }}</li>
+            {% endfor %}
+        </ul>
+    {% else %}
+        <p data-voto-ata-sem-ocorrencias>{{ 'voto.assembleia.gestor.ata.nenhuma_ocorrencia'|trans }}</p>
+    {% endif %}
+
     <h2>{{ 'voto.assembleia.gestor.ata.termo'|trans }}</h2>
     <p>{{ 'voto.assembleia.gestor.ata.termo_1'|trans }}</p>
     <p>{{ 'voto.assembleia.gestor.ata.termo_2'|trans }}</p>

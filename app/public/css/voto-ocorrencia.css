@@ -1,0 +1,17 @@
+/* BlueJus Voto: "Registrar ocorrência" do Portal do Eleitor. Link discreto no rodapé da cédula e a página do formulário.
+   Cores e medidas do voto-cedula.css (mesmo desenho 18). */
+.vcOcorrenciaRodape { margin: 18px 0 4px; text-align: center; }
+.vcOcorrenciaLink { background: none; border: 0; padding: 4px; font: inherit; font-size: 12px; color: #5b7383; text-decoration: underline; cursor: pointer; }
+.vcOcorrenciaLink:hover { color: #0a6fa0; }
+.vcOcorrenciaLink:focus-visible { outline: 3px solid #3b8fc2; outline-offset: 1px; }
+.vcOcorrenciaCorpo { padding: 16px; display: flex; flex-direction: column; gap: 12px; }
+.vcOcorrenciaQualificacao { margin: 0; display: grid; grid-template-columns: max-content 1fr; gap: 4px 12px; font-size: 13.5px; }
+.vcOcorrenciaQualificacao dt { color: #5b7383; }
+.vcOcorrenciaQualificacao dd { margin: 0; font-weight: bold; color: #12242f; }
+.vcOcorrenciaRotulo { display: block; margin: 6px 0 4px; font-size: 13px; font-weight: bold; color: #243845; }
+.vcOcorrenciaCampo { width: 100%; box-sizing: border-box; padding: 8px 10px; border: 1px solid #c6d3dd; border-radius: 3px; font: inherit; font-size: 14px; color: #12242f; background: #fff; }
+.vcOcorrenciaCampo:focus-visible { outline: 3px solid #3b8fc2; outline-offset: 1px; }
+textarea.vcOcorrenciaCampo { resize: vertical; min-height: 110px; }
+.vcOcorrenciaContador { text-align: right; font-size: 12px; color: #5b7383; margin-top: 3px; }
+.vcOcorrenciaContador.vcOcorrenciaContadorLimite { color: #a3232b; font-weight: bold; }
+.vcOcorrenciaAcoes { display: flex; gap: 8px; justify-content: flex-end; margin-top: 8px; flex-wrap: wrap; }
