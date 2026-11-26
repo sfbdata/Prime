@@ -181,6 +181,7 @@ voto:
             som_desligar: Turn sounds off
             som_ligar: Turn sounds on
             numero_tecla: 'Number {n}'
+            cartao_aria: 'Candidate {numero}, {nome}'
             fala_digite: 'Vote for {pauta}. Type the number.'
             fala_abstencao: Abstention. Confirm or correct.
             fala_branco: Blank vote. Confirm or correct.

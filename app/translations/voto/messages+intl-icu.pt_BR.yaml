@@ -192,6 +192,7 @@ voto:
             som_desligar: Desligar sons
             som_ligar: Ligar sons
             numero_tecla: 'Número {n}'
+            cartao_aria: 'Candidato {numero}, {nome}'
             fala_digite: 'Voto para {pauta}. Digite o número.'
             fala_abstencao: Abstenção. Confirme ou corrija.
             fala_branco: Voto em branco. Confirme ou corrija.

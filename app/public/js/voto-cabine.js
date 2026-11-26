@@ -230,6 +230,54 @@
     }
 
     /* ---- Desenho da tela (visor) por fase ---- */
+    /* Cartões clicáveis da pauta (foto ou iniciais, número e nome): o clique preenche o número como se fosse digitado. */
+    function cartaoDaOpcao(p, o) {
+        var b = el('button', 'uOpcao');
+        b.type = 'button';
+        b.setAttribute('data-numero', numeroDe(p, o));
+        b.setAttribute('aria-label', texto('cartao_aria', {numero: numeroDe(p, o), nome: o.rotulo}));
+        var avatar = el('span', 'vAv', o.foto ? null : iniciais(o.rotulo));
+        if (o.foto) {
+            var foto = el('img');
+            foto.alt = '';
+            foto.src = o.foto;
+            avatar.appendChild(foto);
+        }
+        b.appendChild(avatar);
+        var tx = el('span', 'uOpcaoTx');
+        tx.appendChild(el('b', 'uOpcaoNum', numeroDe(p, o)));
+        tx.appendChild(el('span', 'uOpcaoNome', o.rotulo));
+        b.appendChild(tx);
+        if (jaEscolhida(o)) {
+            b.disabled = true;
+            b.classList.add('uOpcaoEscolhida');
+            b.setAttribute('aria-disabled', 'true');
+        }
+        b.addEventListener('click', function () { escolheCartao(p, o); });
+        return b;
+    }
+
+    function cartoesDaPauta(p) {
+        var grade = el('div', 'uOpcoes');
+        p.opcoes.filter(function (o) { return !o.abstencao; }).forEach(function (o) {
+            grade.appendChild(cartaoDaOpcao(p, o));
+        });
+        return grade;
+    }
+
+    function escolheCartao(p, o) {
+        if (!podeTeclar() || c.branco || jaEscolhida(o)) {
+            return;
+        }
+        tocar([[440, 0.06]], 0.05);
+        definir({dig: numeroDe(p, o)});
+        /* O redesenho destrói o cartão focado: o foco vai para o Confirma, destino previsível. */
+        var confirmar = raiz.querySelector('[data-u-confirma]');
+        if (confirmar) {
+            confirmar.focus();
+        }
+    }
+
     function centro() {
         var d = el('div', 'uFade uCentro');
         return d;
@@ -350,12 +398,16 @@
         } else {
             var dica = el('div', 'uRod uRodDica');
             var s = el('span', 'uRodTx');
-            s.appendChild(el('b', 'uOpcT', p.opcoes.filter(function (o) { return !o.abstencao; }).map(function (o) {
-                return numeroDe(p, o) + ' = ' + o.rotulo;
-            }).join('     ')));
             s.appendChild(document.createTextNode(vagasDa(p) > 1 ? texto('dica_varios', {n: String(vagasDa(p))}) : texto(p.eleicao ? 'dica_branco' : 'dica')));
             dica.appendChild(s);
             dica.appendChild(botao(texto('conhecer'), 'bi-person-lines-fill', '', function () { definir({ver: true}); }));
+            if (p.eleicao) {
+                wrap.appendChild(cartoesDaPauta(p));
+            } else {
+                s.insertBefore(el('b', 'uOpcT', p.opcoes.filter(function (o) { return !o.abstencao; }).map(function (o) {
+                    return numeroDe(p, o) + ' = ' + o.rotulo;
+                }).join('     ')), s.firstChild);
+            }
             wrap.appendChild(dica);
         }
         return wrap;
