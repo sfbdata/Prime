@@ -207,7 +207,13 @@ final class CedulaControllerTest extends JusPrimeWebTestCase
         self::assertStringContainsString("el('span', 'uOpcaoNome', o.rotulo)", $js);
         self::assertStringContainsString('definir({dig: numeroDe(p, o)});', $js, 'o clique preenche o número');
         self::assertStringContainsString('!o.abstencao', $js, 'branco fica fora dos cartões');
-        self::assertStringNotContainsString('uOpcT', $js, 'a lista em texto corrido saiu');
+        self::assertStringContainsString("if (p.eleicao) {\n                wrap.appendChild(cartoesDaPauta(p));", $js, 'cartões só em eleição');
+        self::assertStringContainsString("el('b', 'uOpcT'", $js, 'pauta sim/não mantém a lista em texto');
+        self::assertStringContainsString("raiz.querySelector('[data-u-confirma]')", $js);
+        self::assertStringContainsString('confirmar.focus();', $js, 'o foco vai ao Confirma após o clique');
+        self::assertStringContainsString('b.disabled = true;', $js, 'escolhido fica desabilitado');
+        self::assertStringContainsString("b.setAttribute('aria-disabled', 'true');", $js);
+        self::assertStringContainsString('c.branco || jaEscolhida(o)', $js);
 
         $css = (string) file_get_contents(__DIR__ . '/../../../public/css/voto-cabine.css');
         self::assertStringContainsString('.uOpcao:focus-visible { outline:3px solid #3b8fc2;', $css);

@@ -248,6 +248,11 @@
         tx.appendChild(el('b', 'uOpcaoNum', numeroDe(p, o)));
         tx.appendChild(el('span', 'uOpcaoNome', o.rotulo));
         b.appendChild(tx);
+        if (jaEscolhida(o)) {
+            b.disabled = true;
+            b.classList.add('uOpcaoEscolhida');
+            b.setAttribute('aria-disabled', 'true');
+        }
         b.addEventListener('click', function () { escolheCartao(p, o); });
         return b;
     }
@@ -261,11 +266,16 @@
     }
 
     function escolheCartao(p, o) {
-        if (!podeTeclar() || c.branco) {
+        if (!podeTeclar() || c.branco || jaEscolhida(o)) {
             return;
         }
         tocar([[440, 0.06]], 0.05);
         definir({dig: numeroDe(p, o)});
+        /* O redesenho destrói o cartão focado: o foco vai para o Confirma, destino previsível. */
+        var confirmar = raiz.querySelector('[data-u-confirma]');
+        if (confirmar) {
+            confirmar.focus();
+        }
     }
 
     function centro() {
@@ -391,7 +401,13 @@
             s.appendChild(document.createTextNode(vagasDa(p) > 1 ? texto('dica_varios', {n: String(vagasDa(p))}) : texto(p.eleicao ? 'dica_branco' : 'dica')));
             dica.appendChild(s);
             dica.appendChild(botao(texto('conhecer'), 'bi-person-lines-fill', '', function () { definir({ver: true}); }));
-            wrap.appendChild(cartoesDaPauta(p));
+            if (p.eleicao) {
+                wrap.appendChild(cartoesDaPauta(p));
+            } else {
+                s.insertBefore(el('b', 'uOpcT', p.opcoes.filter(function (o) { return !o.abstencao; }).map(function (o) {
+                    return numeroDe(p, o) + ' = ' + o.rotulo;
+                }).join('     ')), s.firstChild);
+            }
             wrap.appendChild(dica);
         }
         return wrap;

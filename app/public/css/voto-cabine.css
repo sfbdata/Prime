@@ -78,7 +78,8 @@ body.uAberta { overflow:hidden; }
 .uRodTx { flex:1 1 220px; }
 .uOpcoes { display:grid; grid-template-columns:repeat(2, minmax(0,1fr)); gap:8px; margin-bottom:10px; max-height:clamp(120px, 24vh, 220px); overflow:auto; padding:2px; }
 .uOpcao { display:flex; align-items:center; gap:10px; min-width:0; padding:6px 8px; background:#fff; border:1px solid #b9c0c9; border-radius:3px; cursor:pointer; text-align:left; font-family:Arial, Helvetica, sans-serif; color:#111; }
-.uOpcao:hover { background:#e5f1f7; border-color:#0a6fa0; }
+.uOpcao:disabled, .uOpcaoEscolhida { opacity:.5; cursor:not-allowed; background:#eef1f4; }
+.uOpcao:hover:not(:disabled) { background:#e5f1f7; border-color:#0a6fa0; }
 .uOpcao:focus-visible { outline:3px solid #3b8fc2; outline-offset:2px; }
 .uOpcao .vAv { width:44px; height:56px; font-size:16px; }
 .uOpcaoTx { display:flex; flex-direction:column; min-width:0; line-height:1.2; }
