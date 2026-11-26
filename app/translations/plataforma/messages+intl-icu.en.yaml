@@ -63,6 +63,8 @@ plataforma:
         reverter_para: Revert to…
         nao_verificada: Not verified
         divergente: Mismatched
+        conferir_site: Check on the OAB website
+        conferir_site_dica: "Check on the OAB website (registration {numero}, the site asks for a captcha)"
         reverificar_dica: Re-verify (automatic check unavailable)
         vazio_titulo: No registration in this queue
         vazio_com_busca: Adjust the search or change the filter.

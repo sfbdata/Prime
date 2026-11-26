@@ -1534,6 +1534,8 @@ master:
                 pend: Pendente
             confirmar: Confirmar inscrição
             verificar: Verificar de novo (nome no CNA)
+            conferir_site: "Conferir no site da OAB (inscrição {inscricao}, o site pede captcha)"
+            conferir_site_rotulo: Conferir no site da OAB
             janela:
                 titulo: Verificar de novo
                 texto: 'Escreva o nome que consta no CNA para a OAB {inscricao}. Deixe em branco se não achou a inscrição: ela fica registrada como não encontrada no CNA.'

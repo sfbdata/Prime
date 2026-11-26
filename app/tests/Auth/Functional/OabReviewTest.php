@@ -139,6 +139,23 @@ final class OabReviewTest extends JusPrimeWebTestCase
         self::assertStringContainsString('2 inscrições', $crawler->filter('.platform-badge')->text());
     }
 
+    #[TestDox('Cada linha tem o link para conferir no site da OAB, em nova aba, com a inscrição no title')]
+    public function testLinhaTemLinkParaOSiteDaOab(): void
+    {
+        $client = static::createClient();
+        $this->logar($client, $this->criarUsuario(['ROLE_SUPER_ADMIN']));
+
+        $adv = $this->criarAdvogado(StatusOab::NaoVerificada, '33333', 'SP');
+
+        $crawler = $client->request('GET', '/admin/platform/oab?status=todas&q=' . urlencode((string) $adv->getEmail()));
+
+        self::assertResponseIsSuccessful();
+        $link = $crawler->filter('table.platform-table tbody tr a[href="https://cna.oab.org.br/"][target="_blank"]');
+        self::assertCount(1, $link);
+        self::assertStringContainsString('noopener', (string) $link->attr('rel'));
+        self::assertStringContainsString('33333/SP', (string) $link->attr('title'));
+    }
+
     #[TestDox('Os filtros separam as inscrições pela situação de cada uma')]
     public function testFiltrosPorSituacaoDaInscricao(): void
     {

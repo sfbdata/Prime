@@ -664,3 +664,5 @@
 .mp .roab-confirmar:hover { background: #17633a; }
 .mp .roab-reverif { width: 32px; height: 30px; border: 1px solid #c5d2db; border-radius: 3px; background: #fff; color: #34505f; cursor: pointer; }
 .mp .roab-reverif:hover { border-color: #0a6fa0; color: #0a6fa0; }
+.mp .roab-site { display: inline-flex; align-items: center; justify-content: center; width: 22px; height: 22px; border-radius: 3px; color: #34505f; text-decoration: none; font-size: 12px; flex: none; }
+.mp .roab-site:hover { color: #0a6fa0; background: #eef4f8; }

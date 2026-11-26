@@ -1476,6 +1476,8 @@ master:
                 pend: Pending
             confirmar: Confirm registration
             verificar: Check again (name in the CNA)
+            conferir_site: "Check on the OAB website (registration {inscricao}, the site asks for a captcha)"
+            conferir_site_rotulo: Check on the OAB website
             janela:
                 titulo: Verify again
                 texto: 'Type the name on file in the CNA for OAB {inscricao}. Leave it blank if you did not find the registration: it is recorded as not found in the CNA.'
