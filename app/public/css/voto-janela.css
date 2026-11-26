@@ -39,6 +39,8 @@
 .vModAbrir a.vB { text-decoration: none; }
 .vModAbrir .vP { background: #0a6fa0; color: #fff; }
 .vModAbrir .vP:hover { background: #3b8fc2; border-color: #3b8fc2; }
+.vModAbrir .vD { color: #a3232b; border-color: #a3232b; }
+.vModAbrir .vD:hover { background: #a3232b; border-color: #a3232b; color: #fff; }
 .vModAbrir .vB:focus-visible { outline: 3px solid #3b8fc2; outline-offset: 1px; }
 .vModAbrir .vH { display: flex; align-items: center; gap: 9px; flex-wrap: wrap; padding: 10px 16px; background: #0a6fa0; color: #fff; font-size: 15.5px; font-weight: bold; }
 .vModAbrir .vB:disabled { opacity: .45; cursor: not-allowed; background: #fff; color: #5b7383; border-color: #c6d3dd; }
@@ -54,3 +56,4 @@
 /* Aviso "Ainda não liberado" (voto-indisponivel.js, _janela_indisponivel.html.twig). */
 .vModAbrir .voto-indisponivel { width: min(420px, 100%); }
 .voto-indisponivel-motivo { font-size: 14px; color: #243845; line-height: 1.45; }
+.voto-enviar-resto { font-size: 13px; color: #5b7383; }

@@ -25,6 +25,7 @@ use App\Voto\Entity\LiberacaoDoVoto;
 use App\Voto\Entity\OpcaoDaPauta;
 use App\Voto\Entity\ParticipacaoNaPauta;
 use App\Voto\Entity\PautaDaAssembleia;
+use App\Voto\UseCase\AbrirPautaUseCase;
 use App\Voto\Entity\UnidadeDaAssembleia;
 use App\Voto\Enum\BaseDaDecisao;
 use App\Voto\Enum\EstadoDaAssembleia;
@@ -420,9 +421,11 @@ final class AssembleiaGestorTest extends JusPrimeWebTestCase
 
         $this->client->request('POST', '/voto/assembleias/' . $a . '/pautas/' . $p . '/prazo', ['_token' => $this->tokenValido('voto_assembleia_' . $a), 'prazo_pronto' => '77', 'minutos' => '', 'voltar' => 'pautas']);
 
-        self::assertResponseRedirects();
+        self::assertResponseRedirects('/voto/assembleias/' . $a . '/pautas#pauta-' . $p);
         $restante = (new \DateTimeImmutable((string) $this->em->getConnection()->fetchOne('SELECT prazo_ate FROM voto.assembleia_pauta WHERE id = ?', [$p])))->getTimestamp() - time();
         self::assertGreaterThan(100 * 60, $restante, 'o prazo de 2 horas ficou como estava');
+        $tela = $this->client->followRedirect();
+        self::assertSame('Informe os minutos, de 1 a ' . AbrirPautaUseCase::MINUTOS_MAXIMOS . '.', trim($tela->filter('.voto-toast.voto-toast-erro')->text()));
     }
 
     #[TestDox('Enviar links: a janela de confirmação mostra quantas pessoas e a prévia do e-mail; GET direto no envio não dispara nada')]
@@ -446,12 +449,33 @@ final class AssembleiaGestorTest extends JusPrimeWebTestCase
         self::assertStringContainsString('AGO Torre Norte', $janela->filter('.voto-enviar-assunto')->text());
         $previa = (string) $janela->filter('iframe.voto-enviar-previa')->attr('srcdoc');
         self::assertStringContainsString('link individual de cada pessoa', $previa);
+        self::assertStringContainsString('href="#"', $previa, 'o botão da prévia não leva a lugar nenhum');
+        self::assertStringContainsString('pointer-events:none', $previa);
+        self::assertStringNotContainsString('/votar/', $previa, 'nenhum link real na prévia');
         self::assertStringContainsString('AGO Torre Norte', $previa);
         self::assertSame(['Cancelar', 'Enviar'], $janela->filter('.vModRodape button')->each(static fn ($b) => trim($b->text())));
 
         $this->client->request('GET', '/voto/assembleias/' . $a . '/unidades/enviar-links');
         self::assertResponseStatusCodeSame(405);
         self::assertEmailCount(0);
+    }
+
+    #[TestDox('Enviar links: com 30 pendentes a janela diz 25 pessoas (o lote) e "Restam 5 para o próximo envio"')]
+    public function testJanelaDeConfirmacaoRespeitaOLote(): void
+    {
+        $this->liberar();
+        $this->entrar($this->usuario());
+        $assembleia = AssembleiaFactory::new(['tenant' => $this->escritorio])->publicada()->create()->_real();
+        PautaDaAssembleiaFactory::new(['assembleia' => $assembleia])->comOpcoesPadrao()->create();
+        for ($i = 1; $i <= 30; ++$i) {
+            UnidadeDaAssembleiaFactory::createOne(['assembleia' => $assembleia, 'identificacao' => 'U' . $i, 'email' => 'u' . $i . '.voto@exemplo.com']);
+        }
+
+        $tela = $this->client->request('GET', '/voto/assembleias/' . $assembleia->getId() . '/unidades');
+
+        $janela = $tela->filter('#janela-enviar-links');
+        self::assertSame('Enviar para 25 pessoas?', trim($janela->filter('.vModCorpo > b')->text()));
+        self::assertSame('Restam 5 para o próximo envio.', trim($janela->filter('.voto-enviar-resto')->text()));
     }
 
     #[TestDox('Enviar links: sem ninguém para enviar, a janela diz isso e não tem o botão Enviar')]

@@ -709,6 +709,7 @@ voto:
                 confirmar_enviar: Enviar
                 cancelar: Cancelar
                 ninguem: 'Não há ninguém para enviar: todas as unidades aptas com e-mail já receberam o link.'
+                restam_proximo: 'Restam {x} para o próximo envio.'
                 previa_assunto: 'Assunto:'
                 previa_titulo: Prévia do e-mail
                 previa_dica: 'Prévia do e-mail com dados de exemplo. Cada pessoa recebe o próprio link individual.'

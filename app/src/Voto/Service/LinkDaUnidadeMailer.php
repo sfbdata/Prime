@@ -79,13 +79,22 @@ final class LinkDaUnidadeMailer
     {
         return $this->idiomaDoEmail->runWithLocale('pt_BR', fn (): array => [
             'assunto' => (string) $this->identidadeDeEmail->aplicar(new Email(), $this->assunto($tituloDaAssembleia))->getSubject(),
-            'html' => $this->renderizar(
+            'html' => $this->tornarInerte($this->renderizar(
                 $tituloDaAssembleia,
                 $this->tradutor->trans('voto.assembleia.gestor.links.previa_unidade'),
                 $this->tradutor->trans('voto.assembleia.gestor.links.previa_responsavel'),
-                $this->tradutor->trans('voto.assembleia.gestor.links.previa_link'),
-            ),
+                $textoDoLink = $this->tradutor->trans('voto.assembleia.gestor.links.previa_link'),
+            ), $textoDoLink),
         ]);
+    }
+
+    /** Na prévia o botão e o link não levam a lugar nenhum: href="#" e sem clique (pointer-events: none). */
+    private function tornarInerte(string $html, string $textoDoLink): string
+    {
+        $html = str_replace('href="' . htmlspecialchars($textoDoLink, \ENT_QUOTES) . '"', 'href="#"', $html);
+        $estilo = '<style>a{pointer-events:none;cursor:default}</style>';
+
+        return str_contains($html, '</head>') ? str_replace('</head>', $estilo . '</head>', $html) : $estilo . $html;
     }
 
     private function assunto(string $assembleia): string

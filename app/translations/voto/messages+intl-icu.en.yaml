@@ -664,6 +664,7 @@ voto:
                 confirmar_enviar: Send
                 cancelar: Cancel
                 ninguem: 'There is nobody to send to: every eligible unit with an email has already received the link.'
+                restam_proximo: '{x} remaining for the next send.'
                 previa_assunto: 'Subject:'
                 previa_titulo: Email preview
                 previa_dica: 'Email preview with sample data. Each person receives their own individual link.'

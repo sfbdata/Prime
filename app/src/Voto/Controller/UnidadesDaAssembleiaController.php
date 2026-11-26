@@ -58,6 +58,7 @@ final class UnidadesDaAssembleiaController extends AbstractController
             'tela' => $tela,
             'assembleia' => $tela->assembleia,
             'relatorio' => $this->avisos->retirarRelatorio(),
+            'lote_do_envio' => EnviarLinksPorEmailUseCase::LOTE,
             // Prévia do e-mail na janela de confirmação do envio (só depois de publicada; nada é enviado aqui).
             'previa_do_email' => $tela->assembleia->publicada() ? $mailer->previa($tela->assembleia->titulo) : null,
         ]);
