@@ -8,6 +8,48 @@ cada nível e o procedimento de release estão em [docs/versionamento.md](docs/v
 
 ## [Não lançado]
 
+## [3.11.0] - 2026-11-26
+
+### Adicionado
+
+- Comercial: plano de ativação de 7 dias para quem acabou de se cadastrar. O dia 1 é a boas-vindas (`val`), agora com o passo a passo da primeira pasta e lugar para o botão do vídeo (aparece quando houver link). Os dias 2 a 7 são seis automações novas (`at2` a `at7`) na lista da Central de envios, cada uma com liga/desliga e cópia editável na grade de modelos (`ativ2` a `ativ7`). Nascem desligadas.
+- A varredura de 15 em 15 minutos manda o passo do dia N quando a confirmação do cadastro faz N-1 dias (tolerância de 2 dias para worker parado), um passo por vez, sem repetir: o que já saiu vem do registro de envios. O dia 6 vai só a quem está num escritório sem nenhuma pasta. Os passos são e-mails de lista (`comercial_dicas`): respeitam o descadastro e medem a leitura.
+- Migration Version20261126140000: só as 6 linhas novas em `comercial_automacao`, sem mudança de esquema.
+- Artigos dos blogs (Painel do Master): ação "Agendar" na lista e no editor do rascunho, com janela de data e hora (horário de Brasília, só futuro) e as mesmas verificações de Publicar; "Cancelar agendamento" devolve o artigo a rascunho. A lista mostra a situação "Agendado" e "Agendado para dd/mm/aaaa hh:mm".
+- Nova tarefa agendada `blog:publicar-agendados` (a cada 5 minutos, no scheduler): publica os artigos agendados cuja hora chegou, um por vez, pelo mesmo caminho de Publicar (motivo "Artigo agendado"). Artigo que falha volta a rascunho, entra no log e o aviso de falha do agendador chega ao Master.
+- Conector de I.A. (`ler_clientes`): ação nova `pendencias`, só leitura. Lista numa chamada os clientes a que falta um campo do cadastro (`faltando`: cpf, rg, endereco e os demais campos; sem ele, CPF ou CNPJ), com id, nome, tipo, campos que faltam e as pastas vinculadas que a pessoa abre (id e número); visão `pastas_sem_cliente` lista as pastas ativas sem cliente vinculado (exige também o módulo Expediente; para quem tem acesso restrito, `omitidas_sem_acesso` conta só as pastas do seu escopo). Página de 100 (até 200) e o total do filtro. Valores de CPF, RG, nascimento, e-mail, telefone e endereço nunca saem; pasta em segredo de justiça sai e é contada; pasta trancada ou sem acesso não aparece.
+- Conector de I.A. (`ler_documentos_e_modelos`, ação `listar`): filtros opcionais `categoria`, `nome` (trecho, sem ligar para maiúsculas e acentos, casado só contra o nome como sai na resposta, já mascarado), `tipo` (extensão ou mime; jpg e jpeg são o mesmo, tif e tiff também) e `subpasta_id` (0 = fora das subpastas), `total` do filtro e `total_na_pasta`; modo `compacto` (id, nome e categoria) com 100 por página, até 200.
+- Conector de I.A. (`buscar_pastas`, ações `buscar` e `minhas_demandas`): o campo `clientes` vinha vazio em toda pasta com cliente vinculado (desde 27/10/2026 o identificador da Lista é o cliente principal, e a lista de nomes só saía sem identificador). Agora traz os nomes dos vínculos pela mesma rotina do resumo da `ler_pasta` (mesma ordem, corte de 10 e rótulo da PJ com o nome fantasia), com `clientes_ids`, `cliente_principal` e `clientes_omitidos`; lista vazia só quando a pasta não tem cliente, e campo não carregado não vem. Pasta trancada mostra só o nome do cliente principal, como a Lista.
+- Conector de I.A. (`ler_pasta`, resumo): com as abas Dados e Processo ocultas, os processos vêm como "sem acesso" (`total` nulo e `sem_acesso`), não mais como "nenhum processo vinculado".
+- Conector: `ler_documentos_e_modelos` ganha a ação de leitura `duplicados`. Sem `pasta_id`, totais do escritório e pastas com documentos repetidos (100 por página); com `pasta_id`, os grupos da pasta com os documentos de cada um. Critério `conteudo` (mesmo sha256) e `provavel` (mesmo nome e tamanho entre documentos ainda sem hash), separados. Segredo de justiça, cadeado e aba Documentos oculta saem e são contados; contrato sai com a aba Financeiro oculta. Nada é excluído.
+- Conector: a `copiar` da `documentos_e_pecas` devolve um aviso de que a cópia deixa o arquivo repetido na pasta.
+- `pasta_id` deixa de ser obrigatório no esquema da `ler_documentos_e_modelos` (continua exigido em todas as ações menos `duplicados`).
+- Revisão de OAB do Master (aba do painel e tela da plataforma): cada inscrição ganhou o botão "Conferir no site da OAB", que abre https://cna.oab.org.br/ em uma nova aba (o site pede captcha, então a consulta é manual). O número e a UF da inscrição aparecem na dica do botão.
+- Revisão de OAB: "Verificar de novo (nome no CNA)" com o nome em branco registra a inscrição como não encontrada no CNA (Divergente, sem nome, com a data), em vez de voltar a Não verificada sem registro. A lista mostra o motivo da Divergente (não encontrada no CNA, nome ou situação, formato), tirado do que já está gravado, sem coluna nova.
+- Meu Perfil: inscrição Divergente mostra o aviso "Não achamos a OAB nº X/UF no Cadastro Nacional dos Advogados. Confira o número." com o atalho "Corrigir o número", que abre a inscrição no modal. Salvar número ou UF novos roda a validação de novo na hora (ValidadorOab); consulta que falha deixa Pendente.
+- Aviso da OAB não encontrada no topo das telas, uma vez por sessão, para a própria pessoa (layout/_globais/aviso_oab.html.twig, AvisoDaOabExtension, ObterAvisoDaOabUseCase), com o link /perfil#corrigir-oab-ID.
+- Selo "OAB validada" ao lado do número das inscrições confirmadas no Meu Perfil, com animação curta só na primeira vez depois de cada confirmação (marca no navegador).
+- Revisão de OAB: o "Verificar de novo" abre uma janela na página (componente mp-conf do painel) com o campo "Nome no CNA" e Cancelar/Salvar, no lugar do prompt do navegador. A ajuda da validação automática passa a dizer que só o formato é conferido sozinho; nome e situação no CNA são conferidos à mão.
+- Consulta ao CNA sem resposta (VerificarInscricaoOabUseCase, VerificarOabUseCase) não sobrescreve mais um resultado registrado (Divergente com data ou Confirmada). O texto do aviso segue o motivo da divergência (não encontrada, nome ou situação, formato); o aviso do topo fica fora das telas públicas e a marca da sessão só é gravada quando ele é desenhado.
+- Voto: caixa "Acompanhar" abaixo do cartão de cada pauta na cédula do eleitor, com o estado da votação, "N de M já votaram" e barra de progresso, atualizada sozinha a cada 10 s por uma requisição só por cédula, `GET /votar/{token}/participacao` (só contagens de unidades aptas, sem voto por opção; 404 para token inválido ou assembleia não publicada; limite de 12 por minuto por token, novo limitador `voto_cedula_participacao`). Para de perguntar com a aba oculta e quando as pautas encerram, e espaça as tentativas se o servidor pedir calma.
+- Voto: o eleitor pode registrar uma ocorrência na votação pelo Portal do Eleitor (link discreto "Registrar ocorrência", janela de confirmação e formulário com a qualificação dele, texto de até 500 caracteres e limite de 5 por unidade em cada assembleia, com a votação aberta ou encerrada). Migration `Version20261126150000` cria a tabela `voto.ocorrencia_da_votacao` (assembleia, pauta opcional, unidade, nome e unidade congelados, texto e data).
+- Voto: nova sub-aba "Ocorrências" na gestão da assembleia (só para quem gere) e seção "Ocorrências registradas" na ata e na minuta ("Nenhuma ocorrência registrada" quando não há).
+- Voto: campo opcional "Sala virtual" na assembleia (editável também depois de publicar, pelo menu de três pontos) (link http ou https, até 500 caracteres, coluna `voto.assembleia.link_sala_virtual`), mostrado na Gestão eleitoral e na faixa "Acompanhar" do Portal do Eleitor, com o botão "Abrir sala" em nova aba e, sem link, o aviso na própria página.
+- Voto: "Apagar votação" no menu de três pontos de toda votação sem pauta aberta nem programada para abrir (teste, arquivada, nunca aberta ou encerrada), com janela que exige digitar o nome ou APAGAR; votos, unidades, candidaturas, edital e ata saem de vez e a exclusão fica no audit_log.
+- Voto: na urna do eleitor, a lista de candidatos em texto corrido virou cartões clicáveis (foto ou iniciais, número e nome, `<button>` com `data-numero` e `aria-label`); o clique preenche o número como se fosse digitado, e a confirmação com foto e nome segue igual. Textos `cartao_aria` em pt_BR e en.
+
+### Alterado
+
+- Voto: abas na ordem Gestão eleitoral, Acompanhar, Votar e Resultados, com Gestão eleitoral como aba inicial.
+- Voto: "Enviar links por e-mail" abre janela de confirmação com o número de pessoas e a prévia do e-mail (assunto e texto) antes de enviar.
+- Voto: prazo da pauta aberta com botões prontos de 30, 60 e 120 minutos e o campo "Outro, em minutos" com rótulo.
+- Voto: espaço no rodapé do assistente "Nova assembleia" para o balão da Central de Comunicação não cobrir o "Continuar".
+- Voto: botões da janela "Ajustar a foto" com o estilo do Voto.
+- Voto: componente de aviso "Ainda não liberado" (data-voto-indisponivel) aplicado a Assistir e Unidades de pauta ainda não aberta.
+- Voto: o assistente da assembleia passa de 7 para 5 passos (Categoria, Cargos, Lista de aptos, Equipe e Revisar); o peso do voto, o resumo das regras de cada pauta e o texto do acesso foram para o passo 1.
+- Voto: na lista de aptos, a forma principal é uma tabela (Unidade, Nome, E-mail, com Adicionar linha e remover); colar a lista e importar planilha ficam em "Opção avançada". O rótulo da associação passa de CPF para Unidade.
+- Voto: as regras prontas das pautas usam o vocabulário da categoria (associados, estatuto) e a eleição com mais de uma vaga aparece como "Eleição · N vagas".
+
 ## [3.10.0] - 2026-11-25
 
 ### Adicionado
@@ -2577,7 +2619,8 @@ justificativa está em `docs/versionamento.md`.
 Primeira versão marcada no repositório (tag `v1.0.0`, commit `4940cc87`). Não há registro
 detalhado do que ela continha.
 
-[Não lançado]: https://github.com/sfbdata/Prime/compare/v3.10.0...HEAD
+[Não lançado]: https://github.com/sfbdata/Prime/compare/v3.11.0...HEAD
+[3.11.0]: https://github.com/sfbdata/Prime/compare/v3.10.0...v3.11.0
 [3.10.0]: https://github.com/sfbdata/Prime/compare/v3.9.1...v3.10.0
 [3.9.1]: https://github.com/sfbdata/Prime/compare/v3.9.0...v3.9.1
 [3.9.0]: https://github.com/sfbdata/Prime/compare/v3.8.0...v3.9.0
