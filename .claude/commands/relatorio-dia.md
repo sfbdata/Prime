@@ -53,7 +53,20 @@ permanecem proibidas.)
    "Bastidores (sem impacto visível)", ou omita se forem irrelevantes para o
    chefe. Não encha o relatório com detalhe técnico.
 
-5. **Escrever no formato abaixo** e entregar dentro de um único bloco de código,
+5. **Juntar as telas a conferir** (regra do Samuel, 26/11/2026). Toda tela que
+   precisa ser olhada por alguém depois de publicada entra no relatório como
+   pendência. Fontes:
+   - a seção "Olhar na tela" (ou "O que olhar na tela") do corpo dos PRs
+     mergeados no dia (`gh pr list --state merged --search "merged:AAAA-MM-DD"
+     --json number,body`);
+   - o arquivo `~/projetos/bluejus-coordenacao/telas-para-conferir.md`, se
+     existir (itens ainda sem `[x]`).
+   Escreva de forma **genérica**, sem dizer quem confere: nunca "para o Farlei
+   conferir" nem "o Samuel precisa olhar". Use o formato
+   `• *Pendência:* conferir as telas X, Y e Z (o que observar em cada uma).`
+   Junte telas do mesmo assunto numa linha; nomes de tela em linguagem simples.
+
+6. **Escrever no formato abaixo** e entregar dentro de um único bloco de código,
    para o humano copiar inteiro de uma vez.
 
 ## Formato de saída
@@ -79,6 +92,7 @@ Resumo do que foi feito no sistema hoje:
 
 ⏳ *Pendências em aberto*   ← inclua só se houver
 • 🔴 *Urgente:* ...   (use 🔴 para o que precisa de atenção imediata)
+• *Pendência:* conferir as telas X, Y e Z (o que observar).   ← passo 5
 • ...
 
 ✅ *Resumo:* uma frase fechando o dia — o que avançou e o que fica pendente.
