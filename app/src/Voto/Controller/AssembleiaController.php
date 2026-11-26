@@ -181,15 +181,22 @@ final class AssembleiaController extends AbstractController
     /**
      * Passo 4 (Equipe) do assistente de 5 passos (desenho 18). O que eram os passos "Regras e prazo" e "Acesso" mora no
      * passo 1 (`editar`): o peso do voto, o resumo das regras de cada pauta e o texto do acesso. Os passos 1, 2, 3 e 5 são
-     * `editar`, `pautas`, `unidades` e a conferência. Publicada não tem assistente: vai para a mesa.
+     * `editar`, `pautas`, `unidades` e a conferência. Os endereços antigos /passo/2, /3 e /6 redirecionam. Publicada não tem assistente: vai para a mesa.
      */
-    #[Route('/{id}/passo/{passo}', name: 'voto_assembleia_passo', requirements: ['passo' => '4'], methods: ['GET'])]
+    #[Route('/{id}/passo/{passo}', name: 'voto_assembleia_passo', requirements: ['passo' => '[2346]'], methods: ['GET'])]
     public function passo(int $id, int $passo, ObterEquipeDaAssembleiaUseCase $obterEquipe, AcessoAAssembleia $acesso): Response
     {
         $tenant = $this->guarda->exigir();
         $assembleia = $this->lida($tenant, $id);
         if (!$assembleia->podeAlterarPautas) {
             return $this->redirectToRoute('voto_assembleia_pautas', ['id' => $id]);
+        }
+        // Endereços do assistente de 7 passos (guardados): Regras e Acesso agora estão no passo 1; a Equipe era o 6.
+        if (\in_array($passo, [2, 3], true)) {
+            return $this->redirectToRoute('voto_assembleia_editar', ['id' => $id]);
+        }
+        if (6 === $passo) {
+            return $this->redirectToRoute('voto_assembleia_passo', ['id' => $id, 'passo' => 4]);
         }
 
         return $this->render('voto/assembleia/passo.html.twig', [

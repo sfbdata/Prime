@@ -252,7 +252,7 @@ final class UnidadesDaAssembleiaControllerTest extends JusPrimeWebTestCase
         $form = $pagina->filter('form[data-voto-aptos]')->form();
         $valores = $form->getPhpValues();
         $valores['linha_unidade'] = ['Lote 07', '', 'Lote 08'];
-        $valores['linha_nome'] = ['Ana Souza', '', 'Bruno; Lima'];
+        $valores['linha_nome'] = ['Ana Souza', '', 'Zé "Silva"; Lima, filho'];
         $valores['linha_email'] = ['ana@exemplo.com', '', 'bruno@exemplo.com'];
         $this->client->request('POST', $form->getUri(), $valores);
         self::assertResponseRedirects('/voto/assembleias/' . $a->getId() . '/unidades');
@@ -262,6 +262,7 @@ final class UnidadesDaAssembleiaControllerTest extends JusPrimeWebTestCase
         self::assertCount(2, $gravadas);
         self::assertSame(['Lote 07', 'Lote 08'], array_map(static fn (UnidadeDaAssembleia $u): string => $u->getIdentificacao(), $gravadas));
         self::assertSame('Ana Souza', $gravadas[0]->getResponsavel());
+        self::assertSame('Zé "Silva"; Lima, filho', $gravadas[1]->getResponsavel());
         self::assertSame('bruno@exemplo.com', $gravadas[1]->getEmail());
         self::assertTrue($gravadas[0]->isApta());
 
@@ -269,6 +270,27 @@ final class UnidadesDaAssembleiaControllerTest extends JusPrimeWebTestCase
         $this->client->request('POST', $form->getUri(), $valores);
         $this->em->clear();
         self::assertCount(2, $this->em->getRepository(UnidadeDaAssembleia::class)->findBy(['assembleia' => $a->getId()]));
+    }
+
+    #[TestDox('Tabela de aptos: erro cita a linha como aparece na tela e a unidade chamada "Unidade" na 1ª linha não é descartada')]
+    public function testTabelaDeAptosNumeraComoATela(): void
+    {
+        $this->liberar();
+        $this->entrar();
+        $a = AssembleiaFactory::new(['tenant' => $this->escritorio, 'cenario' => CenarioDaAssembleia::Associacao])->create()->_real();
+        $pagina = $this->client->request('GET', '/voto/assembleias/' . $a->getId() . '/unidades');
+        $form = $pagina->filter('form[data-voto-aptos]')->form();
+        $valores = $form->getPhpValues();
+        $valores['linha_unidade'] = ['Unidade', '', ''];
+        $valores['linha_nome'] = ['Ana', '', 'Sem unidade'];
+        $valores['linha_email'] = ['', '', ''];
+        $this->client->request('POST', $form->getUri(), $valores);
+        $tela = $this->client->followRedirect();
+        self::assertStringContainsString('Linha 3', $tela->filter('.voto-relatorio')->text());
+
+        $this->em->clear();
+        $gravadas = $this->em->getRepository(UnidadeDaAssembleia::class)->findBy(['assembleia' => $a->getId()]);
+        self::assertSame(['Unidade'], array_map(static fn (UnidadeDaAssembleia $u): string => $u->getIdentificacao(), $gravadas));
     }
 
     #[TestDox('Tabela de aptos de outro escritório: 404 e nada gravado')]

@@ -188,9 +188,10 @@ final class AssistenteDaAssembleiaTest extends JusPrimeWebTestCase
         self::assertSame('Quem conduz a votação', trim($quatro->filter('.voto-etapa-titulo')->text()));
         self::assertSame('/voto/assembleias/' . $id . '/unidades', $quatro->selectLink('Voltar')->attr('href'));
         self::assertSame('/voto/assembleias/' . $id . '/publicar', $quatro->selectLink('Continuar')->attr('href'));
-        foreach ([2, 3, 6] as $antigo) {
+        foreach ([2 => '/editar', 3 => '/editar', 6 => '/passo/4'] as $antigo => $destino) {
             $this->client->request('GET', '/voto/assembleias/' . $id . '/passo/' . $antigo);
-            self::assertResponseStatusCodeSame(404);
+            self::assertResponseStatusCodeSame(302, 'o endereço antigo /passo/' . $antigo . ' redireciona');
+            self::assertResponseRedirects('/voto/assembleias/' . $id . $destino);
         }
     }
 
@@ -333,7 +334,7 @@ final class AssistenteDaAssembleiaTest extends JusPrimeWebTestCase
     public function testOutroEscritorioDa404(): void
     {
         $outra = AssembleiaFactory::createOne()->_real();
-        foreach (['/passo/4', '/editar', '/pautas?urna=1'] as $caminho) {
+        foreach (['/passo/4', '/passo/2', '/passo/6', '/editar', '/pautas?urna=1'] as $caminho) {
             $this->client->request('GET', '/voto/assembleias/' . $outra->getId() . $caminho);
             self::assertResponseStatusCodeSame(404, $caminho);
         }

@@ -64,17 +64,36 @@ final class ImportarUnidadesUseCase
         );
     }
 
+    /**
+     * A tabela da tela "Lista de aptos" (unidade; bloco; situação; fração; responsável; e-mail...), linha a linha, sem
+     * passar por texto: aspas, ponto e vírgula e vírgula dentro do nome não quebram a linha. O número da linha nos erros
+     * é o da tabela como aparece na tela.
+     *
+     * @param list<list<string>> $linhas
+     */
+    public function executarTabela(Tenant $tenant, int $assembleiaId, array $linhas): ResultadoDaImportacao
+    {
+        return $this->serializacao->executar(
+            $tenant,
+            $assembleiaId,
+            fn (): ResultadoDaImportacao => $this->executarComConfiguracaoReservada($tenant, $assembleiaId, $linhas),
+        );
+    }
+
+    /** @param string|UploadedFile|list<list<string>> $entrada */
     private function executarComConfiguracaoReservada(
         Tenant $tenant,
         int $assembleiaId,
-        string|UploadedFile $entrada,
+        string|UploadedFile|array $entrada,
     ): ResultadoDaImportacao {
         $assembleia = $this->assembleias->buscarDoEscritorio($assembleiaId, $tenant)
             ?? throw new AssembleiaNaoEncontradaException();
         $assembleia->exigirUnidadesAlteraveis();
-        $lidas = $entrada instanceof UploadedFile
-            ? $this->leitor->lerTabela($this->arquivos->ler($entrada), $assembleia->getPeso())
-            : $this->leitor->ler($entrada, $assembleia->getPeso());
+        $lidas = match (true) {
+            $entrada instanceof UploadedFile => $this->leitor->lerTabela($this->arquivos->ler($entrada), $assembleia->getPeso()),
+            \is_array($entrada) => $this->leitor->lerTabela($entrada, $assembleia->getPeso(), pularCabecalho: false),
+            default => $this->leitor->ler($entrada, $assembleia->getPeso()),
+        };
 
         return $this->importarLinhas($assembleia, $lidas);
     }

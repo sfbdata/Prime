@@ -351,9 +351,10 @@ voto:
                 dica_eleicao: 'Fill in at least two candidates before publishing.'
                 regra_pronta: 'Ready-made rule'
                 preset_personalizada: 'Custom'
-                preset_simples: 'Majority of those present; 1st call with half of the fractions'
+                preset_simples: 'Majority of those present; 1st call with half of the shares'
+                preset_simples_geral: 'Majority of those present; 1st call with half of the {votantes}'
                 preset_absoluta: 'Absolute majority of all eligible voters (e.g., removal)'
-                preset_dois: 'Two thirds of the owners votes (e.g., bylaws)'
+                preset_dois: 'Two thirds of the votes of the {votantes} (e.g., {documento})'
                 preset_unanime: 'Unanimity'
                 vagas: 'Seats'
                 digitos: 'Digits'
@@ -596,6 +597,12 @@ voto:
                 mensagem_copiada: Message copied.
             unidades:
                 titulo: Units and links
+                coluna_nome: Name
+                adicionar_linha: Add row
+                remover_linha: Remove row
+                salvar_tabela: Save the list
+                opcao_avancada: Advanced option (paste the list or import a spreadsheet)
+                texto_tabela: 'Fill in one row for each {unidade} that can vote: the identification, the name of the voter and the e-mail the link is sent to. Use "Add row" to include more. Anyone already on the list is not repeated.'
                 texto: 'Paste the list, one line per record: {identificacao}; {grupo}; status; fraction; contact person; email; phone (optional); occurrence (optional, up to 80 characters). Without a status, the record is eligible; with one, only "apto", "adimplente", "regular", or "quite" allow voting. A weighted vote requires the fraction. The list is locked after opening.'
                 importacao_arquivo: You can also import an XLSX or CSV file. A second import adds units and keeps the ones already registered.
                 arquivo: XLSX or CSV file (up to 10 MB)
