@@ -13,6 +13,7 @@ use App\Conector\Ferramenta\LerPastaFerramenta;
 use App\Entity\Auth\User;
 use App\Entity\Auth\UserTenant;
 use App\Entity\Tenant\Tenant;
+use App\Inteligencia\Contexto\MontadorDeContextoDaPasta;
 use App\Pasta\Entity\AbaDaPasta;
 use App\Pasta\Entity\AbaOcultaDaPasta;
 use App\Pasta\Entity\CadeadoDaPasta;
@@ -23,6 +24,7 @@ use App\Pasta\Entity\PastaProcesso;
 use App\Processo\Entity\Processo;
 use App\Tests\Conector\Support\CenarioDoConectorTrait;
 use App\Tests\Factory\Cliente\ClientePFFactory;
+use App\Tests\Factory\Cliente\ClientePJFactory;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\TestDox;
 use Symfony\Bundle\FrameworkBundle\Test\KernelTestCase;
@@ -80,7 +82,7 @@ final class BuscarPastasFerramentaTest extends KernelTestCase
         self::assertSame(1, $resposta->dados['omitidas_em_segredo']);
         self::assertSame(0, $resposta->dados['omitidas_sem_acesso']);
         self::assertNull($resposta->proximaPagina);
-        self::assertSame(['id', 'numero', 'identificador', 'clientes', 'clientes_ids', 'cliente_principal', 'trancada'], array_keys($porId[$trancada->getId()]));
+        self::assertSame(['id', 'numero', 'identificador', 'clientes', 'trancada'], array_keys($porId[$trancada->getId()]));
         self::assertTrue($porId[$trancada->getId()]['trancada']);
 
         $linha = $porId[$comum->getId()];
@@ -93,16 +95,16 @@ final class BuscarPastasFerramentaTest extends KernelTestCase
         self::assertSame(['pasta' => array_column($resposta->dados['pastas'], 'id')], $resposta->ids);
     }
 
-    #[TestDox('buscar: a pasta com cliente vinculado traz os clientes (o principal primeiro), os ids e o principal, os mesmos do resumo da ler_pasta; lista vazia só na pasta sem cliente (M9, item 4)')]
+    #[TestDox('buscar: a pasta com cliente vinculado traz os clientes na mesma ordem, com o mesmo rótulo da PJ do resumo da ler_pasta, os ids e o principal; lista vazia só na pasta sem cliente (M9, item 4)')]
     public function testClientesVinculadosNaLista(): void
     {
         $escritorio = $this->escritorio();
         $vinculo = $this->vinculo($this->pessoa(), $escritorio, permissoes: self::LEITOR);
+        $empresa = ClientePJFactory::createOne(['tenant' => $escritorio, 'razaoSocial' => 'Ana Comércio Ltda', 'nomeFantasia' => 'Loja da Ana'])->_real();
         $principal = ClientePFFactory::createOne(['tenant' => $escritorio, 'nomeCompleto' => 'Zélia Principal', 'cpf' => self::CPF])->_real();
-        $outro = ClientePFFactory::createOne(['tenant' => $escritorio, 'nomeCompleto' => 'Ana Também Vinculada', 'cpf' => ''])->_real();
         $comClientes = $this->pasta($escritorio, comProcesso: false);
         $comClientes->addCliente($principal);
-        $comClientes->addCliente($outro);
+        $comClientes->addCliente($empresa);
         $comClientes->setNomeCliente('Nome Antigo Escrito');
         $semCliente = $this->pasta($escritorio, comProcesso: false);
         $this->em()->flush();
@@ -113,10 +115,13 @@ final class BuscarPastasFerramentaTest extends KernelTestCase
 
         $porId = array_column($resposta->dados['pastas'], null, 'id');
         $linha = $porId[$comClientes->getId()];
-        self::assertSame(['ZÉLIA PRINCIPAL', 'ANA TAMBÉM VINCULADA'], $linha['clientes'], 'o principal primeiro, mesmo com identificador');
-        self::assertSame([(int) $principal->getId(), (int) $outro->getId()], $linha['clientes_ids']);
+        self::assertCount(2, $linha['clientes']);
+        self::assertSame('ANA COMÉRCIO LTDA (LOJA DA ANA)', $linha['clientes'][0], 'a PJ com o nome fantasia entre parênteses, como no resumo');
+        self::assertSame('ZÉLIA PRINCIPAL', $linha['clientes'][1], 'a ordem do id, a mesma do resumo; o principal não sobe');
+        self::assertSame([(int) $empresa->getId(), (int) $principal->getId()], $linha['clientes_ids']);
         self::assertSame(['id' => (int) $principal->getId(), 'nome' => 'ZÉLIA PRINCIPAL'], $linha['cliente_principal']);
         self::assertNotNull($linha['identificador']);
+        self::assertArrayNotHasKey('clientes_omitidos', $linha);
         self::assertSame([], $porId[$semCliente->getId()]['clientes'], 'vazio só quando não há cliente vinculado');
         self::assertNull($porId[$semCliente->getId()]['cliente_principal']);
         self::assertStringNotContainsString(self::CPF, json_encode($resposta->dados, \JSON_THROW_ON_ERROR | \JSON_UNESCAPED_UNICODE));
@@ -124,11 +129,34 @@ final class BuscarPastasFerramentaTest extends KernelTestCase
 
         static::getContainer()->get('services_resetter')->reset();
         $resumo = static::getContainer()->get(LerPastaFerramenta::class)->executar(['pasta_id' => $comClientes->getId()], $this->abrir($vinculo))->dados['resumo'];
-        self::assertStringContainsString('ZÉLIA PRINCIPAL · pessoa física · cliente principal', $resumo['clientes']['texto'], 'o resumo mostra o mesmo cliente principal');
-        self::assertStringContainsString('ANA TAMBÉM VINCULADA', $resumo['clientes']['texto']);
+        preg_match_all('/^(?:• )?(.+?) · (?:pessoa física|pessoa jurídica|cliente)/mu', $resumo['clientes']['texto'], $doResumo);
+        self::assertSame($doResumo[1], $linha['clientes'], 'a lista e o resumo saem da mesma rotina: mesma ordem e mesmo rótulo');
+        self::assertStringContainsString('ZÉLIA PRINCIPAL · pessoa física · cliente principal', $resumo['clientes']['texto']);
     }
 
-    #[TestDox('buscar: a pasta trancada com cliente vinculado mostra o cliente (número e cliente, como a Lista) e nada do resto; a em segredo não revela o cliente')]
+    #[TestDox('buscar: mais clientes que o corte do resumo mostram os mesmos 10 e contam o resto em clientes_omitidos')]
+    public function testCorteDosClientesIgualAoDoResumo(): void
+    {
+        $escritorio = $this->escritorio();
+        $vinculo = $this->vinculo($this->pessoa(), $escritorio, permissoes: self::LEITOR);
+        $pasta = $this->pasta($escritorio, comProcesso: false);
+        $ids = [];
+        for ($i = 1; $i <= MontadorDeContextoDaPasta::LIMITE_CLIENTES + 2; ++$i) {
+            $cliente = ClientePFFactory::createOne(['tenant' => $escritorio, 'nomeCompleto' => sprintf('Cliente Numero %02d', $i), 'cpf' => ''])->_real();
+            $pasta->addCliente($cliente);
+            $ids[] = (int) $cliente->getId();
+        }
+        $this->em()->flush();
+        static::getContainer()->get('services_resetter')->reset();
+        $this->em()->clear();
+
+        $linha = array_column($this->executar(['acao' => 'buscar'], $vinculo)->dados['pastas'], null, 'id')[$pasta->getId()];
+
+        self::assertSame(\array_slice($ids, 0, MontadorDeContextoDaPasta::LIMITE_CLIENTES), $linha['clientes_ids']);
+        self::assertSame(2, $linha['clientes_omitidos']);
+    }
+
+    #[TestDox('buscar: a pasta trancada mostra só o cliente principal (como a Lista), sem os outros clientes nem ids; a em segredo não revela o cliente')]
     public function testClientesNaTrancadaENaEmSegredo(): void
     {
         $escritorio = $this->escritorio();
@@ -137,6 +165,7 @@ final class BuscarPastasFerramentaTest extends KernelTestCase
         $segredo = ClientePFFactory::createOne(['tenant' => $escritorio, 'nomeCompleto' => 'Cliente Do Segredo', 'cpf' => ''])->_real();
         $trancada = $this->pasta($escritorio, comProcesso: false);
         $trancada->addCliente($cliente);
+        $trancada->addCliente(ClientePFFactory::createOne(['tenant' => $escritorio, 'nomeCompleto' => 'Cocliente Da Trancada', 'cpf' => ''])->_real());
         $this->em()->persist(new CadeadoDaPasta($escritorio, $trancada, ModoDoCadeado::Todos, null, new \DateTimeImmutable()));
         $secreta = $this->pasta($escritorio, nivelSigilo: 1);
         $secreta->addCliente($segredo);
@@ -146,7 +175,10 @@ final class BuscarPastasFerramentaTest extends KernelTestCase
 
         $linha = array_column($resposta->dados['pastas'], null, 'id')[$trancada->getId()];
         self::assertTrue($linha['trancada']);
-        self::assertSame(['CLIENTE DA TRANCADA'], $linha['clientes']);
+        self::assertSame(['CLIENTE DA TRANCADA'], $linha['clientes'], 'só o cliente principal, como a Lista');
+        self::assertArrayNotHasKey('clientes_ids', $linha, 'a trancada não mostra ids');
+        self::assertArrayNotHasKey('cliente_principal', $linha);
+        self::assertStringNotContainsString('COCLIENTE DA TRANCADA', json_encode($resposta->dados, \JSON_THROW_ON_ERROR | \JSON_UNESCAPED_UNICODE), 'sem os outros clientes');
         self::assertSame(1, $resposta->dados['omitidas_em_segredo']);
         self::assertStringNotContainsString('CLIENTE DO SEGREDO', json_encode($resposta->dados, \JSON_THROW_ON_ERROR | \JSON_UNESCAPED_UNICODE));
     }

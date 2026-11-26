@@ -47,6 +47,8 @@ final class LerClientesPendenciasTest extends KernelTestCase
     private const LOGRADOURO = 'Rua das Acácias Escondidas';
     private const CEP = '70390-100';
     private const LEITOR = ['modules.clientes.view', 'resources.cliente.view', 'resources.pasta.view'];
+    /** A visão pastas_sem_cliente lista pastas: exige também o módulo Expediente, como a buscar_pastas. */
+    private const LEITOR_DE_PASTAS = ['modules.clientes.view', 'resources.cliente.view', 'resources.pasta.view', 'modules.expediente.view'];
 
     private Tenant $escritorio;
     private User $pessoa;
@@ -241,9 +243,11 @@ final class LerClientesPendenciasTest extends KernelTestCase
         $trancada = $this->pasta(null, 'SEMCLI-TRANCADA');
         $this->em()->persist(new CadeadoDaPasta($this->escritorio, $trancada, ModoDoCadeado::Todos, null, new \DateTimeImmutable()));
         $this->pasta(null, 'SEMCLI-OUTRO', escritorio: $this->escritorio('Outro'));
+        $leitor = $this->pessoa();
+        $this->vinculo($leitor, $this->escritorio, permissoes: self::LEITOR_DE_PASTAS);
         $this->em()->flush();
 
-        $resposta = $this->ler(['acao' => 'pendencias', 'visao' => 'pastas_sem_cliente']);
+        $resposta = $this->ler(['acao' => 'pendencias', 'visao' => 'pastas_sem_cliente'], $leitor);
 
         self::assertSame('pastas_sem_cliente', $resposta->dados['visao']);
         self::assertSame(2, $resposta->dados['total']);
@@ -258,6 +262,45 @@ final class LerClientesPendenciasTest extends KernelTestCase
         foreach (['COMCLI', 'SEMCLI-ARQ', 'SEMCLI-SECRETA', 'SEMCLI-TRANCADA', 'SEMCLI-OUTRO', self::CPF, self::CPF_DIGITOS] as $proibido) {
             self::assertStringNotContainsString($proibido, $json);
         }
+    }
+
+    #[TestDox('visão pastas_sem_cliente sem o módulo Expediente recusa por permissão; a visão clientes segue aberta')]
+    public function testPastasSemClienteSemExpediente(): void
+    {
+        $this->pasta(null, 'SEMCLI-SEM-EXPEDIENTE');
+
+        try {
+            $this->ler(['acao' => 'pendencias', 'visao' => 'pastas_sem_cliente']);
+            self::fail('deveria recusar');
+        } catch (ErroDaFerramenta $e) {
+            self::assertSame(ErroDaFerramenta::MOTIVO_SEM_PERMISSAO, $e->motivo);
+        }
+        static::getContainer()->get('services_resetter')->reset();
+        self::assertSame('clientes', $this->ler(['acao' => 'pendencias'])->dados['visao']);
+    }
+
+    #[TestDox('visão pastas_sem_cliente do restrito: só as pastas do escopo dele; as de fora não aparecem nem contam em omitidas_sem_acesso')]
+    public function testPastasSemClienteDoRestrito(): void
+    {
+        $restrito = $this->pessoa();
+        $this->vinculo($restrito, $this->escritorio, permissoes: self::LEITOR_DE_PASTAS)->getTenantRole()?->restringirAsPastasSobResponsabilidade('Parceiro');
+        $colega = $this->pessoa();
+        $this->vinculo($colega, $this->escritorio, permissoes: self::LEITOR_DE_PASTAS);
+        $minha = $this->pasta(null, 'ESCOPO-MINHA')->setResponsavel($restrito);
+        $this->pasta(null, 'ESCOPO-ALHEIA-1')->setResponsavel($colega);
+        $this->pasta(null, 'ESCOPO-ALHEIA-2')->setResponsavel($colega);
+        $this->em()->flush();
+
+        $resposta = $this->ler(['acao' => 'pendencias', 'visao' => 'pastas_sem_cliente'], $restrito);
+
+        self::assertSame([(int) $minha->getId()], array_column($resposta->dados['pastas'], 'id'));
+        self::assertSame(1, $resposta->dados['total']);
+        self::assertSame(0, $resposta->dados['omitidas_sem_acesso'], 'as pastas fora do escopo não são contadas');
+        self::assertStringNotContainsString('ESCOPO-ALHEIA', self::json($resposta));
+
+        static::getContainer()->get('services_resetter')->reset();
+        $doColega = $this->ler(['acao' => 'pendencias', 'visao' => 'pastas_sem_cliente'], $colega);
+        self::assertSame(3, $doColega->dados['total'], 'sem restrição, o colega vê as três');
     }
 
     #[TestDox('sem o módulo clientes, pendencias recusa por permissão')]

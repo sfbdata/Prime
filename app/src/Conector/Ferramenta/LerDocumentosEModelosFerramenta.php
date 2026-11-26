@@ -154,7 +154,7 @@ final class LerDocumentosEModelosFerramenta implements FerramentaDoConector
     public function descricao(): string
     {
         return 'Lê documentos e modelos de peça de uma pasta do escritório (pasta_id é obrigatório). Ações: listar (documentos e subpastas, sem conteúdo, 50 por página; '
-            . 'filtros opcionais: categoria, nome (trecho do nome do arquivo ou do título), tipo (extensão, como pdf, ou mime, como image/) e subpasta_id (0 = fora das subpastas); '
+            . 'filtros opcionais: categoria, nome (trecho do nome do arquivo ou do título como saem na resposta, já mascarados), tipo (extensão, como pdf, ou mime, como image/; jpg e jpeg são o mesmo, tif e tiff também) e subpasta_id (0 = fora das subpastas); '
             . 'total diz quantos casam com o filtro e total_na_pasta quantos a pasta tem; compacto: true traz só id, nome e categoria, '
             . self::POR_PAGINA_COMPACTO . ' por página, por_pagina até ' . self::MAXIMO_POR_PAGINA_COMPACTO . '), '
             . 'ler (o conteúdo de um documento pelo documento_id: PDF e imagem PNG, JPEG, GIF e WEBP vêm como arquivo junto da resposta; peça do editor, DOCX, DOC, ODT, RTF, TXT, CSV, XML e KML vêm como texto, que pode vir cortado), '
@@ -175,8 +175,8 @@ final class LerDocumentosEModelosFerramenta implements FerramentaDoConector
                 'busca' => ['type' => 'string', 'maxLength' => 100, 'description' => 'Na acao modelos: busca no título e no texto dos modelos.'],
                 'pagina' => ['type' => 'integer', 'minimum' => 1, 'description' => 'A página seguinte: o valor de proxima_pagina da resposta anterior.'],
                 'categoria' => ['type' => 'string', 'enum' => self::CATEGORIAS, 'description' => 'Na acao listar: só os documentos desta categoria.'],
-                'nome' => ['type' => 'string', 'maxLength' => self::TAMANHO_MAXIMO_DO_FILTRO, 'description' => 'Na acao listar: só os documentos com este trecho no nome do arquivo ou no título (sem ligar para maiúsculas e acentos).'],
-                'tipo' => ['type' => 'string', 'maxLength' => self::TAMANHO_MAXIMO_DO_FILTRO, 'description' => 'Na acao listar: a extensão (pdf, docx, jpg) ou o mime (application/pdf, ou só o começo, como image/).'],
+                'nome' => ['type' => 'string', 'maxLength' => self::TAMANHO_MAXIMO_DO_FILTRO, 'description' => 'Na acao listar: só os documentos com este trecho no nome do arquivo ou no título como eles saem na resposta, já mascarados (sem ligar para maiúsculas e acentos).'],
+                'tipo' => ['type' => 'string', 'maxLength' => self::TAMANHO_MAXIMO_DO_FILTRO, 'description' => 'Na acao listar: a extensão (pdf, docx, jpg) ou o mime (application/pdf, ou só o começo, como image/). jpg e jpeg são o mesmo tipo, e tif e tiff também.'],
                 'subpasta_id' => ['type' => 'integer', 'minimum' => 0, 'description' => 'Na acao listar: só os documentos direto nesta subpasta (o id vem em subpastas); 0 = os que estão fora de qualquer subpasta.'],
                 'compacto' => ['type' => 'boolean', 'description' => 'Na acao listar: true traz só id, nome e categoria de cada documento, ' . self::POR_PAGINA_COMPACTO . ' por página.'],
                 'por_pagina' => ['type' => 'integer', 'minimum' => 1, 'maximum' => self::MAXIMO_POR_PAGINA_COMPACTO, 'description' => 'Na acao listar: quantos por página; até ' . self::POR_PAGINA . ' sem compacto e até ' . self::MAXIMO_POR_PAGINA_COMPACTO . ' com compacto.'],
@@ -431,27 +431,38 @@ final class LerDocumentosEModelosFerramenta implements FerramentaDoConector
             }
         }
 
-        return array_values(array_filter($documentos, static fn (DocumentoDoAgenteOutput $d): bool => ($filtro['categoria'] === null || $d->categoria === $filtro['categoria'])
-            && ($filtro['nome'] === null || str_contains(self::semAcento($d->nome), $filtro['nome']) || str_contains(self::semAcento($d->titulo), $filtro['nome']))
+        // O nome e o título casam contra o texto que SAI (neutralizado, mascarado e cortado), nunca contra o cru: um
+        // trecho de CPF no filtro não pode achar o arquivo que tem o CPF no nome (a máscara o esconde na resposta).
+        return array_values(array_filter($documentos, fn (DocumentoDoAgenteOutput $d): bool => ($filtro['categoria'] === null || $d->categoria === $filtro['categoria'])
+            && ($filtro['nome'] === null
+                || str_contains(self::semAcento($this->nomeCurto($escritorio, $d->nome)), $filtro['nome'])
+                || str_contains(self::semAcento($this->nomeCurto($escritorio, $d->titulo)), $filtro['nome']))
             && ($filtro['tipo'] === null || self::casaOTipo($d, $filtro['tipo']))
             && ($filtro['subpasta_id'] === null || ($subpastaDe[$d->id] ?? -1) === $filtro['subpasta_id'])));
     }
 
     /**
      * Com barra, o mime (inteiro ou o começo, como `image/`); sem barra, a extensão do nome do arquivo ou o fim do mime
-     * (`pdf` casa com `application/pdf`).
+     * (`pdf` casa com `application/pdf`). `jpg` e `jpeg` são o mesmo tipo, e `tif` e `tiff` também, dos dois lados.
      */
     private static function casaOTipo(DocumentoDoAgenteOutput $d, string $tipo): bool
     {
-        $mime = mb_strtolower(trim($d->tipo));
+        $tipo = self::tipoEquivalente($tipo);
+        $mime = self::tipoEquivalente(mb_strtolower(trim($d->tipo)));
         if (str_contains($tipo, '/')) {
             return str_starts_with($mime, $tipo);
         }
         $extensao = ltrim($tipo, '.');
-        $doNome = mb_strtolower(pathinfo($d->nome, \PATHINFO_EXTENSION));
+        $doNome = self::tipoEquivalente(mb_strtolower(pathinfo($d->nome, \PATHINFO_EXTENSION)));
         $barra = strrpos($mime, '/');
 
         return $extensao !== '' && ($doNome === $extensao || ($barra !== false && substr($mime, $barra + 1) === $extensao));
+    }
+
+    /** Os nomes do mesmo tipo viram um só: `jpeg` vira `jpg` e `tiff` vira `tif` (na extensão e no fim do mime). */
+    private static function tipoEquivalente(string $tipo): string
+    {
+        return (string) preg_replace(['/(?<![a-z0-9])jpeg(?![a-z0-9])/', '/(?<![a-z0-9])tiff(?![a-z0-9])/'], ['jpg', 'tif'], $tipo);
     }
 
     /** @return array{subpastas: list<array{id: int, nome: string}>, subpastas_omitidas: int} */

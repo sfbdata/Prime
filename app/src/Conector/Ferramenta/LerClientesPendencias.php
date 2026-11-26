@@ -18,6 +18,7 @@ use App\Entity\Tenant\Tenant;
 use App\Pasta\Entity\Pasta;
 use App\Pasta\Repository\PastaRepository;
 use App\Pasta\Service\AcessoAPasta;
+use App\Pasta\Service\EscopoDePastas;
 use App\Service\PermissionChecker;
 
 /**
@@ -33,7 +34,8 @@ use App\Service\PermissionChecker;
  * aparece nem é contada, como no `ler`.
  *
  * Visão `pastas_sem_cliente` (a inversa): as pastas ativas do escritório sem nenhum cliente vinculado que a pessoa abre,
- * com o nome de cliente escrito na pasta, se houver. A que a pessoa não abre sai e conta em `omitidas_sem_acesso`; a
+ * com o nome de cliente escrito na pasta, se houver. Exige também o módulo Expediente (a porta da `buscar_pastas`). A que
+ * a pessoa não abre sai e conta em `omitidas_sem_acesso` (quem tem acesso restrito conta só as do seu escopo); a
  * em segredo de justiça sai e conta em `omitidas_em_segredo` (o segredo só é olhado nas que ela abre, para não revelá-lo).
  *
  * As duas visões são paginadas ({@see POR_PAGINA}, até {@see MAXIMO_POR_PAGINA}) e trazem o `total` do filtro, para
@@ -65,6 +67,7 @@ final class LerClientesPendencias
         private readonly AcessoAPasta $acessoAPasta,
         private readonly SegredoNasListas $segredo,
         private readonly ProtecaoDoTextoDoChat $protecao,
+        private readonly EscopoDePastas $escopo,
     ) {
     }
 
@@ -176,7 +179,12 @@ final class LerClientesPendencias
         $abertas = $this->soAsQueAPessoaAbre($todas, $chamada);
         $foraDoSegredo = $this->segredo->tirarDe($abertas, static fn (Pasta $p): int => (int) $p->getId(), $escritorio);
         $total = \count($foraDoSegredo['itens']);
-        $semAcesso = \count($todas) - \count($abertas);
+        // Quem tem acesso restrito só conta o que está no seu escopo: as pastas de fora nem existem para ele, e
+        // contá-las revelaria quantas pastas sem cliente o escritório tem.
+        $noEscopo = $this->escopo->idsNoEscopo($chamada->contexto->pessoa, $escritorio);
+        $doEscopo = $noEscopo === null ? null : array_flip($noEscopo);
+        $contaveis = $doEscopo === null ? $todas : array_values(array_filter($todas, static fn (Pasta $p): bool => isset($doEscopo[(int) $p->getId()])));
+        $semAcesso = max(0, \count($contaveis) - \count($abertas));
         $daPagina = \array_slice($foraDoSegredo['itens'], ($pagina - 1) * $porPagina, $porPagina);
 
         $linhas = array_map(function (Pasta $p) use ($escritorio): array {

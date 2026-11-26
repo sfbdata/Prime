@@ -165,6 +165,39 @@ final class LerDocumentosEModelosFerramentaTest extends KernelTestCase
         self::assertSame([], $ids(['subpasta_id' => 999_999_999]));
     }
 
+    #[TestDox('listar: o filtro de nome casa só com o texto que sai (mascarado); um trecho do CPF não acha o arquivo com o CPF no nome')]
+    public function testListarFiltroDeNomeSoNoTextoMascarado(): void
+    {
+        $pasta = $this->pasta();
+        $comCpf = $this->documento($pasta, 'RG e CPF ' . self::CPF . '.pdf', self::PDF);
+
+        $ids = fn (array $extras): array => array_column($this->executar('listar', $pasta, $extras)->dados['documentos'], 'id');
+
+        self::assertSame([], $ids(['nome' => '123.4']));
+        self::assertSame([], $ids(['nome' => '529.982']), 'o CPF cru não casa: na resposta ele sai mascarado');
+        self::assertSame([$comCpf->getId()], $ids(['nome' => '[cpf]']), 'casa com o texto que sai');
+        self::assertSame([$comCpf->getId()], $ids(['nome' => 'rg e']));
+    }
+
+    #[TestDox('listar: no filtro de tipo, jpg e jpeg são o mesmo, e tif e tiff também (na extensão e no mime)')]
+    public function testListarTiposEquivalentes(): void
+    {
+        $pasta = $this->pasta();
+        $jpeg = $this->documento($pasta, 'foto.jpeg', "\xFF\xD8\xFFimagem", mime: 'image/jpeg');
+        $jpg = $this->documento($pasta, 'outra foto.JPG', "\xFF\xD8\xFFimagem", mime: 'image/jpeg');
+        $tiff = $this->documento($pasta, 'digitalizado.tiff', "II*\x00imagem", mime: 'image/tiff');
+        $tif = $this->documento($pasta, 'digitalizado 2.tif', "II*\x00imagem", mime: 'image/tiff');
+        $this->documento($pasta, 'peticao.pdf', self::PDF);
+
+        $ids = fn (array $extras): array => array_column($this->executar('listar', $pasta, $extras)->dados['documentos'], 'id');
+
+        self::assertEqualsCanonicalizing([$jpeg->getId(), $jpg->getId()], $ids(['tipo' => 'jpg']));
+        self::assertEqualsCanonicalizing([$jpeg->getId(), $jpg->getId()], $ids(['tipo' => 'jpeg']));
+        self::assertEqualsCanonicalizing([$jpeg->getId(), $jpg->getId()], $ids(['tipo' => 'image/jpg']));
+        self::assertEqualsCanonicalizing([$tiff->getId(), $tif->getId()], $ids(['tipo' => 'tif']));
+        self::assertEqualsCanonicalizing([$tiff->getId(), $tif->getId()], $ids(['tipo' => '.TIFF']));
+    }
+
     #[TestDox('listar compacto: só id, nome e categoria, 100 por página (por_pagina até 200), e a página cabe no teto')]
     public function testListarCompacto(): void
     {

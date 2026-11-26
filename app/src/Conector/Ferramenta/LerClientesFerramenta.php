@@ -114,7 +114,7 @@ final class LerClientesFerramenta implements FerramentaDoConector
             . 'documentos_do_cliente (a lista, só com os dados e sem o conteúdo, dos documentos do cadastro do cliente que a pessoa vê na tela: id, categoria, nome do arquivo, descrição, tamanho, data, e se veio de uma pasta e de qual; documento de pasta em segredo de justiça ou sem acesso não aparece e vem contado) e '
             . 'pendencias (o relatório de pendências do cadastro numa chamada só: na visao clientes, a padrão, os clientes a que falta qualquer um dos campos de faltando, sem ele o CPF ou o CNPJ, '
             . 'cada um com id, nome, tipo, campos_que_faltam e as pastas vinculadas que a pessoa abre (id e número); na visao pastas_sem_cliente, as pastas ativas sem nenhum cliente vinculado, '
-            . 'com o nome de cliente escrito na pasta, se houver; '
+            . 'com o nome de cliente escrito na pasta, se houver, e esta visão exige também o módulo Expediente; '
             . LerClientesPendencias::POR_PAGINA . ' por página, por_pagina até ' . LerClientesPendencias::MAXIMO_POR_PAGINA . ', e total traz quantos casam com o filtro). '
             . 'Os valores de CPF, CNPJ, RG, nascimento, e-mail, telefone e endereço nunca saem pelo conector: a resposta diz só se o campo está preenchido. '
             . 'Cliente de outro escritório ou que a pessoa não vê responde "não encontrado". Pasta em segredo de justiça não aparece: a resposta diz quantas foram omitidas. '
@@ -160,6 +160,11 @@ final class LerClientesFerramenta implements FerramentaDoConector
         if ($acao === 'pendencias') {
             $pedido = LerClientesPendencias::pedido($argumentos);
             $this->guarda->exigir($chamada, self::NOME, $acao);
+            if ($pedido['visao'] === 'pastas_sem_cliente') {
+                // A visão das pastas lista pastas: exige também a porta da busca de pastas (o módulo Expediente), a
+                // mesma linha da `buscar_pastas`, para não abrir a lista de pastas a quem só tem Clientes.
+                $this->guarda->exigir($chamada, BuscarPastasFerramenta::NOME, 'buscar');
+            }
 
             return $this->pendencias->ler($pedido, $chamada);
         }

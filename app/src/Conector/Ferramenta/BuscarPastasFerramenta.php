@@ -16,6 +16,7 @@ use App\Entity\Permission\AccessRequest;
 use App\Entity\Tenant\Tenant;
 use App\Expediente\DTO\ResultadoDaBuscaRapidaOutput;
 use App\Expediente\UseCase\BuscarRapidoUseCase;
+use App\Inteligencia\Contexto\MontadorDeContextoDaPasta;
 use App\Inteligencia\DTO\FiltroDoAgenteInput;
 use App\Inteligencia\DTO\PastaDoAgenteOutput;
 use App\Inteligencia\Exception\FiltroDoAgenteInvalidoException;
@@ -56,8 +57,8 @@ use App\Service\PermissionChecker;
  *  - filtro que o repositório ignoraria vira "filtro inválido" com o nome do campo, nunca o valor (6.2, regra 10);
  *  - campo que a ação não usa é recusado (6.2, regra 10); a página seguinte vai em `proxima_pagina`;
  *  - todo texto do banco sai pelo {@see ProtecaoDoTextoDoChat::rotulo()} (neutralizado e, no conector, mascarado);
- *  - os clientes de cada pasta são os vínculos, como no resumo da `ler_pasta` ({@see clientesDaLinha()}): lista vazia
- *    só quando a pasta não tem cliente; o que não foi carregado vem `nao_carregado`.
+ *  - os clientes de cada pasta são os vínculos, pela mesma rotina do resumo da `ler_pasta` ({@see clientesDaLinha()}):
+ *    lista vazia só quando a pasta não tem cliente; o que não foi carregado não vem (o campo é omitido).
  */
 final class BuscarPastasFerramenta implements FerramentaDoConector
 {
@@ -88,12 +89,6 @@ final class BuscarPastasFerramenta implements FerramentaDoConector
 
     private const TAMANHO_MAXIMO_DO_NUMERO = 100;
 
-    /** Os clientes mostrados por pasta; o resto conta em `clientes_omitidos`. */
-    public const LIMITE_DE_CLIENTES = 10;
-
-    /** O campo que não foi carregado (M9 de 26/11/2026): nunca lista vazia, que quer dizer "não existe". */
-    public const NAO_CARREGADO = 'nao_carregado';
-
     public function __construct(
         private readonly GuardaDaAcaoDoConector $guarda,
         private readonly SegredoNasListas $segredo,
@@ -108,6 +103,7 @@ final class BuscarPastasFerramenta implements FerramentaDoConector
         private readonly ListarLixeiraDoEscritorioUseCase $lixeira,
         private readonly RelatoriosDoExpedienteNoConector $relatorios,
         private readonly PastaRepository $pastasComClientes,
+        private readonly MontadorDeContextoDaPasta $clientesDaPasta,
     ) {
     }
 
@@ -129,9 +125,9 @@ final class BuscarPastasFerramenta implements FerramentaDoConector
             . 'numero (procura pelo número da pasta, do processo ou pelo cliente) e minhas_demandas (as pastas em que a pessoa é a responsável). '
             . 'pastas_paradas (o relatório das pastas sem movimentação há mais de 30 dias, da mais parada para a menos, com a pré-análise e a sugestão, 20 por página) '
             . 'e pastas_sem_processo (o relatório das pastas que deveriam ter processo ou estão sem classificação, 20 por página; categoria filtra). '
-            . 'Em buscar e minhas_demandas, cada pasta traz clientes (os nomes de todos os clientes vinculados, o principal primeiro, até ' . self::LIMITE_DE_CLIENTES . '), '
-            . 'clientes_ids (os ids na mesma ordem) e cliente_principal (id e nome, ou null); clientes vazio quer dizer que a pasta não tem cliente vinculado, e nao_carregado que os vínculos não foram lidos. '
-            . 'Pasta trancada aparece só com número, cliente e trancada: true. Pasta em segredo de justiça não aparece: a resposta diz quantas foram omitidas. '
+            . 'Em buscar e minhas_demandas, cada pasta traz clientes (os nomes dos clientes vinculados, na mesma ordem, com o mesmo corte de ' . MontadorDeContextoDaPasta::LIMITE_CLIENTES . ' e o mesmo rótulo do resumo de ler_pasta), '
+            . 'clientes_ids (os ids na mesma ordem), cliente_principal (id e nome, ou null) e clientes_omitidos quando há mais clientes que o corte; clientes vazio quer dizer que a pasta não tem cliente vinculado, e campo ausente que ele não foi carregado. '
+            . 'Pasta trancada aparece só com número, o nome do cliente principal em clientes e trancada: true. Pasta em segredo de justiça não aparece: a resposta diz quantas foram omitidas. '
             . 'Para continuar a lista, mande em pagina o valor de proxima_pagina.';
     }
 
@@ -303,7 +299,7 @@ final class BuscarPastasFerramenta implements FerramentaDoConector
             'id' => $l->id,
             'numero' => $this->protecao->rotulo($escritorio, (string) $l->nup, 'sem número'),
             'identificador' => $l->identificador !== null ? $this->protecao->rotulo($escritorio, $l->identificador, '') : null,
-        ] + $this->clientesDaLinha($comClientes[$l->id] ?? null, $escritorio);
+        ] + $this->clientesDaLinha($comClientes[$l->id] ?? null, $escritorio, $l->oculta);
         if ($l->oculta) {
             return $linha + ['trancada' => true];
         }
@@ -321,36 +317,43 @@ final class BuscarPastasFerramenta implements FerramentaDoConector
     }
 
     /**
-     * Os clientes vinculados à pasta, como o resumo da `ler_pasta` (todos os vínculos do escritório, o principal
-     * marcado), e não a coluna da Lista: a Lista mostra só o identificador quando ele existe, e desde 27/10/2026 o
-     * identificador é o cliente principal, então a lista de nomes vinha sempre vazia em pasta COM cliente (M9 de
-     * 26/11/2026, item 4). Lista vazia aqui quer dizer "nenhum cliente vinculado"; se os vínculos não foram carregados,
-     * o campo diz `nao_carregado`, nunca lista vazia. Só o nome e o id: nada de documento nem contato (6.2, regra 4).
+     * Os clientes vinculados à pasta, pela MESMA rotina do resumo da `ler_pasta`
+     * ({@see MontadorDeContextoDaPasta::clientesParaMostrar()}): a ordem do id, o corte em
+     * {@see MontadorDeContextoDaPasta::LIMITE_CLIENTES} e o rótulo da PJ com o nome fantasia entre parênteses. Não é a
+     * coluna da Lista: a Lista mostra só o identificador quando ele existe, e desde 27/10/2026 o identificador é o
+     * cliente principal, então a lista de nomes vinha sempre vazia em pasta COM cliente (M9 de 26/11/2026, item 4).
+     * Lista vazia quer dizer "nenhum cliente vinculado"; se os vínculos não foram carregados, os campos não vêm (nunca
+     * lista vazia). Pasta trancada mostra só o que a Lista mostra: o nome do cliente principal, sem os outros clientes
+     * e sem ids. Só o nome e o id: nada de documento nem contato (6.2, regra 4).
      *
      * @return array<string, mixed>
      */
-    private function clientesDaLinha(?Pasta $pasta, Tenant $escritorio): array
+    private function clientesDaLinha(?Pasta $pasta, Tenant $escritorio, bool $trancada): array
     {
         if ($pasta === null) {
-            return ['clientes' => self::NAO_CARREGADO];
+            return [];
         }
         $principal = $pasta->getClientePrincipal();
+        if ($trancada) {
+            $doEscritorio = $principal !== null && $principal->getTenant()?->getId() === $escritorio->getId() ? [$principal] : [];
+            $mostrar = $this->clientesDaPasta->clientesParaMostrar($escritorio, $pasta, $doEscritorio);
+
+            return ['clientes' => array_map(static fn (array $c): string => $c['nome'], $mostrar['itens'])];
+        }
         $vinculados = array_values(array_filter(
             $pasta->getClientes()->toArray(),
             static fn (Cliente $c): bool => $c->getTenant()?->getId() === $escritorio->getId(),
         ));
-        // O principal primeiro; os demais na ordem do id.
-        usort($vinculados, static fn (Cliente $a, Cliente $b): int => [$a !== $principal, (int) $a->getId()] <=> [$b !== $principal, (int) $b->getId()]);
-        $mostrados = \array_slice($vinculados, 0, self::LIMITE_DE_CLIENTES);
-        $nome = fn (Cliente $c): string => $this->protecao->rotulo($escritorio, $c->getNomeExibicao(), 'sem nome');
-        $temPrincipal = $principal !== null && \in_array($principal, $mostrados, true);
+        usort($vinculados, static fn (Cliente $a, Cliente $b): int => (int) $a->getId() <=> (int) $b->getId());
+        $mostrar = $this->clientesDaPasta->clientesParaMostrar($escritorio, $pasta, $vinculados);
+        $doPrincipal = array_values(array_filter($mostrar['itens'], static fn (array $c): bool => $c['principal']));
         $linha = [
-            'clientes' => array_map($nome, $mostrados),
-            'clientes_ids' => array_map(static fn (Cliente $c): int => (int) $c->getId(), $mostrados),
-            'cliente_principal' => $temPrincipal ? ['id' => (int) $principal->getId(), 'nome' => $nome($principal)] : null,
+            'clientes' => array_map(static fn (array $c): string => $c['nome'], $mostrar['itens']),
+            'clientes_ids' => array_map(static fn (array $c): int => $c['id'], $mostrar['itens']),
+            'cliente_principal' => $doPrincipal !== [] ? ['id' => $doPrincipal[0]['id'], 'nome' => $doPrincipal[0]['nome']] : null,
         ];
-        if (\count($vinculados) > \count($mostrados)) {
-            $linha['clientes_omitidos'] = \count($vinculados) - \count($mostrados);
+        if ($mostrar['omitidos'] > 0) {
+            $linha['clientes_omitidos'] = $mostrar['omitidos'];
         }
 
         return $linha;
