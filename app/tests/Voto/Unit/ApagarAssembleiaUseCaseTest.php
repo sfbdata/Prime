@@ -29,9 +29,8 @@ use Symfony\Component\Lock\Store\InMemoryStore;
 #[CoversClass(Assembleia::class)]
 final class ApagarAssembleiaUseCaseTest extends TestCase
 {
-    private const RECUSA = 'Só votação sem pauta aberta ou programada pode ser apagada.';
-
     use ComFotosDasCandidaturas;
+    private const RECUSA = 'Só votação sem pauta aberta ou programada pode ser apagada.';
 
     private AssembleiaRepository&MockObject $assembleias;
     private Tenant $tenant;
