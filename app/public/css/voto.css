@@ -154,6 +154,11 @@
 /* Etapa 5: lista de unidades (L223) e links */
 .voto-tela .voto-importar { display: flex; flex-direction: column; gap: 12px; margin: 0; }
 .voto-tela textarea.vF.voto-lista { height: auto; min-height: 120px; }
+.voto-tela .voto-aptos-tabela-corpo { width: 100%; border-collapse: collapse; }
+.voto-tela .voto-aptos-tabela-corpo th { text-align: left; font-size: 12px; font-weight: 700; padding: 0 6px 4px 0; }
+.voto-tela .voto-aptos-tabela-corpo td { padding: 0 6px 6px 0; }
+.voto-tela .voto-aptos-tabela .voto-acoes { display: flex; gap: 8px; flex-wrap: wrap; }
+.voto-tela .voto-aptos-avancada > summary { cursor: pointer; font-weight: 700; }
 .voto-tela .voto-estado { font-size: 14px; font-weight: bold; color: #5b7383; }
 .voto-tela .voto-estado-ok { color: #1e7b45; }
 .voto-tela .voto-estado-erro { color: #a3232b; }

@@ -152,7 +152,7 @@ final class AssembleiaController extends AbstractController
             }
         }
 
-        return $this->render('voto/assembleia/form.html.twig', self::contextoDoForm(null, $input, $erro ?? null, self::passoDoForm($request)));
+        return $this->render('voto/assembleia/form.html.twig', self::contextoDoForm(null, $input, $erro ?? null));
     }
 
     #[Route('/{id}/editar', name: 'voto_assembleia_editar', methods: ['GET', 'POST'])]
@@ -175,15 +175,15 @@ final class AssembleiaController extends AbstractController
         $assembleia = $this->lida($tenant, $id);
         $input ??= new AssembleiaInput($assembleia->titulo, $assembleia->peso->value, $assembleia->entidade ?? '', $assembleia->cnpj ?? '', $assembleia->cenario->value, $assembleia->simulacao, $assembleia->rotuloUnidade ?? '', $assembleia->rotuloBloco ?? '');
 
-        return $this->render('voto/assembleia/form.html.twig', self::contextoDoForm($assembleia, $input, $erro ?? null, self::passoDoForm($request)));
+        return $this->render('voto/assembleia/form.html.twig', self::contextoDoForm($assembleia, $input, $erro ?? null));
     }
 
     /**
-     * Passos 2 (Regras e prazo), 3 (Acesso) e 6 (Equipe) do assistente de 7 passos (desenho 18). O 2 reabre o formulário
-     * da assembleia (grava por `editar`); o 3 e o 6 só informam. Os passos 1, 4, 5 e 7 são `editar`, `pautas`, `unidades` e a
-     * conferência. Publicada não tem assistente: vai para a mesa.
+     * Passo 4 (Equipe) do assistente de 5 passos (desenho 18). O que eram os passos "Regras e prazo" e "Acesso" mora no
+     * passo 1 (`editar`): o peso do voto, o resumo das regras de cada pauta e o texto do acesso. Os passos 1, 2, 3 e 5 são
+     * `editar`, `pautas`, `unidades` e a conferência. Publicada não tem assistente: vai para a mesa.
      */
-    #[Route('/{id}/passo/{passo}', name: 'voto_assembleia_passo', requirements: ['passo' => '[236]'], methods: ['GET'])]
+    #[Route('/{id}/passo/{passo}', name: 'voto_assembleia_passo', requirements: ['passo' => '4'], methods: ['GET'])]
     public function passo(int $id, int $passo, ObterEquipeDaAssembleiaUseCase $obterEquipe, AcessoAAssembleia $acesso): Response
     {
         $tenant = $this->guarda->exigir();
@@ -191,17 +191,12 @@ final class AssembleiaController extends AbstractController
         if (!$assembleia->podeAlterarPautas) {
             return $this->redirectToRoute('voto_assembleia_pautas', ['id' => $id]);
         }
-        if (2 === $passo) {
-            $input = new AssembleiaInput($assembleia->titulo, $assembleia->peso->value, $assembleia->entidade ?? '', $assembleia->cnpj ?? '', $assembleia->cenario->value, $assembleia->simulacao, $assembleia->rotuloUnidade ?? '', $assembleia->rotuloBloco ?? '');
-
-            return $this->render('voto/assembleia/form.html.twig', self::contextoDoForm($assembleia, $input, null, 2));
-        }
 
         return $this->render('voto/assembleia/passo.html.twig', [
             'assembleia' => $assembleia,
             'passo' => $passo,
-            'equipe' => 6 === $passo ? $obterEquipe->executar($tenant, $id) : [],
-            'administracao' => 6 === $passo && $acesso->ehAdministracao($this->pessoa(), $tenant),
+            'equipe' => $obterEquipe->executar($tenant, $id),
+            'administracao' => $acesso->ehAdministracao($this->pessoa(), $tenant),
         ]);
     }
 
@@ -306,14 +301,14 @@ final class AssembleiaController extends AbstractController
         if ('sair' === $depois) {
             return $this->redirectToRoute('voto_index', ['aba' => 'ges', '_fragment' => 'assembleia-' . $id]);
         }
-        $passo = 1 === preg_match('/^passo-([1-7])$/', $depois, $achou) ? (int) $achou[1] : 4;
+        $passo = 1 === preg_match('/^passo-([1-5])$/', $depois, $achou) ? (int) $achou[1] : 2;
 
         return match ($passo) {
             1 => $this->redirectToRoute('voto_assembleia_editar', ['id' => $id]),
-            4 => $this->redirectToRoute('voto_assembleia_pautas', ['id' => $id]),
-            5 => $this->redirectToRoute('voto_assembleia_unidades', ['id' => $id]),
-            7 => $this->redirectToRoute('voto_assembleia_conferir_publicacao', ['id' => $id]),
-            default => $this->redirectToRoute('voto_assembleia_passo', ['id' => $id, 'passo' => $passo]),
+            3 => $this->redirectToRoute('voto_assembleia_unidades', ['id' => $id]),
+            4 => $this->redirectToRoute('voto_assembleia_passo', ['id' => $id, 'passo' => 4]),
+            5 => $this->redirectToRoute('voto_assembleia_conferir_publicacao', ['id' => $id]),
+            default => $this->redirectToRoute('voto_assembleia_pautas', ['id' => $id]),
         };
     }
 
@@ -328,26 +323,20 @@ final class AssembleiaController extends AbstractController
     }
 
     /**
-     * Contexto do formulário dos passos 1 e 2: os cenários e o escolhido (valor desconhecido volta ao padrão, condomínio).
+     * Contexto do formulário do passo 1: os cenários e o escolhido (valor desconhecido volta ao padrão, condomínio).
      *
      * @return array<string, mixed>
      */
-    private static function contextoDoForm(?AssembleiaNoPainel $assembleia, AssembleiaInput $input, ?string $erro, int $passo): array
+    private static function contextoDoForm(?AssembleiaNoPainel $assembleia, AssembleiaInput $input, ?string $erro): array
     {
         return [
-            'passo' => $passo,
+            'passo' => 1,
             'assembleia' => $assembleia,
             'input' => $input,
             'erro' => $erro,
             'cenarios' => CenarioDaAssembleia::cases(),
             'cenario' => CenarioDaAssembleia::tryFrom($input->cenario) ?? CenarioDaAssembleia::Condominio,
         ];
-    }
-
-    /** O passo do formulário que enviou (campo `passo`): 2 ou, em qualquer outro caso, 1. */
-    private static function passoDoForm(Request $request): int
-    {
-        return 2 === (int) $request->request->get('passo', 1) ? 2 : 1;
     }
 
     private static function input(Request $request): AssembleiaInput

@@ -64,7 +64,7 @@ final class UnidadesDaAssembleiaController extends AbstractController
     public function importar(int $id, Request $request, ImportarUnidadesUseCase $importar): RedirectResponse
     {
         $tenant = $this->guarda->exigir();
-        $texto = (string) $request->request->get('lista', '');
+        $texto = $request->request->has('linha_unidade') ? self::textoDaTabela($request) : (string) $request->request->get('lista', '');
         $arquivo = $request->files->get('arquivo');
         $this->executar($request, $id, function () use ($importar, $tenant, $id, $texto, $arquivo): void {
             if (null !== $arquivo && !$arquivo instanceof UploadedFile) {
@@ -85,6 +85,36 @@ final class UnidadesDaAssembleiaController extends AbstractController
         });
 
         return $this->redirectToRoute('voto_assembleia_unidades', ['id' => $id]);
+    }
+
+    /**
+     * A tabela simples da etapa "Lista de aptos" (Unidade, Nome, E-mail e, no peso por fração, Fração) vira o MESMO texto
+     * da lista colada (`unidade; bloco; situação; fração; responsável; e-mail`), para gravar pelo caminho da importação.
+     * Linha toda vazia é ignorada; separador e quebra de linha digitados num campo viram espaço.
+     */
+    private static function textoDaTabela(Request $request): string
+    {
+        $coluna = static function (string $campo) use ($request): array {
+            $valores = $request->request->all($campo);
+
+            return array_map(static fn (mixed $v): string => trim((string) preg_replace('/[;\t\r\n]+/u', ' ', \is_scalar($v) ? (string) $v : '')), array_values($valores));
+        };
+        $unidades = $coluna('linha_unidade');
+        $nomes = $coluna('linha_nome');
+        $emails = $coluna('linha_email');
+        $fracoes = $coluna('linha_fracao');
+        $linhas = [];
+        foreach ($unidades as $i => $unidade) {
+            $nome = $nomes[$i] ?? '';
+            $email = $emails[$i] ?? '';
+            $fracao = $fracoes[$i] ?? '';
+            if ('' === $unidade . $nome . $email . $fracao) {
+                continue;
+            }
+            $linhas[] = implode(';', [$unidade, '', '', $fracao, $nome, $email]);
+        }
+
+        return implode("\n", $linhas);
     }
 
     #[Route('/modelo.xlsx', name: 'voto_assembleia_unidades_modelo', methods: ['GET'])]

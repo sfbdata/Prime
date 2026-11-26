@@ -24,6 +24,7 @@ voto:
         modalidade:
             pauta: Pautas de assembleia
             individual: Eleição individual
+            individual_vagas: 'Eleição · {n} vagas'
             chapa: Eleição por chapa
             consulta: Consulta
         aviso:
@@ -211,31 +212,25 @@ voto:
                 conferencia: Conferência
                 perfis: Perfis
                 avaliacoes: Avaliações
-            # Assistente de 7 passos do cadastro (desenho 18, trilho .vPas): nomes, título e frase de cada passo, revisão e aviso.
+            # Assistente de 5 passos do cadastro (desenho 18, trilho .vPas): nomes, título e frase de cada passo, revisão e aviso.
             assistente:
                 rotulo: Passos do cadastro da assembleia
                 nao_salvas: Alterações ainda não salvas
                 passo_1: Categoria
-                passo_2: Regras e prazo
-                passo_3: Acesso
-                passo_4: Cargos
-                passo_5: Lista de aptos
-                passo_6: Equipe
-                passo_7: Revisar
+                passo_2: Cargos
+                passo_3: Lista de aptos
+                passo_4: Equipe
+                passo_5: Revisar
                 titulo_1: Que tipo de votação você vai criar?
-                titulo_2: Regras e prazo
-                titulo_3: Como o votante entra
-                titulo_4: Cargos e candidaturas
-                titulo_5: Quem pode votar
-                titulo_6: Quem conduz a votação
-                titulo_7: Confira e publique
+                titulo_2: Cargos e candidaturas
+                titulo_3: Quem pode votar
+                titulo_4: Quem conduz a votação
+                titulo_5: Confira e publique
                 descricao_1: A categoria já traz regras, documentos e cargos prontos. Tudo pode ser ajustado.
-                descricao_2: Defina como o voto funciona e quando a votação acontece.
-                descricao_3: A configuração sugerida atende à maioria dos casos.
-                descricao_4: Inclua cargos, pautas ou perguntas e suas opções.
-                descricao_5: Importe a relação de quem está apto.
-                descricao_6: Quem opera a votação é a equipe do escritório com acesso ao Voto.
-                descricao_7: Depois de publicada, a configuração fica bloqueada.
+                descricao_2: Inclua cargos, pautas ou perguntas e suas opções.
+                descricao_3: Informe quem está apto a votar.
+                descricao_4: Quem opera a votação é a equipe do escritório com acesso ao Voto.
+                descricao_5: Depois de publicada, a configuração fica bloqueada.
                 acesso_texto: 'Cada unidade entra pelo próprio link ou QR Code, sem conta no BlueJus. Os links são gerados quando a assembleia é publicada.'
                 equipe_texto: 'A mesa (equipe do escritório com acesso ao Voto) abre, suspende e encerra cada pauta depois de publicar. A convocação e o prazo são escolhidos ao abrir cada pauta.'
                 equipe_padrao: Usar a equipe padrão
@@ -376,7 +371,8 @@ voto:
                 preset_personalizada: 'Personalizada'
                 preset_simples: 'Maioria dos presentes; 1ª convocação com metade das frações'
                 preset_absoluta: 'Maioria absoluta de todos os aptos (ex.: destituição)'
-                preset_dois: 'Dois terços dos votos dos condôminos (ex.: convenção)'
+                preset_simples_geral: 'Maioria dos presentes; 1ª convocação com metade dos {votantes}'
+                preset_dois: 'Dois terços dos votos dos {votantes} (ex.: {documento})'
                 preset_unanime: 'Unanimidade'
                 vagas: 'Vagas'
                 digitos: 'Dígitos'
@@ -638,6 +634,12 @@ voto:
                 editada: Cadastro atualizado.
                 campo_situacao: Situação
                 campo_fracao: Fração
+                coluna_nome: Nome
+                adicionar_linha: Adicionar linha
+                remover_linha: Remover linha
+                salvar_tabela: Salvar a lista
+                opcao_avancada: Opção avançada (colar a lista ou importar planilha)
+                texto_tabela: 'Preencha uma linha para cada {unidade} que pode votar: a identificação, o nome de quem vota e o e-mail para onde vai o link. Use "Adicionar linha" para incluir mais. Quem já está na lista não é repetido.'
                 campo_responsavel: Responsável
                 campo_email: E-mail
                 campo_telefone: Telefone

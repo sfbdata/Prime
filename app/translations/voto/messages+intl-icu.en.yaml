@@ -22,6 +22,7 @@ voto:
         modalidade:
             pauta: Assembly agenda items
             individual: Individual election
+            individual_vagas: 'Election · {n} seats'
             chapa: Slate election
             consulta: Poll
         aviso:
@@ -202,26 +203,20 @@ voto:
                 rotulo: Assembly setup steps
                 nao_salvas: Changes not saved yet
                 passo_1: Category
-                passo_2: Rules and deadline
-                passo_3: Access
-                passo_4: Positions
-                passo_5: Eligible list
-                passo_6: Team
-                passo_7: Review
+                passo_2: Positions
+                passo_3: Eligible list
+                passo_4: Team
+                passo_5: Review
                 titulo_1: What type of vote are you going to create?
-                titulo_2: Rules and deadline
-                titulo_3: How the voter gets in
-                titulo_4: Positions and candidates
-                titulo_5: Who can vote
-                titulo_6: Who runs the vote
-                titulo_7: Review and publish
+                titulo_2: Positions and candidates
+                titulo_3: Who can vote
+                titulo_4: Who runs the vote
+                titulo_5: Review and publish
                 descricao_1: The category already brings ready-made rules, documents, and positions. Everything can be adjusted.
-                descricao_2: Define how the vote works and when it takes place.
-                descricao_3: The suggested setup fits most cases.
-                descricao_4: Add positions, agenda items, or questions and their options.
-                descricao_5: Import the list of who is eligible.
-                descricao_6: The vote is run by the firm team with access to Voting.
-                descricao_7: Once published, the setup is locked.
+                descricao_2: Add positions, agenda items, or questions and their options.
+                descricao_3: Enter who is eligible to vote.
+                descricao_4: The vote is run by the firm team with access to Voting.
+                descricao_5: Once published, the setup is locked.
                 acesso_texto: 'Each unit gets in through its own link or QR Code, without a BlueJus account. The links are generated when the assembly is published.'
                 equipe_texto: 'The board (firm team with access to Voting) opens, suspends, and closes each agenda item after publishing. The call and the deadline are chosen when each agenda item is opened.'
                 equipe_padrao: Use the default team

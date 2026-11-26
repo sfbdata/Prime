@@ -28,7 +28,7 @@ use Symfony\Component\DomCrawler\Crawler;
 use Zenstruck\Foundry\Test\Factories;
 
 /**
- * Assistente de 7 passos do cadastro da assembleia (desenho 18, L254-268): o trilho clicável (feito, atual), cada passo
+ * Assistente de 5 passos do cadastro da assembleia (desenho 18, L254-268): o trilho clicável (feito, atual), cada passo
  * gravando pelo caminho que já existia, a revisão com pendências, a urna do rascunho e o aviso de alterações não salvas.
  */
 #[CoversClass(AssembleiaController::class)]
@@ -36,7 +36,7 @@ final class AssistenteDaAssembleiaTest extends JusPrimeWebTestCase
 {
     use Factories;
 
-    private const NOMES = ['Categoria', 'Regras e prazo', 'Acesso', 'Cargos', 'Lista de aptos', 'Equipe', 'Revisar'];
+    private const NOMES = ['Categoria', 'Cargos', 'Lista de aptos', 'Equipe', 'Revisar'];
 
     private KernelBrowser $client;
     private EntityManagerInterface $em;
@@ -76,12 +76,13 @@ final class AssistenteDaAssembleiaTest extends JusPrimeWebTestCase
         return $assembleia;
     }
 
-    #[TestDox('O trilho tem os 7 passos do desenho, em ordem, filhos diretos do assistente')]
-    public function testTrilhoComOsSetePassos(): void
+    #[TestDox('O trilho tem os 5 passos, em ordem, filhos diretos do assistente (Regras e Acesso foram para o passo 1)')]
+    public function testTrilhoComOsCincoPassos(): void
     {
         $pagina = $this->client->request('GET', '/voto/assembleias/nova');
         self::assertResponseIsSuccessful();
         $esperado = array_map(static fn (string $n, int $i): string => ($i + 1) . '. ' . $n, self::NOMES, array_keys(self::NOMES));
+        self::assertCount(5, self::NOMES);
         self::assertSame($esperado, $this->trilho($pagina));
         self::assertCount(1, $pagina->filter('.voto-trilho > .vPasAt'));
         self::assertSame('1. Categoria', trim($pagina->filter('.voto-trilho > .vPasAt')->text()));
@@ -95,46 +96,45 @@ final class AssistenteDaAssembleiaTest extends JusPrimeWebTestCase
         $id = (int) $this->rascunho()->getId();
         $caminhos = [
             1 => '/voto/assembleias/' . $id . '/editar',
-            2 => '/voto/assembleias/' . $id . '/passo/2',
-            3 => '/voto/assembleias/' . $id . '/passo/3',
-            4 => '/voto/assembleias/' . $id . '/pautas',
-            5 => '/voto/assembleias/' . $id . '/unidades',
-            6 => '/voto/assembleias/' . $id . '/passo/6',
-            7 => '/voto/assembleias/' . $id . '/publicar',
+            2 => '/voto/assembleias/' . $id . '/pautas',
+            3 => '/voto/assembleias/' . $id . '/unidades',
+            4 => '/voto/assembleias/' . $id . '/passo/4',
+            5 => '/voto/assembleias/' . $id . '/publicar',
         ];
         foreach ($caminhos as $passo => $caminho) {
             $pagina = $this->client->request('GET', $caminho);
             self::assertResponseIsSuccessful($caminho);
-            self::assertCount(7, $pagina->filter('.voto-trilho > .vPas'), $caminho);
+            self::assertCount(5, $pagina->filter('.voto-trilho > .vPas'), $caminho);
             self::assertCount($passo - 1, $pagina->filter('.voto-trilho > .vPasOk'), 'feitos até o passo ' . $passo);
             self::assertSame($passo . '. ' . self::NOMES[$passo - 1], trim($pagina->filter('.voto-trilho > .vPasAt')->text()), $caminho);
             self::assertSame('step', $pagina->filter('.voto-trilho > .vPasAt')->attr('aria-current'));
         }
     }
 
-    #[TestDox('Nos passos que não são formulário o trilho é link para o passo; nos formulários é botão que grava e segue')]
+    #[TestDox('Nos passos que não são formulário o trilho é link para o passo; no formulário é botão que grava e segue')]
     public function testTrilhoClicavel(): void
     {
         $id = (int) $this->rascunho()->getId();
-        $pagina = $this->client->request('GET', '/voto/assembleias/' . $id . '/passo/3');
+        $pagina = $this->client->request('GET', '/voto/assembleias/' . $id . '/passo/4');
         self::assertSame(
-            ['/voto/assembleias/' . $id . '/editar', '/voto/assembleias/' . $id . '/passo/2', '/voto/assembleias/' . $id . '/passo/3', '/voto/assembleias/' . $id . '/pautas', '/voto/assembleias/' . $id . '/unidades', '/voto/assembleias/' . $id . '/passo/6', '/voto/assembleias/' . $id . '/publicar'],
+            ['/voto/assembleias/' . $id . '/editar', '/voto/assembleias/' . $id . '/pautas', '/voto/assembleias/' . $id . '/unidades', '/voto/assembleias/' . $id . '/passo/4', '/voto/assembleias/' . $id . '/publicar'],
             $pagina->filter('.voto-trilho > a.vPas')->each(static fn (Crawler $c): string => (string) $c->attr('href')),
         );
         $form = $this->client->request('GET', '/voto/assembleias/' . $id . '/editar');
-        self::assertCount(7, $form->filter('form[data-voto-assistente-form] .voto-trilho > button.vPas[name="depois"]'));
-        self::assertSame('passo-5', $form->filter('.voto-trilho > button.vPas')->eq(4)->attr('value'));
+        self::assertCount(5, $form->filter('form[data-voto-assistente-form] .voto-trilho > button.vPas[name="depois"]'));
+        self::assertSame('passo-3', $form->filter('.voto-trilho > button.vPas')->eq(2)->attr('value'));
     }
 
-    #[TestDox('Passo 1: criar grava pelo caminho existente e o trilho leva ao passo escolhido; o peso fica escondido até o passo 2')]
+    #[TestDox('Passo 1: criar grava pelo caminho existente; o peso do voto e o texto do acesso (antigos passos 2 e 3) estão aqui')]
     public function testPasso1GravaPeloCaminhoExistente(): void
     {
         $pagina = $this->client->request('GET', '/voto/assembleias/nova');
-        self::assertCount(1, $pagina->filter('input[type="hidden"][name="peso"]'));
-        self::assertCount(0, $pagina->filter('select[name="peso"]'), 'o peso é do passo 2');
+        self::assertCount(1, $pagina->filter('select[name="peso"]'), 'o peso do voto agora é do passo 1');
+        self::assertCount(0, $pagina->filter('input[type="hidden"][name="peso"]'));
+        self::assertCount(1, $pagina->filter('[data-voto-passo-texto]'), 'o texto de como o votante entra');
         $form = $pagina->selectButton('Continuar')->form(['titulo' => 'AGO nova do assistente']);
         $this->client->submit($form);
-        self::assertSame(1, preg_match('#/voto/assembleias/(\d+)/passo/2$#', (string) $this->client->getResponse()->headers->get('Location'), $m), 'Continuar leva ao passo 2');
+        self::assertSame(1, preg_match('#/voto/assembleias/(\d+)/pautas$#', (string) $this->client->getResponse()->headers->get('Location'), $m), 'Continuar leva ao passo 2 (Cargos)');
         $this->em->clear();
         $criada = $this->em->find(Assembleia::class, (int) $m[1]);
         self::assertSame('AGO nova do assistente', $criada->getTitulo());
@@ -145,58 +145,57 @@ final class AssistenteDaAssembleiaTest extends JusPrimeWebTestCase
     public function testTrilhoNoFormularioGravaESegue(): void
     {
         $pagina = $this->client->request('GET', '/voto/assembleias/nova');
-        $form = $pagina->filter('.voto-trilho > button[value="passo-5"]')->form(['titulo' => 'Pulou direto para a lista']);
+        $form = $pagina->filter('.voto-trilho > button[value="passo-3"]')->form(['titulo' => 'Pulou direto para a lista']);
         $this->client->submit($form);
         self::assertSame(1, preg_match('#/voto/assembleias/(\d+)/unidades$#', (string) $this->client->getResponse()->headers->get('Location'), $m));
         $this->em->clear();
         self::assertSame('Pulou direto para a lista', $this->em->find(Assembleia::class, (int) $m[1])->getTitulo());
     }
 
-    #[TestDox('Passo 2: o peso grava pelo EditarAssembleia e o título e a categoria seguem escondidos')]
-    public function testPasso2GravaOPeso(): void
+    #[TestDox('Passo 1: o peso grava pelo EditarAssembleia e o resumo das regras de cada pauta aparece abaixo da categoria')]
+    public function testPasso1GravaOPeso(): void
     {
         $id = (int) AssembleiaFactory::new(['tenant' => $this->escritorio, 'titulo' => 'AGO do Assistente'])->porFracao()->create()->getId();
         PautaDaAssembleiaFactory::new(['assembleia' => $this->em->find(Assembleia::class, $id), 'titulo' => 'Aprovação de contas'])->comOpcoesPadrao()->create();
-        $pagina = $this->client->request('GET', '/voto/assembleias/' . $id . '/passo/2');
+        $pagina = $this->client->request('GET', '/voto/assembleias/' . $id . '/editar');
         self::assertCount(1, $pagina->filter('select[name="peso"]'));
-        self::assertCount(0, $pagina->filter('input[type="text"][name="titulo"]'));
-        self::assertSame('AGO do Assistente', $pagina->filter('input[type="hidden"][name="titulo"]')->attr('value'));
+        self::assertSame('AGO do Assistente', $pagina->filter('input[name="titulo"]')->attr('value'));
         self::assertSame(['Aprovação de contas'], $pagina->filter('[data-voto-regra-da-pauta] > b')->each(static fn (Crawler $c): string => trim($c->text())));
         $this->client->submit($pagina->selectButton('Continuar')->form(['peso' => 'unidade']));
-        self::assertResponseRedirects('/voto/assembleias/' . $id . '/passo/3');
+        self::assertResponseRedirects('/voto/assembleias/' . $id . '/pautas');
         $this->em->clear();
         self::assertSame(PesoDoVoto::Unidade, $this->em->find(Assembleia::class, $id)->getPeso());
     }
 
-    #[TestDox('Passo 2: erro do servidor volta ao próprio passo, sem perder o que foi digitado')]
+    #[TestDox('Passo 1: erro do servidor volta ao próprio passo, sem perder o que foi digitado')]
     public function testErroVoltaAoPassoQueEnviou(): void
     {
         $id = (int) $this->rascunho()->getId();
-        $pagina = $this->client->request('GET', '/voto/assembleias/' . $id . '/passo/2');
+        $pagina = $this->client->request('GET', '/voto/assembleias/' . $id . '/editar');
         $form = $pagina->selectButton('Continuar')->form();
         $valores = $form->getPhpValues();
         $valores['titulo'] = '';
         $pagina = $this->client->request('POST', $form->getUri(), $valores);
-        self::assertSame('2. Regras e prazo', trim($pagina->filter('.voto-trilho > .vPasAt')->text()));
+        self::assertSame('1. Categoria', trim($pagina->filter('.voto-trilho > .vPasAt')->text()));
         self::assertCount(1, $pagina->filter('.voto-erro'));
     }
 
-    #[TestDox('Passos 3 e 6 não têm campo: mostram o que vale hoje, com Voltar e Continuar para os vizinhos')]
-    public function testPassosInformativos(): void
+    #[TestDox('Passo 4 (Equipe) mostra o que vale hoje, com Voltar e Continuar para os vizinhos; os passos antigos 2, 3 e 6 não existem mais')]
+    public function testPassoEquipe(): void
     {
         $id = (int) $this->rascunho()->getId();
-        $tres = $this->client->request('GET', '/voto/assembleias/' . $id . '/passo/3');
-        self::assertSame('Como o votante entra', trim($tres->filter('.voto-etapa-titulo')->text()));
-        self::assertCount(0, $tres->filter('.voto-assistente-corpo form'));
-        self::assertSame('/voto/assembleias/' . $id . '/pautas', $tres->selectLink('Continuar')->attr('href'));
-        $seis = $this->client->request('GET', '/voto/assembleias/' . $id . '/passo/6');
-        self::assertSame('Quem conduz a votação', trim($seis->filter('.voto-etapa-titulo')->text()));
-        self::assertSame('/voto/assembleias/' . $id . '/unidades', $seis->selectLink('Voltar')->attr('href'));
-        self::assertSame('/voto/assembleias/' . $id . '/publicar', $seis->selectLink('Continuar')->attr('href'));
+        $quatro = $this->client->request('GET', '/voto/assembleias/' . $id . '/passo/4');
+        self::assertSame('Quem conduz a votação', trim($quatro->filter('.voto-etapa-titulo')->text()));
+        self::assertSame('/voto/assembleias/' . $id . '/unidades', $quatro->selectLink('Voltar')->attr('href'));
+        self::assertSame('/voto/assembleias/' . $id . '/publicar', $quatro->selectLink('Continuar')->attr('href'));
+        foreach ([2, 3, 6] as $antigo) {
+            $this->client->request('GET', '/voto/assembleias/' . $id . '/passo/' . $antigo);
+            self::assertResponseStatusCodeSame(404);
+        }
     }
 
-    #[TestDox('Passo 4: as pautas gravam pelo caminho existente e "Ver na urna" abre o treino sem token')]
-    public function testPasso4PautasEVerNaUrna(): void
+    #[TestDox('Passo 2: as pautas gravam pelo caminho existente e "Ver na urna" abre o treino sem token')]
+    public function testPasso2PautasEVerNaUrna(): void
     {
         $id = (int) $this->rascunho()->getId();
         $pagina = $this->client->request('GET', '/voto/assembleias/' . $id . '/pautas');
@@ -216,25 +215,26 @@ final class AssistenteDaAssembleiaTest extends JusPrimeWebTestCase
         self::assertSame(0, $this->em->getRepository(ParticipacaoNaPauta::class)->count([]), 'nenhum voto registrado');
     }
 
-    #[TestDox('Passo 4: "Salvar e sair" mostra a faixa de alterações não salvas escondida e o rodapé de passos')]
-    public function testPasso4Rodape(): void
+    #[TestDox('Passo 2: "Salvar e sair" mostra a faixa de alterações não salvas escondida e o rodapé de passos')]
+    public function testPasso2Rodape(): void
     {
         $id = (int) $this->rascunho()->getId();
         $pagina = $this->client->request('GET', '/voto/assembleias/' . $id . '/pautas');
         self::assertCount(1, $pagina->filter('.vH > [data-voto-sujo][hidden]'));
         self::assertSame('Alterações ainda não salvas', trim($pagina->filter('[data-voto-sujo]')->text()));
-        self::assertSame('/voto/assembleias/' . $id . '/passo/3', $pagina->selectLink('Voltar')->attr('href'));
+        self::assertSame('/voto/assembleias/' . $id . '/editar', $pagina->selectLink('Voltar')->attr('href'));
         self::assertSame('/voto/assembleias/' . $id . '/unidades', $pagina->selectLink('Continuar')->attr('href'));
     }
 
-    #[TestDox('Passo 5: lista de aptos com o título do desenho e Continuar para a Equipe, sem o botão Publicar solto')]
-    public function testPasso5Lista(): void
+    #[TestDox('Passo 3: lista de aptos com o título do desenho, a tabela como forma principal e Continuar para a Equipe, sem o botão Publicar solto')]
+    public function testPasso3Lista(): void
     {
         $id = (int) $this->rascunho(true, false)->getId();
         $pagina = $this->client->request('GET', '/voto/assembleias/' . $id . '/unidades');
         self::assertSame('Quem pode votar', trim($pagina->filter('.voto-etapa-titulo')->text()));
-        self::assertCount(1, $pagina->filter('form.voto-importar'));
-        self::assertSame('/voto/assembleias/' . $id . '/passo/6', $pagina->selectLink('Continuar')->attr('href'));
+        self::assertCount(1, $pagina->filter('form[data-voto-aptos]'));
+        self::assertCount(1, $pagina->filter('details[data-voto-aptos-avancada] form.voto-importar'));
+        self::assertSame('/voto/assembleias/' . $id . '/passo/4', $pagina->selectLink('Continuar')->attr('href'));
         self::assertCount(0, $pagina->selectButton('Publicar votação'));
     }
 
@@ -250,10 +250,10 @@ final class AssistenteDaAssembleiaTest extends JusPrimeWebTestCase
         self::assertSame('Sem lista', trim($pagina->filter('.voto-revisao-quadro > .voto-revisao-linha:contains("Lista de aptos") > b')->text()));
         $alterar = fn (string $campo): string => (string) $pagina->filter('a[aria-label="Alterar ' . $campo . '"]')->attr('href');
         self::assertSame('/voto/assembleias/' . $id . '/editar', $alterar('Evento'));
-        self::assertSame('/voto/assembleias/' . $id . '/passo/2', $alterar('Peso do voto'));
+        self::assertSame('/voto/assembleias/' . $id . '/editar', $alterar('Peso do voto'));
         self::assertSame('/voto/assembleias/' . $id . '/pautas', $alterar('Cargos'));
         self::assertSame('/voto/assembleias/' . $id . '/unidades', $alterar('Lista de aptos'));
-        self::assertSame('7. Revisar', trim($pagina->filter('.voto-trilho > .vPasAt')->text()));
+        self::assertSame('5. Revisar', trim($pagina->filter('.voto-trilho > .vPasAt')->text()));
     }
 
     #[TestDox('Revisão pronta: "Tudo pronto para publicar." e o botão Publicar votação liberado')]
@@ -283,7 +283,7 @@ final class AssistenteDaAssembleiaTest extends JusPrimeWebTestCase
     public function testSubAbasAntigasSairamDoRascunho(): void
     {
         $id = (int) $this->rascunho()->getId();
-        foreach (['/editar', '/pautas', '/unidades', '/publicar', '/passo/3'] as $caminho) {
+        foreach (['/editar', '/pautas', '/unidades', '/publicar', '/passo/4'] as $caminho) {
             $pagina = $this->client->request('GET', '/voto/assembleias/' . $id . $caminho);
             self::assertSame(['Perfis', 'Painel', 'Assembleia', 'Avaliações'], $pagina->filter('.voto-sub-abas > a.vTab')->each(static fn (Crawler $c): string => trim($c->text())), $caminho);
             self::assertSame('Assembleia', trim($pagina->filter('.voto-sub-abas > a.vTabOn')->text()), $caminho);
@@ -291,11 +291,11 @@ final class AssistenteDaAssembleiaTest extends JusPrimeWebTestCase
         }
     }
 
-    #[TestDox('Publicada: não há assistente; os passos 2, 3 e 6 levam para a mesa e as sub-abas são Perfis (Administração), Painel, Pautas, Unidades e Avaliações')]
+    #[TestDox('Publicada: não há assistente; o passo 4 leva para a mesa e as sub-abas são Perfis (Administração), Painel, Pautas, Unidades e Avaliações')]
     public function testPublicadaSemAssistente(): void
     {
         $assembleia = AssembleiaFactory::new(['tenant' => $this->escritorio])->publicada()->create()->_real();
-        $this->client->request('GET', '/voto/assembleias/' . $assembleia->getId() . '/passo/3');
+        $this->client->request('GET', '/voto/assembleias/' . $assembleia->getId() . '/passo/4');
         self::assertResponseRedirects('/voto/assembleias/' . $assembleia->getId() . '/pautas');
         $pagina = $this->client->request('GET', '/voto/assembleias/' . $assembleia->getId() . '/pautas');
         self::assertSame(['Perfis', 'Painel', 'Pautas', 'Unidades e links', 'Avaliações'], $pagina->filter('.voto-sub-abas > a.vTab')->each(static fn (Crawler $c): string => trim($c->text())));
@@ -314,7 +314,7 @@ final class AssistenteDaAssembleiaTest extends JusPrimeWebTestCase
         $pagina = $this->client->request('GET', '/voto/assembleias/' . $id . '/editar');
         $form = $pagina->selectButton('Continuar')->form();
         $valores = $form->getPhpValues();
-        unset($valores['depois'], $valores['passo']);
+        unset($valores['depois']);
         $this->client->request('POST', $form->getUri(), $valores);
         self::assertResponseRedirects('/voto/assembleias/' . $id . '/pautas');
     }
@@ -333,11 +333,11 @@ final class AssistenteDaAssembleiaTest extends JusPrimeWebTestCase
     public function testOutroEscritorioDa404(): void
     {
         $outra = AssembleiaFactory::createOne()->_real();
-        foreach (['/passo/2', '/passo/3', '/passo/6', '/editar', '/pautas?urna=1'] as $caminho) {
+        foreach (['/passo/4', '/editar', '/pautas?urna=1'] as $caminho) {
             $this->client->request('GET', '/voto/assembleias/' . $outra->getId() . $caminho);
             self::assertResponseStatusCodeSame(404, $caminho);
         }
-        $this->client->request('POST', '/voto/assembleias/' . $outra->getId() . '/editar', ['titulo' => 'invadida', 'peso' => 'fracao', 'depois' => 'passo-3']);
+        $this->client->request('POST', '/voto/assembleias/' . $outra->getId() . '/editar', ['titulo' => 'invadida', 'peso' => 'fracao', 'depois' => 'passo-2']);
         self::assertResponseStatusCodeSame(404);
         self::assertNotSame('invadida', $outra->getTitulo());
     }
