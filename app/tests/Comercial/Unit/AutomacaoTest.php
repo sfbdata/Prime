@@ -12,12 +12,12 @@ use PHPUnit\Framework\TestCase;
 #[CoversClass(Automacao::class)]
 final class AutomacaoTest extends TestCase
 {
-    #[TestDox('As 8 automações na ordem do desenho 05 (dc L.562), só a `dica` nasce desligada, só o `cad` é obrigatório')]
+    #[TestDox('As 8 automações na ordem do desenho 05 (dc L.562) com os dias 2 a 7 da ativação depois do `val`; a `dica` e a ativação nascem desligadas, só o `cad` é obrigatório')]
     public function testPadroesDoDesenho(): void
     {
-        self::assertSame(['cad', 'lemb', 'val', 'conv', 'dica', 'e90', 'e100', 'ped'], array_map(static fn (Automacao $a): string => $a->value, Automacao::comChave()));
+        self::assertSame(['cad', 'lemb', 'val', 'at2', 'at3', 'at4', 'at5', 'at6', 'at7', 'conv', 'dica', 'e90', 'e100', 'ped'], array_map(static fn (Automacao $a): string => $a->value, Automacao::comChave()));
         self::assertSame(['lib', 'resp'], array_values(array_map(static fn (Automacao $a): string => $a->value, array_filter(Automacao::cases(), static fn (Automacao $a): bool => !$a->temChave()))), 'avisos fixos, sem chave de liga/desliga');
-        self::assertSame(['dica'], array_values(array_map(static fn (Automacao $a): string => $a->value, array_filter(Automacao::comChave(), static fn (Automacao $a): bool => !$a->ligadaPorPadrao()))));
+        self::assertSame(['at2', 'at3', 'at4', 'at5', 'at6', 'at7', 'dica'], array_values(array_map(static fn (Automacao $a): string => $a->value, array_filter(Automacao::comChave(), static fn (Automacao $a): bool => !$a->ligadaPorPadrao()))));
         self::assertSame(['cad'], array_values(array_map(static fn (Automacao $a): string => $a->value, array_filter(Automacao::comChave(), static fn (Automacao $a): bool => $a->obrigatoria()))));
     }
 
@@ -40,5 +40,15 @@ final class AutomacaoTest extends TestCase
         self::assertSame('E-mail confirmado', Automacao::Val->gatilho());
         self::assertSame('Convite aceito (secundário)', Automacao::Conv->titulo());
         self::assertSame('automacao:dica', Automacao::Dica->origem());
+        self::assertSame('Ativação, dia 2', Automacao::At2->gatilho());
+    }
+
+    #[TestDox('Plano de ativação: os dias 2 a 7 em ordem; eles e a dica vão como lista (respeitam o descadastro), o resto é aviso da conta')]
+    public function testAtivacao(): void
+    {
+        self::assertSame([2, 3, 4, 5, 6, 7], array_map(static fn (Automacao $a): ?int => $a->diaDaAtivacao(), Automacao::daAtivacao()));
+        self::assertNull(Automacao::Val->diaDaAtivacao());
+        self::assertSame(['at2', 'at3', 'at4', 'at5', 'at6', 'at7', 'dica'], array_values(array_map(static fn (Automacao $a): string => $a->value, array_filter(Automacao::cases(), static fn (Automacao $a): bool => $a->ehDeLista()))));
+        self::assertSame([], Automacao::At3->opcoesDeAtraso(), 'o dia é fixo, sem seletor');
     }
 }

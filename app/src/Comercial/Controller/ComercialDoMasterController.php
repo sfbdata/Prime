@@ -228,14 +228,14 @@ final class ComercialDoMasterController extends AbstractController
             'urlDeConfirmacao' => '#',
             'limite' => (string) ($automacao === Automacao::E90 ? $automacoes->estado($automacao)->atraso : ''),
         ]);
-        $ehDica = $automacao === Automacao::Dica;
+        $ehDeLista = $automacao->ehDeLista();
         $email = $montador->montar(new MensagemDeEmail(
             para: 'teste@bluejus.com.br',
             assunto: $modelo->assunto,
             corpoHtml: $modelo->corpoHtml,
-            tipo: $ehDica ? TipoDeEnvio::Lista : TipoDeEnvio::Transacional,
+            tipo: $ehDeLista ? TipoDeEnvio::Lista : TipoDeEnvio::Transacional,
             origem: 'teste',
-            lista: $ehDica ? 'comercial_dicas' : null,
+            lista: $ehDeLista ? 'comercial_dicas' : null,
             nome: 'Dra. Ana',
             selo: $modelo->selo,
             titulo: $modelo->titulo,

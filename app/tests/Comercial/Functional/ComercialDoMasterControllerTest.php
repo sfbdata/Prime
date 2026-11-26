@@ -30,7 +30,7 @@ use Symfony\Component\Security\Csrf\TokenStorage\ClearableTokenStorageInterface;
 #[CoversClass(SimularNovoCadastroUseCase::class)]
 final class ComercialDoMasterControllerTest extends JusPrimeWebTestCase
 {
-    #[TestDox('Lista as 8 automações com o padrão do desenho (só a dica desligada) e "Nenhum disparo" vazio')]
+    #[TestDox('Lista as 14 automações (as 8 do desenho e os dias 2 a 7 da ativação; a dica e a ativação desligadas) e "Nenhum disparo" vazio')]
     public function testListaPadrao(): void
     {
         $client = $this->clienteMaster();
@@ -38,9 +38,11 @@ final class ComercialDoMasterControllerTest extends JusPrimeWebTestCase
 
         self::assertResponseIsSuccessful();
         $dados = $this->json($client);
-        self::assertCount(8, $dados['automacoes']);
+        self::assertCount(14, $dados['automacoes']);
         $porChave = array_column($dados['automacoes'], null, 'chave');
         self::assertFalse($porChave['dica']['ligada']);
+        self::assertFalse($porChave['at2']['ligada']);
+        self::assertSame('Ativação, dia 6: oferta de ajuda', $porChave['at6']['titulo']);
         self::assertTrue($porChave['val']['ligada']);
         self::assertTrue($porChave['cad']['obrigatoria']);
         self::assertSame(['24h', '48h', '72h'], $porChave['lemb']['opcoes']);
@@ -130,7 +132,8 @@ final class ComercialDoMasterControllerTest extends JusPrimeWebTestCase
         self::assertResponseIsSuccessful();
         $html = (string) $client->getResponse()->getContent();
         self::assertStringContainsString('Seja bem-vindo(a), Dra.!', $html);
-        self::assertStringContainsString('Comece por aqui', $html);
+        self::assertStringContainsString('Sua primeira pasta, passo a passo', $html);
+        self::assertStringNotContainsString('Assistir ao vídeo', $html, 'sem o vídeo, sem o botão');
         self::assertStringContainsString('CNPJ 66.803.163/0001-10', $html);
         self::assertEmailCount(0);
         self::assertSame(0, (int) $this->conexao()->fetchOne('SELECT COUNT(*) FROM comercial_envio'));
@@ -151,6 +154,12 @@ final class ComercialDoMasterControllerTest extends JusPrimeWebTestCase
         self::assertStringContainsString('Obrigado, Dra.! Já estamos cuidando disso', (string) $client->getResponse()->getContent());
         self::assertEmailCount(0);
         self::assertSame(0, (int) $this->conexao()->fetchOne('SELECT COUNT(*) FROM comercial_envio'));
+
+        $client->request('GET', '/master/comercial/automacoes/at7/previa');
+        $html = (string) $client->getResponse()->getContent();
+        self::assertStringContainsString('Dra., obrigado pela primeira semana', $html);
+        self::assertStringContainsString('/contribua#sug', $html, 'o dia 7 leva às sugestões');
+        self::assertEmailCount(0);
 
         $client->request('GET', '/master/comercial/automacoes/xyz/previa');
         self::assertResponseStatusCodeSame(404);

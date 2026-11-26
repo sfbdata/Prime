@@ -6,6 +6,7 @@ namespace App\Comercial\Repository;
 
 use App\Comercial\Entity\CicloDaConta;
 use Doctrine\Bundle\DoctrineBundle\Repository\ServiceEntityRepository;
+use Doctrine\DBAL\ArrayParameterType;
 use Doctrine\DBAL\Connection;
 use Doctrine\Persistence\ManagerRegistry;
 
@@ -80,6 +81,46 @@ class CicloDaContaRepository extends ServiceEntityRepository
             'UPDATE comercial_ciclo_conta SET dica_em = :agora WHERE id = :id AND dica_em IS NULL',
             ['agora' => $agora->format('Y-m-d H:i:s'), 'id' => $id],
         ) === 1;
+    }
+
+    /**
+     * Quem está no dia de um passo da ativação (2 a 7) e ainda não recebeu nem esse passo nem um posterior. O "já saiu"
+     * é o registro de envios: o Carteiro grava a linha na hora (até a bloqueada por descadastro), com a origem
+     * `automacao:atN` e o endereço em minúsculas (como a MensagemDeEmail grava). Uma linha por pessoa, mesmo com a conta confirmada em mais de um escritório. Com
+     * `semPasta`, só quem está num escritório que ainda não criou nenhuma pasta (o dia 6).
+     *
+     * @param list<string> $origensJaEnviadas as origens que barram (a do passo e as dos passos seguintes)
+     *
+     * @return list<int> os ids dos usuários
+     */
+    public function paraAtivacao(
+        \DateTimeImmutable $corte,
+        \DateTimeImmutable $confirmadoDesde,
+        \DateTimeImmutable $confirmadoAte,
+        array $origensJaEnviadas,
+        bool $semPasta,
+        int $limite,
+    ): array {
+        $filtroDaPasta = $semPasta
+            ? ' AND c.tenant_id IS NOT NULL AND NOT EXISTS (SELECT 1 FROM pasta p WHERE p.tenant_id = c.tenant_id)'
+            : '';
+        $linhas = $this->conexao()->fetchFirstColumn(
+            'SELECT DISTINCT c.user_id FROM comercial_ciclo_conta c
+               JOIN "user" u ON u.id = c.user_id
+              WHERE c.confirmado_em >= :corte AND c.confirmado_em > :desde AND c.confirmado_em <= :ate
+                AND NOT EXISTS (SELECT 1 FROM comercial_envio e WHERE e.destinatario = LOWER(TRIM(u.email)) AND e.origem IN (:origens))'
+                . $filtroDaPasta . '
+              ORDER BY c.user_id LIMIT ' . max(1, $limite),
+            [
+                'corte' => $corte->format('Y-m-d H:i:s'),
+                'desde' => $confirmadoDesde->format('Y-m-d H:i:s'),
+                'ate' => $confirmadoAte->format('Y-m-d H:i:s'),
+                'origens' => $origensJaEnviadas,
+            ],
+            ['origens' => ArrayParameterType::STRING],
+        );
+
+        return array_map(static fn (mixed $id): int => (int) $id, $linhas);
     }
 
     private static function escopo(?int $tenantId): string

@@ -18,19 +18,20 @@ use PHPUnit\Framework\TestCase;
 #[CoversClass(MensagemDaCampanha::class)]
 final class ModelosDeCampanhaTest extends TestCase
 {
-    #[TestDox('Os 11 fixos na ordem do dc, com os rótulos e os ícones literais')]
+    #[TestDox('Os 17 fixos na ordem do dc (as cópias dos dias 2 a 7 da ativação depois de primeiros passos), com os rótulos e os ícones literais')]
     public function testOrdemENomes(): void
     {
         $fixos = (new ModelosDeCampanha())->fixos();
 
         self::assertSame(
-            ['convite', 'vagas', 'obrigado', 'validar', 'boasvindas', 'primeiros', 'espaco90', 'espaco100', 'pedido', 'news', 'novidades'],
+            ['convite', 'vagas', 'obrigado', 'validar', 'boasvindas', 'primeiros', 'ativ2', 'ativ3', 'ativ4', 'ativ5', 'ativ6', 'ativ7', 'espaco90', 'espaco100', 'pedido', 'news', 'novidades'],
             array_column($fixos, 'chave'),
         );
         self::assertSame('Convite · novos escritórios', $fixos[0]['nome']);
         self::assertSame('bi-envelope-heart', $fixos[0]['icone']);
-        self::assertSame('Newsletter mensal', $fixos[9]['nome']);
-        self::assertSame(['simples', 'simples', 'simples', 'blocos', 'blocos', 'blocos', 'blocos', 'blocos', 'blocos', 'blocos', 'simples'], array_column($fixos, 'modo'));
+        self::assertSame('Newsletter mensal', $fixos[15]['nome']);
+        self::assertSame('Ativação, dia 6: oferta de ajuda', $fixos[10]['nome']);
+        self::assertSame(['simples', 'simples', 'simples', 'blocos', 'blocos', 'blocos', 'blocos', 'blocos', 'blocos', 'blocos', 'blocos', 'blocos', 'blocos', 'blocos', 'blocos', 'blocos', 'simples'], array_column($fixos, 'modo'));
     }
 
     #[TestDox('O validar sai sem o código 482 917 (Q5) e com o botão na chave validar; as cópias de automação são blocos')]

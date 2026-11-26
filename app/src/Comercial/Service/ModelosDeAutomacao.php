@@ -14,7 +14,8 @@ use Twig\Environment;
 /**
  * Os modelos fixos das automações do desenho 05 (dc L.505-515): assunto, selo, título e o miolo. `{nome}` vira o
  * primeiro nome (dc L.484-487: "colega" sem nome). Nos de espaço (fatia 1b), `{limite}` vira o percentual escolhido no
- * `e90` (o dc mostra o padrão, 90%) e o botão leva à seção de espaço do Contribua.
+ * `e90` (o dc mostra o padrão, 90%) e o botão leva à seção de espaço do Contribua. Os `ativacao_*` são os dias 2 a 7
+ * do plano de ativação; o dia 7 leva às sugestões do Contribua.
  */
 final class ModelosDeAutomacao
 {
@@ -27,7 +28,20 @@ final class ModelosDeAutomacao
         'opcoes_liberadas' => ['Liberamos as opções de espaço extra para o seu escritório no BlueJus', 'ESPAÇO EXTRA', '{nome}, as opções de espaço extra foram liberadas'],
         'pedido_respondido' => ['Resposta ao seu pedido de espaço no BlueJus', 'PEDIDO DE ESPAÇO', '{nome}, veja a resposta ao seu pedido'],
         'pedido_espaco' => ['Recebemos seu pedido de mais espaço no BlueJus', 'PEDIDO RECEBIDO', 'Obrigado, {nome}! Já estamos cuidando disso'],
+        'ativacao_2' => ['Sua primeira pasta no BlueJus em 3 passos', 'PRIMEIRA PASTA', '{nome}, vamos criar a sua primeira pasta?'],
+        'ativacao_3' => ['Guarde a petição e o contrato dentro da pasta', 'PRIMEIRO DOCUMENTO', '{nome}, anexe o seu primeiro documento'],
+        'ativacao_4' => ['Documentos, prazos e processo organizados no BlueJus', 'ORGANIZAÇÃO', '{nome}, deixe cada pasta em ordem'],
+        'ativacao_5' => ['Funções do BlueJus que economizam tempo', 'PRODUTIVIDADE', '{nome}, ganhe tempo na rotina do escritório'],
+        'ativacao_6' => ['Podemos ajudar você a começar no BlueJus?', 'PRECISA DE AJUDA?', '{nome}, a gente ajuda você a começar'],
+        'ativacao_7' => ['Uma semana de BlueJus: conte o que achou', 'SUA OPINIÃO', '{nome}, obrigado pela primeira semana'],
     ];
+
+    /**
+     * O vídeo de até 60 segundos da boas-vindas (dia 1 da ativação), mostrando como criar a primeira pasta. Ainda não
+     * existe: vazio, o botão do vídeo não aparece. Quando houver, basta pôr o endereço aqui (ou o Master põe um botão com
+     * o endereço na cópia "Boas-vindas" da Central).
+     */
+    public const VIDEO_DA_PRIMEIRA_PASTA = '';
 
     /**
      * O padrão da Central que é a cópia de cada modelo de automação (M5.8): editado pelo Master, a automação passa a
@@ -40,6 +54,12 @@ final class ModelosDeAutomacao
         'espaco_90' => 'espaco90',
         'espaco_100' => 'espaco100',
         'pedido_espaco' => 'pedido',
+        'ativacao_2' => 'ativ2',
+        'ativacao_3' => 'ativ3',
+        'ativacao_4' => 'ativ4',
+        'ativacao_5' => 'ativ5',
+        'ativacao_6' => 'ativ6',
+        'ativacao_7' => 'ativ7',
     ];
 
     public function __construct(
@@ -65,6 +85,8 @@ final class ModelosDeAutomacao
         $corpo = $this->twig->render('email/comercial/automacao/' . $chave . '.html.twig', $variaveis + [
             'urlDoApp' => $this->urls->generate('app_login', [], UrlGeneratorInterface::ABSOLUTE_URL),
             'urlDoEspaco' => $this->urls->generate('contribua_index', [], UrlGeneratorInterface::ABSOLUTE_URL) . '#espaco',
+            'urlDaSugestao' => $this->urls->generate('contribua_index', [], UrlGeneratorInterface::ABSOLUTE_URL) . '#sug',
+            'urlDoVideo' => self::VIDEO_DA_PRIMEIRA_PASTA,
         ]);
         $titulo = str_replace(['{nome}', '{limite}'], [$primeiroNome, $variaveis['limite'] ?? ''], $titulo);
 
@@ -117,6 +139,12 @@ final class ModelosDeAutomacao
             Automacao::Ped => 'pedido_espaco',
             Automacao::Lib => 'opcoes_liberadas',
             Automacao::Resp => 'pedido_respondido',
+            Automacao::At2 => 'ativacao_2',
+            Automacao::At3 => 'ativacao_3',
+            Automacao::At4 => 'ativacao_4',
+            Automacao::At5 => 'ativacao_5',
+            Automacao::At6 => 'ativacao_6',
+            Automacao::At7 => 'ativacao_7',
         };
     }
 }

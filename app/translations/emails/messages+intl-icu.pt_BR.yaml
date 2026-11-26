@@ -153,15 +153,63 @@ emails:
             clique: Clique no botão abaixo para confirmar seu e-mail. O link vale por 7 dias.
             botao: Confirmar meu e-mail
             nao_funcionar: 'Se o botão não funcionar, copie e cole este endereço no navegador:'
+        ativacao_2:
+            texto: 'A pasta é o centro do BlueJus: nela ficam o cliente, o processo, os documentos e os prazos. Criar a primeira leva poucos minutos.'
+            item1_titulo: '1. Cadastre o cliente'
+            item1_resumo: 'Nome, CPF ou CNPJ e um contato já bastam para começar.'
+            item2_titulo: '2. Clique em Nova pasta'
+            item2_resumo: 'Escolha o cliente e o sistema numera a pasta sozinho.'
+            item3_titulo: '3. Vincule o processo'
+            item3_resumo: 'Com o número do processo, os andamentos passam a chegar na pasta.'
+            botao: 'Criar minha primeira pasta'
+        ativacao_3:
+            texto: 'Com os documentos dentro da pasta, você e a sua equipe encontram tudo em segundos, no computador ou no celular.'
+            item1_titulo: '1. Abra a pasta do cliente'
+            item1_resumo: 'Use a busca pelo nome do cliente ou pelo número da pasta.'
+            item2_titulo: '2. Clique em Anexar arquivo'
+            item2_resumo: 'Escolha a petição, o contrato ou outro documento.'
+            item3_titulo: '3. Pronto'
+            item3_resumo: 'O arquivo fica guardado na pasta, à mão de toda a equipe.'
+            botao: 'Anexar um documento'
+        ativacao_4:
+            texto: 'Uma pasta organizada mostra de relance o que já foi feito e o que falta fazer.'
+            item1_titulo: 'Prazos nos registros'
+            item1_resumo: 'Escreva a data no registro da pasta e ela vira prazo automaticamente.'
+            item2_titulo: 'Dados do processo'
+            item2_resumo: 'O número do processo e os andamentos ficam na própria pasta.'
+            item3_titulo: 'Marcadores'
+            item3_resumo: 'Separe as pastas do seu jeito, por área, fase ou responsável.'
+            botao: 'Organizar minhas pastas'
+        ativacao_5:
+            item1_titulo: 'Push processual'
+            item1_resumo: 'Os andamentos chegam sozinhos, com um resumo por inteligência artificial.'
+            item2_titulo: 'Agenda'
+            item2_resumo: 'Prazos e audiências da equipe em um só calendário.'
+            item3_titulo: 'Chat I.A'
+            item3_resumo: 'Pergunte o que vence hoje ou quais pastas estão paradas.'
+            botao: 'Experimentar agora'
+        ativacao_6:
+            texto: |-
+                Vimos que o seu escritório ainda não criou nenhuma pasta no BlueJus. Se algo travou no caminho, conte para a gente.
+
+                Responda a este e-mail dizendo onde parou, e a nossa equipe ajuda você passo a passo.
+            botao: 'Abrir o BlueJus'
+        ativacao_7:
+            texto: |-
+                Obrigado por usar o BlueJus nesta primeira semana. O sistema é feito com a ajuda de quem trabalha com ele todos os dias.
+
+                O que ajudaria mais na rotina do seu escritório? Mande a sua sugestão: cada uma é lida pela nossa equipe.
+            botao: 'Enviar uma sugestão'
         boas_vindas:
             texto: Seu e-mail foi confirmado e a sua conta está pronta. A partir de agora, prazos, processos, documentos e equipe ficam em um só lugar.
-            comece: Comece por aqui
-            pasta_titulo: 1. Abra sua primeira pasta
-            pasta_resumo: Cadastre o cliente e o sistema numera a pasta automaticamente.
-            processo_titulo: 2. Vincule o processo
-            processo_resumo: O Push processual passa a acompanhar os andamentos.
+            comece: 'Sua primeira pasta, passo a passo'
+            pasta_titulo: '1. Clique em Nova pasta'
+            pasta_resumo: 'Escolha o cliente ou cadastre um novo. O sistema numera a pasta automaticamente.'
+            processo_titulo: '2. Vincule o processo'
+            processo_resumo: 'Informe o número do processo e o Push processual passa a acompanhar os andamentos.'
             equipe_titulo: 3. Convide sua equipe
             equipe_resumo: Cada pessoa entra como secundária e você define as permissões.
+            video: 'Assistir ao vídeo (1 minuto)'
             botao: Abrir o BlueJus
         espaco_100:
             texto: O armazenamento chegou a 100%. Seus arquivos continuam guardados e disponíveis para consulta e download, mas novos envios ficam pausados até ampliar o espaço.

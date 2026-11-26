@@ -1,0 +1,9 @@
+{# Plano de ativação, dia 3 (pedido do Farlei de 26/11/2026): `at3`. Mesmo texto da cópia `ativ3` da Central. #}
+{% import 'email/comercial/automacao/_blocos.html.twig' as b %}
+{{ b.texto('emails.comercial.ativacao_3.texto'|trans) }}
+{{ b.noticias([
+    ['emails.comercial.ativacao_3.item1_titulo'|trans, 'emails.comercial.ativacao_3.item1_resumo'|trans],
+    ['emails.comercial.ativacao_3.item2_titulo'|trans, 'emails.comercial.ativacao_3.item2_resumo'|trans],
+    ['emails.comercial.ativacao_3.item3_titulo'|trans, 'emails.comercial.ativacao_3.item3_resumo'|trans],
+]) }}
+{{ b.botao('emails.comercial.ativacao_3.botao'|trans, urlDoApp) }}

@@ -1,4 +1,5 @@
-{# Modelo "Boas-vindas" do desenho 05 (dc L.509): `val` e `conv`. #}
+{# Modelo "Boas-vindas" do desenho 05 (dc L.509): `val` (dia 1 do plano de ativação) e `conv`. O botão do vídeo da
+   primeira pasta só aparece quando o vídeo existir (ModelosDeAutomacao::VIDEO_DA_PRIMEIRA_PASTA). #}
 {% import 'email/comercial/automacao/_blocos.html.twig' as b %}
 {{ b.texto('emails.comercial.boas_vindas.texto'|trans) }}
 {{ b.titulo('emails.comercial.boas_vindas.comece'|trans) }}
@@ -7,4 +8,5 @@
     ['emails.comercial.boas_vindas.processo_titulo'|trans, 'emails.comercial.boas_vindas.processo_resumo'|trans],
     ['emails.comercial.boas_vindas.equipe_titulo'|trans, 'emails.comercial.boas_vindas.equipe_resumo'|trans],
 ]) }}
+{% if urlDoVideo|default('') is not empty %}{{ b.botao('emails.comercial.boas_vindas.video'|trans, urlDoVideo) }}{% endif %}
 {{ b.botao('emails.comercial.boas_vindas.botao'|trans, urlDoApp) }}

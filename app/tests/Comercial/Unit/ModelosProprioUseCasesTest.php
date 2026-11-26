@@ -223,7 +223,7 @@ final class ModelosProprioUseCasesTest extends TestCase
         $fixos = $efetivos->fixos();
         self::assertSame(['convite', true, 'Assunto editado'], [$fixos[0]['chave'], $fixos[0]['editado'], $fixos[0]['assunto']]);
         self::assertSame(['vagas', false], [$fixos[1]['chave'], $fixos[1]['editado']]);
-        self::assertCount(11, $fixos);
+        self::assertCount(17, $fixos);
         self::assertCount(17, $efetivos->datas());
         self::assertSame('Assunto editado', $efetivos->porChave('convite')['assunto'] ?? null);
         self::assertFalse($efetivos->porChave('vagas')['editado'] ?? null);
