@@ -69,7 +69,7 @@ enum Automacao: string
             self::At6 => 'Oferece ajuda só a quem ainda não criou nenhuma pasta',
             self::At7 => 'Agradece, convida a continuar e pede sugestões',
             self::Conv => 'Boas-vindas para quem entrou na equipe',
-            self::Dica => 'Dicas para aproveitar o sistema',
+            self::Dica => 'Dicas para aproveitar o sistema (o plano de ativação já cobre a primeira semana)',
             self::E90 => 'Recomenda aumentar ou solicitar espaço (ao primário)',
             self::E100 => 'Avisa que novos envios estão pausados',
             self::Ped => 'Confirma ao cliente e avisa o Master',
