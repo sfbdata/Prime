@@ -127,14 +127,14 @@
   // Voltar e o Avançar do navegador). Devolve true quando a seção mudou.
   const doHash = chave => (location.hash.match(new RegExp(chave + '=(\\w+)')) || [])[1];
   // Filtro por plano de "Contas e escritórios" pelo endereço (#aba=painel&sec=contas&plano=<código>): o cartão de plano
-  // linka para a lista já filtrada. Sem `plano` no endereço, o filtro escolhido na tela fica como está.
+  // linka para a lista já filtrada. Endereço de Contas sem `plano` (o Voltar, um link sem filtro) limpa o filtro.
   function aplicarAncora() {
     const aba = doHash('aba');
     S.aba = aba && raiz.querySelector('[data-aba="' + aba + '"]') ? aba : 'painel';
     mostrarAba();
     const lida = doHash('sec') || (location.hash.length > 1 ? null : 'visao'), sec = SEC_ANTIGA[lida] || lida;
     if (!SECS.some(([k]) => k === sec)) return false;
-    const plano = sec === 'contas' ? doHash('plano') : undefined, mudouPlano = plano !== undefined && plano !== S.fPlano;
+    const plano = sec === 'contas' ? doHash('plano') || '' : undefined, mudouPlano = plano !== undefined && plano !== S.fPlano;
     if (mudouPlano) S.fPlano = plano;
     if (sec === S.sec && !mudouPlano) return false;
     S.sec = sec;

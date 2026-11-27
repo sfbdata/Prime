@@ -50,7 +50,7 @@ final class PainelPagantesEPlanoJsTest extends TestCase
         $js = self::js();
 
         self::assertStringContainsString('(!S.fPlano || c.espaco.planoCodigo === S.fPlano)', $js);
-        self::assertStringContainsString("const plano = sec === 'contas' ? doHash('plano') : undefined", $js);
+        self::assertStringContainsString("const plano = sec === 'contas' ? doHash('plano') || '' : undefined", $js);
         self::assertStringContainsString("S.sec === 'contas' && S.fPlano ? '&plano=' + S.fPlano : ''", $js);
         self::assertStringContainsString("t.matches('[data-f-plano]')", $js);
     }
