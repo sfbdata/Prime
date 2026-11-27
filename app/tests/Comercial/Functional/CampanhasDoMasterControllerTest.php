@@ -189,6 +189,34 @@ final class CampanhasDoMasterControllerTest extends JusPrimeWebTestCase
         self::assertSame([1, 1, 2], [$saida['destinatarios'], $saida['repetidos'], $saida['invalidos']]);
     }
 
+    #[TestDox('A2: no CSV, a contagem devolve o relatório da importação (lidas, válidas, repetidas, inválidas e as recusadas com o motivo) e o cartão conta os válidos sem repetidos')]
+    public function testContagemDoCsvComRelatorio(): void
+    {
+        $client = $this->clienteMaster();
+        $ana = (string) $this->cadastradoAtivo('ana', 'Ana')->getEmail();
+        $this->postar($client, '/master/comercial/publicos/contagem', ['publico' => 'csv', 'csv' => "email;nome\n{$ana};Ana\n" . strtoupper($ana) . ";Ana\nnao-e-email;Fulano\n"]);
+
+        self::assertResponseIsSuccessful();
+        $saida = $this->json($client);
+        self::assertSame(1, $saida['publicos']['csv']);
+        self::assertSame(['lidas' => 3, 'validas' => 1, 'repetidas' => 1, 'invalidas' => 1, 'vazias' => 0], array_diff_key($saida['importacao'], ['recusadas' => true]));
+        self::assertSame([[3, 'repetido'], [4, 'invalido']], array_map(static fn (array $r): array => [$r['linha'], $r['motivo']], $saida['importacao']['recusadas']));
+    }
+
+    #[TestDox('D1: a contagem devolve a amostra dos primeiros destinatários (até 3) para a confirmação do Enviar; fora do CSV, sem relatório')]
+    public function testContagemComAmostra(): void
+    {
+        $client = $this->clienteMaster();
+        $emails = array_map(fn (string $n): string => (string) $this->cadastradoAtivo($n, ucfirst($n))->getEmail(), ['ana', 'bia', 'caio', 'dora']);
+        $this->postar($client, '/master/comercial/publicos/contagem', ['publico' => 'indiv', 'individual' => implode(', ', $emails)]);
+
+        self::assertResponseIsSuccessful();
+        $saida = $this->json($client);
+        self::assertSame(4, $saida['destinatarios']);
+        self::assertSame(\array_slice($emails, 0, 3), array_column($saida['amostra'], 'email'));
+        self::assertNull($saida['importacao']);
+    }
+
     #[TestDox('Filtro com valor fora do desenho é recusado (422)')]
     public function testFiltroInvalido(): void
     {
@@ -266,7 +294,7 @@ final class CampanhasDoMasterControllerTest extends JusPrimeWebTestCase
         self::assertResponseIsSuccessful();
         $c = $this->json($client);
         self::assertSame([1, 1, 1], [$c['destinatarios'], $c['descadastrados'], $c['semAutorizacao']]);
-        self::assertSame(4, $c['publicos']['indiv'], 'a grade conta o que foi lido, como o dc');
+        self::assertSame(3, $c['publicos']['indiv'], 'A2: a grade conta os válidos lidos, sem repetidos');
         self::assertSame(['email' => $ana->getEmail(), 'nome' => ''], $c['exemplo']);
 
         $this->postar($client, '/master/comercial/campanhas', $this->pedido([], ['individual' => $texto]));

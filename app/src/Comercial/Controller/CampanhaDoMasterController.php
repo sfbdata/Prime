@@ -122,7 +122,7 @@ final class CampanhaDoMasterController extends AbstractController
     #[Route('/master/comercial/publicos/contagem', name: 'master_comercial_publicos_contagem', methods: ['POST'])]
     public function contagem(Request $request, ContarPublicosUseCase $contar): JsonResponse
     {
-        return $this->protegido($request, fn (array $corpo): JsonResponse => new JsonResponse($contar->executar(PedidoDePublico::deArray($corpo))->paraArray()));
+        return $this->protegido($request, fn (array $corpo): JsonResponse => new JsonResponse($contar->executar(PedidoDePublico::deArray($corpo, comRelatorio: true))->paraArray()));
     }
 
     /** "Enviar campanha" (dc L.254, L.560), depois do `confirm` literal na tela. */

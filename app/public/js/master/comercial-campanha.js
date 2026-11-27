@@ -241,13 +241,16 @@
     }
 
     /* dc 21.10 L665: "N destinatário(s) · X descadastrado(s) retirado(s) · Y repetido(s) removido(s) · Z inválido(s)
-       ignorado(s)", ou " · lista limpa". O B1 (sem autorização) é regra do sistema que o dc não tem: entra no mesmo tom. */
+       ignorado(s)", ou " · lista limpa". O B1 (sem autorização) é regra do sistema que o dc não tem: entra no mesmo tom.
+       A2: no CSV com relatório, os repetidos e os inválidos ficam só no relatório da importação (que conta também a linha
+       sem "@"), para a tela não mostrar dois números de inválidos diferentes para o mesmo arquivo. */
     function linhaDeDestinatarios(c) {
+      const noRelatorio = publico === 'csv' && !!c.importacao;
       const partes = [
         c.puladosPeloIntervalo ? BJ_T.t('comercial.js.dest_pulados_intervalo', { n: c.puladosPeloIntervalo }) : '',
         c.descadastrados ? BJ_T.t('comercial.js.dest_descadastrados', { n: c.descadastrados }) : '',
-        c.repetidos ? BJ_T.t('comercial.js.dest_repetidos', { n: c.repetidos }) : '',
-        c.invalidos ? BJ_T.t('comercial.js.dest_invalidos', { n: c.invalidos }) : '',
+        c.repetidos && !noRelatorio ? BJ_T.t('comercial.js.dest_repetidos', { n: c.repetidos }) : '',
+        c.invalidos && !noRelatorio ? BJ_T.t('comercial.js.dest_invalidos', { n: c.invalidos }) : '',
         c.semAutorizacao ? BJ_T.t('comercial.js.dest_sem_autorizacao', { n: c.semAutorizacao }) : '',
       ].filter(Boolean);
 
@@ -266,7 +269,45 @@
       // dc L.545: "NOME · N e-mail(s)" depois de ler o arquivo.
       el('[data-mc-cp-csv-txt]').textContent = csvNome ? BJ_T.t('comercial.js.csv_lido', { nome: csvNome, n: contagem ? contagem.publicos.csv : 0 }) : BJ_T.t('comercial.js.csv_selecionar');
       el('[data-mc-cp-dest]').textContent = contagem ? linhaDeDestinatarios(contagem) : '';
+      desenharRelatorioDoCsv();
       desenharFiltro();
+    }
+
+    /* A2 (teste do Farlei, 27/11/2026): "N linha(s) lida(s), X válida(s), Y repetida(s), Z inválida(s)" do CSV lido, e o
+       botão das linhas recusadas só quando há alguma. O relatório vem do servidor, a partir do arquivo enviado. */
+    function desenharRelatorioDoCsv() {
+      const caixa = el('[data-mc-cp-csv-rel]');
+      if (!caixa) return;
+      const rel = publico === 'csv' && csvNome && contagem && contagem.importacao ? contagem.importacao : null;
+      caixa.hidden = !rel;
+      if (!rel) return;
+      el('[data-mc-cp-csv-rel-txt]').textContent = BJ_T.t('comercial.js.csv_relatorio', { lidas: rel.lidas, validas: rel.validas, repetidas: rel.repetidas, invalidas: rel.invalidas })
+        + (rel.vazias ? ', ' + BJ_T.t('comercial.js.csv_relatorio_vazias', { n: rel.vazias }) : '');
+      el('[data-mc-cp-csv-baixar]').hidden = !(rel.recusadas && rel.recusadas.length);
+    }
+
+    /* A2: o CSV das linhas recusadas, montado na hora a partir do relatório (nada é guardado): o número da linha no
+       arquivo, o texto da linha e o motivo, separados por ";" e com o BOM para o Excel abrir os acentos. A célula que
+       começa com = + - @ ganha um apóstrofo na frente, para a planilha não ler a linha como fórmula. */
+    function baixarRecusadas() {
+      const rel = contagem && contagem.importacao;
+      if (!rel || !rel.recusadas || !rel.recusadas.length) return;
+      const motivos = { invalido: 'csv_motivo_invalido', repetido: 'csv_motivo_repetido', vazia: 'csv_motivo_vazia' };
+      const celula = v => {
+        let t = String(v == null ? '' : v);
+        if (/^[=+\-@\t\r]/.test(t)) t = "'" + t;
+        return '"' + t.replace(/"/g, '""') + '"';
+      };
+      const linhas = rel.recusadas.map(r => [r.linha, r.conteudo, BJ_T.t('comercial.js.' + (motivos[r.motivo] || 'csv_motivo_invalido'))].map(celula).join(';'));
+      const texto = '\uFEFF' + [BJ_T.t('comercial.js.csv_recusadas_cabecalho'), ...linhas].join('\r\n') + '\r\n';
+      const nome = BJ_T.t('comercial.js.csv_recusadas_arquivo', { nome: String(csvNome || 'lista.csv').replace(/\.(csv|txt)$/i, '') }) + '.csv';
+      const a = document.createElement('a');
+      a.href = window.URL.createObjectURL(new Blob([texto], { type: 'text/csv;charset=utf-8' }));
+      a.download = nome;
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      window.setTimeout(() => window.URL.revokeObjectURL(a.href), 1000);
     }
 
     const filtroLimpo = () => Object.fromEntries(Object.entries(filtro).filter(([k, v]) => v && M.filtros.includes(k)));
@@ -407,6 +448,22 @@
       esperaDaContagem = setTimeout(contar, 400);
     }
 
+    /* D1 (teste do Farlei, 27/11/2026): o resumo na confirmação do Enviar, abaixo da pergunta: o modelo, a origem do
+       público (o nome do cartão escolhido, com o arquivo no CSV) e até 3 endereços de amostra, com "e mais N". */
+    function resumoDoEnvio(m, c) {
+      const cartao = raiz.querySelector('[data-mc-cp-publico="' + publico + '"] .mc-cp-publico-rot');
+      const origem = (cartao ? cartao.textContent.trim() : publico) + (publico === 'csv' && csvNome ? ' · ' + csvNome : '');
+      const amostra = (c.amostra || []).map(d => d.email);
+      const resto = c.destinatarios - amostra.length;
+      const linhas = [
+        BJ_T.t('comercial.js.confirmar_modelo', { nome: m.nome || BJ_T.t('comercial.js.modelo') }),
+        BJ_T.t('comercial.js.confirmar_publico', { origem }),
+      ];
+      if (amostra.length) linhas.push(BJ_T.t('comercial.js.confirmar_amostra', { lista: amostra.join(', ') + (resto > 0 ? ' ' + BJ_T.t('comercial.js.confirmar_amostra_mais', { n: resto }) : '') }));
+
+      return linhas.join('\n');
+    }
+
     // dc L.560: sem destinatário, a mensagem; senão o confirm literal e o pedido ao servidor.
     function enviarCampanha() {
       if (edicao) { salvarEdicao(); return; }
@@ -423,7 +480,7 @@
         const aviso = envioLigado === false ? BJ_T.t('comercial.js.envio_campanha_esperando') + '\n\n' : '';
         return perguntar({
           titulo: BJ_T.t(agenda ? 'comercial.js.enviar_titulo_agendar' : 'comercial.js.enviar_titulo'), icone: 'bi-send',
-          texto: aviso + pergunta, botao: BJ_T.t(agenda ? 'comercial.js.enviar_botao_agendar' : 'comercial.js.enviar_botao'),
+          texto: aviso + pergunta + '\n\n' + resumoDoEnvio(m, contagem), botao: BJ_T.t(agenda ? 'comercial.js.enviar_botao_agendar' : 'comercial.js.enviar_botao'),
         }).then(confirmou => {
           if (!confirmou) return;
           if (!chave) chave = novaChave();
@@ -475,6 +532,8 @@
       if (travar) {
         raiz.querySelectorAll('[data-mc-cp-publico]').forEach(b => { b.setAttribute('aria-pressed', 'false'); const n = b.querySelector('[data-mc-cp-n]'); if (n) n.textContent = ''; });
         el('[data-mc-cp-dest]').textContent = '';
+        const relatorio = el('[data-mc-cp-csv-rel]');
+        if (relatorio) relatorio.hidden = true;
       }
       const motivo = el('[data-mc-cp-publico-motivo]');
       if (motivo) motivo.hidden = !travar;
@@ -790,6 +849,7 @@
       if (e.target.closest('[data-mc-cp-voltar-padrao]')) { voltarAoPadrao(); return; }
       if (e.target.closest('[data-mc-cp-excluir]')) { excluir(); return; }
       if (e.target.closest('[data-mc-cp-baixar]')) { baixar(); return; }
+      if (e.target.closest('[data-mc-cp-csv-baixar]')) { baixarRecusadas(); return; }
       // O ícone de teste abre o modal do comercial-teste.js (F3f, dc L497-498); o envio é feito lá.
     });
 

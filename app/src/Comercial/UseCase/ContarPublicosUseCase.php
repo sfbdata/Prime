@@ -11,7 +11,8 @@ use App\Comercial\DTO\PedidoDePublico;
 /**
  * Os números da coluna "2 · PARA QUEM" e da linha de destinatários (dc L.237, L.252; spec §8.5), pedidos pela tela a
  * cada troca de público, de modelo, de arquivo ou de e-mails digitados (o modelo `vagas` alarga a Base de contatos, §11). Só lê: nada é enviado nem gravado. O primeiro destinatário
- * volta como o exemplo da prévia (dc L.537).
+ * volta como o exemplo da prévia (dc L.537); os três primeiros, como a amostra da confirmação do "Enviar" (D1). No CSV,
+ * volta também o relatório da importação (A2): linhas lidas, válidas, repetidas, inválidas e as recusadas.
  */
 final class ContarPublicosUseCase
 {
@@ -35,6 +36,8 @@ final class ContarPublicosUseCase
             $resolvido->repetidos,
             $resolvido->invalidos,
             $resolvido->puladosPeloIntervalo,
+            $resolvido->amostra(ContagemDosPublicos::TAMANHO_DA_AMOSTRA),
+            $pedido->importacao,
         );
     }
 }

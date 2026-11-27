@@ -51,4 +51,14 @@ final class PublicoResolvido
     {
         return $this->destinatarios[0] ?? null;
     }
+
+    /**
+     * Os primeiros destinatários, na ordem em que recebem: a amostra da confirmação do "Enviar" (D1, 27/11/2026).
+     *
+     * @return list<DestinatarioDaCampanha>
+     */
+    public function amostra(int $quantos): array
+    {
+        return \array_slice($this->destinatarios, 0, max(0, $quantos));
+    }
 }
