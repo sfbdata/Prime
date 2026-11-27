@@ -205,7 +205,7 @@ final class AvisosDeEspacoNasTelasTest extends JusPrimeWebTestCase
         self::assertCount(1, $barra);
         self::assertStringContainsString('2 pedido(s) de espaço aguardando você', $barra->text());
         self::assertStringContainsString('Escritórios pediram a liberação das opções de espaço extra.', $barra->text());
-        self::assertSame('/contribua#espaco', $barra->filter('a')->attr('href'));
+        self::assertSame('/master#aba=painel&sec=planos', $barra->filter('a')->attr('href'), 'L2-M5: os pedidos moram no painel do Master');
         self::assertSame('Analisar pedidos', trim($barra->filter('a')->text()));
         self::assertCount(1, $barra->filter('[data-fechar-aviso-pedidos]'));
 

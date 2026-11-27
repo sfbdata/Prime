@@ -40,7 +40,8 @@
             <b>{{ 'moldura.aviso_espaco.pedidos_titulo'|trans({quantidade: pedidosDoMaster ~ ''}) }}</b>
             <div>{{ 'moldura.aviso_espaco.pedidos_sub'|trans }}</div>
         </div>
-        <a class="ae-aumentar" href="{{ path('contribua_index') }}#espaco">{{ 'moldura.aviso_espaco.pedidos_analisar'|trans }}</a>
+        {# L2-M5: os pedidos de espaço moram no painel do Master, seção dos planos. #}
+        <a class="ae-aumentar" href="{{ path('master_painel') }}#aba=painel&amp;sec=planos">{{ 'moldura.aviso_espaco.pedidos_analisar'|trans }}</a>
         <button type="button" class="ae-fechar" data-fechar-aviso-pedidos title="{{ 'moldura.aviso_espaco.lembrar_amanha'|trans }}" aria-label="{{ 'moldura.aviso_espaco.lembrar_amanha'|trans }}">×</button>
     </div>
 {% endif %}

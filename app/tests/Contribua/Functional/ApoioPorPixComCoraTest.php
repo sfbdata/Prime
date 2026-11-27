@@ -90,7 +90,8 @@ final class ApoioPorPixComCoraTest extends JusPrimeWebTestCase
         self::assertSame(['cert.pem', 'chave.key'], json_decode($linha['arquivos'], true));
         self::assertStringNotContainsString('BEGIN', (string) base64_decode((string) $linha['certificado_cifrado']));
         self::assertStringNotContainsString('PRIVATE', (string) base64_decode((string) $linha['chave_cifrada']));
-        $html = $this->pagina();
+        // L2-M5: a integração bancária mora no painel do Master (fim da seção dos planos).
+        $html = $this->pagina('/master');
         self::assertStringContainsString('Integração bancária (API)', $html);
         self::assertStringContainsString('cert.pem, chave.key', $html);
         self::assertStringNotContainsString('BEGIN CERTIFICATE', $html);
@@ -373,10 +374,10 @@ final class ApoioPorPixComCoraTest extends JusPrimeWebTestCase
         $this->client->request('POST', '/api/webhooks/cora/pix', [], [], ['HTTP_WEBHOOK_EVENT_ID' => $evento, 'HTTP_WEBHOOK_EVENT_TYPE' => $tipo, 'HTTP_WEBHOOK_RESOURCE_ID' => $recurso, 'HTTP_USER_AGENT' => 'Cora-Webhook']);
     }
 
-    private function pagina(): string
+    private function pagina(string $url = '/contribua'): string
     {
         $this->em->clear();
-        $this->client->request('GET', '/contribua');
+        $this->client->request('GET', $url);
         self::assertResponseIsSuccessful();
 
         return (string) $this->client->getResponse()->getContent();

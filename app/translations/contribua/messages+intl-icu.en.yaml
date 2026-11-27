@@ -1,5 +1,6 @@
 contribua:
     espaco:
+        atalho_master: 'Settings in the {papel} panel'
         bonus_ate: 'Includes {gb} GB bonus until {data}'
         inclui_liberados: '(includes +{gb} GB unlocked)'
         liberada_auto: 'Options unlocked automatically because usage passed {limiar}%. BlueJus stays free; the package is optional.'

@@ -463,8 +463,9 @@ final class CampanhaControllerTest extends JusPrimeWebTestCase
     #[TestDox('O Contribua do Master abre com o painel da campanha montado')]
     public function testIndexDoMaster(): void
     {
+        // L2-M5: o painel do modo campanha mora no painel do Master.
         $this->logar($this->master, $this->escritorio);
-        $this->client->request('GET', '/contribua');
+        $this->client->request('GET', '/master');
 
         self::assertResponseIsSuccessful();
         self::assertSelectorExists('link[href*="contribua-campanha.css"]');

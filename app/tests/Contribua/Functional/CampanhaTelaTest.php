@@ -91,7 +91,7 @@ final class CampanhaTelaTest extends JusPrimeWebTestCase
         self::assertSelectorExists('#faq details.ct-faq > div > a[data-campanha-abrir][href="#black"]');
     }
 
-    #[TestDox('O painel #campanha existe só para o Master, depois do Suporte e antes da Integração bancária')]
+    #[TestDox('L2-M5: o painel #campanha saiu da página Contribua e fica no fim da seção "Comercial e e-mails" do painel do Master')]
     public function testPainelSoParaOMaster(): void
     {
         $this->campanha(true);
@@ -99,24 +99,19 @@ final class CampanhaTelaTest extends JusPrimeWebTestCase
         $this->abrir($this->comum, '/contribua');
         self::assertSelectorNotExists('section#campanha');
         self::assertSelectorNotExists('[data-cp-painel]');
-
         $this->abrir($this->master, '/contribua');
-        self::assertSelectorCount(1, '.ct-pagina > section#campanha.cp-painel[data-cp-painel]');
-        self::assertSelectorTextContains('.ct-pagina > section#campanha > .cp-painel-topo > .cp-painel-titulo', 'Modo campanha: BlueJus Black');
+        self::assertSelectorNotExists('[data-cp-painel]', 'nem para o Master: ele usa o painel do Master');
+
+        $this->abrir($this->master, '/master');
+        self::assertSelectorCount(1, '.mp-secao-externa[data-sec-externa="com"] > section#campanha.cp-painel[data-cp-painel]');
+        self::assertSelectorCount(1, '.mp-secao-externa[data-sec-externa="com"] > section#campanha:last-child', 'depois do Comercial');
+        self::assertSelectorTextContains('section#campanha > .cp-painel-topo > .cp-painel-titulo', 'Modo campanha: BlueJus Black');
         self::assertSelectorTextContains('#campanha .cp-painel-estado', 'No ar');
         self::assertSelectorExists('#campanha button[role="switch"][data-cp-ligar]');
         self::assertSelectorExists('#campanha input[data-cp-campo="preco"]');
         self::assertSelectorExists('#campanha button[data-cp-mult="3"]');
         self::assertSelectorExists('#campanha button[data-cp-padrao]');
-
-        $filhos = $this->client->getCrawler()->filter('.ct-pagina > section')->each(
-            static fn ($no): string => (string) ($no->attr('id') ?: ($no->attr('class') ?? '')),
-        );
-        $suporte = array_search('ct-cartao ct-suporte', $filhos, true);
-        $campanha = array_search('campanha', $filhos, true);
-        self::assertNotFalse($suporte);
-        self::assertSame($suporte + 1, $campanha, 'o painel vem logo depois do Suporte');
-        self::assertCount($campanha + 2, $filhos, 'depois dele só a Integração bancária');
+        self::assertSelectorExists('#campanha[data-csrf][data-url-configurar]');
     }
 
     #[TestDox('Sem aba no topo (pedido M5.6, 23/11): outra tela logada não mostra a campanha, mas a janela segue abrindo pelo link #black')]
@@ -138,7 +133,7 @@ final class CampanhaTelaTest extends JusPrimeWebTestCase
     public function testPainelSemCaixaDaAba(): void
     {
         $this->campanha(true);
-        $html = $this->abrir($this->master, '/contribua');
+        $html = $this->abrir($this->master, '/master');
 
         self::assertSelectorExists('[data-cp-painel]');
         self::assertSelectorNotExists('[data-cp-campo="abaNoTopo"]');

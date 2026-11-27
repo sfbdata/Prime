@@ -136,12 +136,23 @@ final class ContribuaControllerTest extends JusPrimeWebTestCase
         self::assertSelectorNotExists('.ct-pagina > section[data-cc-integracao]', 'a integração bancária é só do Master');
     }
 
-    #[TestDox('Integração bancária (só Master) fica por último, depois do Suporte')]
-    public function testIntegracaoBancariaPorUltimoParaOMaster(): void
+    #[TestDox('L2-M5: a integração bancária, o modo campanha e o pagamento por cartão saíram da página; o Master vê só o atalho para o painel dele')]
+    public function testConfiguracoesDoMasterSoNoPainel(): void
     {
         $this->abrir($this->master);
 
-        self::assertSelectorCount(1, '.ct-pagina > section.ct-suporte ~ section[data-cc-integracao]:last-of-type');
+        self::assertSelectorNotExists('[data-cc-integracao]');
+        self::assertSelectorNotExists('[data-cp-painel]');
+        self::assertSelectorNotExists('[data-pagamento-master]');
+        self::assertSelectorNotExists('[data-abrir-master]');
+        self::assertSelectorNotExists('[data-pedidos-espaco]');
+        $atalho = $this->client->getCrawler()->filter('#espaco > .ct-espaco-topo > a.co-abrir-master[data-atalho-master]');
+        self::assertCount(1, $atalho);
+        self::assertSame('/master#aba=painel&sec=planos', $atalho->attr('href'));
+        self::assertSame('Configurações no painel do Master', trim($atalho->text()));
+
+        $this->abrir($this->primario);
+        self::assertSelectorNotExists('[data-atalho-master]');
     }
 
     #[TestDox('Apresentação: selo GRATUITO, atalhos novos e a linha "Sem mensalidade..." recolhida')]

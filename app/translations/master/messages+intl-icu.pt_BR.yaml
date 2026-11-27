@@ -7,6 +7,12 @@
 # parâmetro.
 master:
     painel:
+        # L2-M5: as configurações só do Master que saíram da página Contribua (fim da seção Planos e armazenamento).
+        contribua:
+            rotulo: 'PAGAMENTO, PEDIDOS DE ESPAÇO E BANCO (VINDOS DO CONTRIBUA)'
+            pagamento_titulo: Pagamento por cartão
+            pagamento_texto: 'Gateway, chave pública, links dos pacotes, carência e as últimas assinaturas dos escritórios.'
+            configurar: Configurar pagamento
         titulo_pagina: 'Editar Perfil | {papel} do Sistema'
         titulo: 'Editar Perfil: {papel} do Sistema'
         voltar: Voltar

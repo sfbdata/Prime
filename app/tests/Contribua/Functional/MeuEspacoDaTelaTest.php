@@ -165,7 +165,7 @@ final class MeuEspacoDaTelaTest extends JusPrimeWebTestCase
         self::assertSelectorCount(0, '#espaco .ct-pacote');
     }
 
-    #[TestDox('N7: o painel só existe para o Master; vazio mostra "Nenhum pedido de espaço até agora." e a prévia, e o botão "Configurar pagamento" segue')]
+    #[TestDox('N7 e L2-M5: o painel de pedidos e o "Configurar pagamento" ficam no painel do Master (vazio: "Nenhum pedido de espaço até agora."); no Contribua, a prévia e o atalho')]
     public function testPainelVazioDoMaster(): void
     {
         $this->abrir($this->primario);
@@ -173,17 +173,25 @@ final class MeuEspacoDaTelaTest extends JusPrimeWebTestCase
         self::assertStringNotContainsString('Pedidos de espaço', (string) $this->client->getResponse()->getContent());
 
         $this->abrir($this->master);
-
-        self::assertSelectorCount(1, '#espaco > .ct-espaco-corpo > .ct-pedidos[data-pedidos-espaco]');
-        self::assertSelectorTextContains('.ct-pedidos > .ct-pedidos-cabeca > b', 'Pedidos de espaço · só Master');
-        self::assertSelectorTextContains('.ct-pedidos > .ct-pedidos-cabeca > .ct-pedidos-resumo', '0 pendente(s) · 0 liberado(s)');
-        self::assertSelectorTextContains('.ct-pedidos > .ct-pedidos-vazio', 'Nenhum pedido de espaço até agora.');
-        self::assertSelectorTextContains('.ct-pedidos-cabeca > button[data-espaco-previa]', 'Ver prévia das opções de compra');
+        self::assertSelectorNotExists('[data-pedidos-espaco]');
+        self::assertSelectorTextContains('#espaco > .ct-espaco-topo > button.co-abrir-master[data-espaco-previa]', 'Ver prévia das opções de compra');
+        self::assertSelectorTextContains('#espaco > .ct-espaco-topo > a.co-abrir-master[data-atalho-master]', 'Configurações no painel do Master');
         // A prévia: cartões no HTML do Master, escondidos até o botão (só JS, nada é gravado).
         self::assertSelectorCount(4, '#espaco > .ct-espaco-corpo > .ct-pacotes[hidden] > .ct-pacote');
         self::assertSelectorTextContains('#espaco > .ct-espaco-corpo > .ct-liberacao[hidden]', 'Visível só para você, como Master. O escritório vê estas opções quando você liberar ou quando o uso passar de 97%.');
-        self::assertSelectorExists('#espaco [data-abrir-master]');
-        self::assertSelectorTextContains('#espaco .co-abrir-master', 'Configurar pagamento');
+
+        $this->abrirOPainelDoMaster();
+        $bloco = '#master-painel .mp-contribua[data-mp-contribua][hidden]';
+        self::assertSelectorCount(1, $bloco . ' > .ct-pedidos[data-pedidos-espaco]');
+        self::assertSelectorTextContains($bloco . ' > .ct-pedidos > .ct-pedidos-cabeca > b', 'Pedidos de espaço · só Master');
+        self::assertSelectorTextContains($bloco . ' > .ct-pedidos > .ct-pedidos-cabeca > .ct-pedidos-resumo', '0 pendente(s) · 0 liberado(s)');
+        self::assertSelectorTextContains($bloco . ' > .ct-pedidos > .ct-pedidos-vazio', 'Nenhum pedido de espaço até agora.');
+        self::assertSelectorNotExists($bloco . ' [data-espaco-previa]', 'a prévia é da página Contribua');
+        self::assertSelectorTextContains($bloco . ' > .mp-contribua-pagamento > button.co-abrir-master[data-abrir-master]', 'Configurar pagamento');
+        self::assertSelectorCount(1, $bloco . ' > section.cc-integ[data-cc-integracao]');
+        self::assertSelectorCount(1, '.co-modal--master[data-pagamento-master][hidden]');
+        self::assertSelectorExists('[data-cc-premio][data-abrir="0"][data-apoio=""]');
+        self::assertSelectorExists('script[src*="js/master/contribua-no-master.js"]');
     }
 
     #[TestDox('N7: linha pendente de outro escritório com conta, estimativa, detalhe, motivo, selo e os dois botões; o escritório comum não vê nada')]
@@ -193,7 +201,7 @@ final class MeuEspacoDaTelaTest extends JusPrimeWebTestCase
         $this->em->persist($pedido);
         $this->em->flush();
 
-        $this->abrir($this->master);
+        $this->abrirOPainelDoMaster();
 
         self::assertSelectorTextContains('.ct-pedidos-resumo', '1 pendente(s) · 0 liberado(s)');
         self::assertSelectorNotExists('.ct-pedidos-vazio');
@@ -259,6 +267,14 @@ final class MeuEspacoDaTelaTest extends JusPrimeWebTestCase
         $espaco->liberarOpcoes(OrigemDaLiberacao::Master, new \DateTimeImmutable());
         $this->em->persist($espaco);
         $this->em->flush();
+    }
+
+    /** L2-M5: o painel de pedidos, o pagamento por cartão e a integração bancária moram no painel do Master. */
+    private function abrirOPainelDoMaster(): void
+    {
+        $this->logarComTenant($this->client, $this->master, $this->escritorio);
+        $this->client->request('GET', '/master');
+        self::assertResponseIsSuccessful();
     }
 
     private function abrir(User $quem): void

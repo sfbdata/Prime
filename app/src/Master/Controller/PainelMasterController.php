@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Master\Controller;
 
+use App\Contribua\UseCase\MontarConfiguracoesDoContribuaNoMasterUseCase;
 use App\Entity\Auth\User;
 use App\Master\Repository\PainelMasterRepository;
 use App\Master\Service\RecursosDoSistema;
@@ -22,6 +23,9 @@ use Symfony\Component\Security\Http\Attribute\IsGranted;
  *
  * A página só monta a moldura e a aba Permissões; as seções do painel chegam pelos endpoints JSON
  * de {@see PainelMasterDadosController}. Promover e remover Master: {@see MastersDoSistemaController}.
+ *
+ * As configurações só do Master que ficavam na página Contribua (pagamento por cartão, pedidos de espaço, integração
+ * bancária e modo campanha; pedido do Farlei, lote 2, L2-M5) vêm prontas no HTML, com as rotas do Contribua.
  */
 #[IsGranted('ROLE_SUPER_ADMIN')]
 final class PainelMasterController extends AbstractController
@@ -35,7 +39,7 @@ final class PainelMasterController extends AbstractController
     }
 
     #[Route('/master', name: 'master_painel', methods: ['GET'])]
-    public function __invoke(): Response
+    public function __invoke(MontarConfiguracoesDoContribuaNoMasterUseCase $contribua): Response
     {
         $ator = $this->getUser();
         $souPrimario = $ator instanceof User && $this->regraDosMasters->ehMasterPrimario($ator);
@@ -47,6 +51,7 @@ final class PainelMasterController extends AbstractController
             // M5: só secundários do escritório em que o Master primário está.
             'candidatos'  => $escritorio !== null ? $this->repositorio->candidatosAMaster((int) $escritorio->getId()) : [],
             'recursos'    => $this->recursos->paraOPainel(),
+            'contribua'   => $contribua->executar(),
         ]);
     }
 }

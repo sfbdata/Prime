@@ -26,6 +26,8 @@
   const URLS = JSON.parse(raiz.dataset.urls || '{}');
   const elSecs = document.getElementById('mp-secs');
   const elSecao = document.getElementById('mp-secao');
+  // L2-M5: as configurações do Contribua (anexarConfiguracoesDoContribua, na seção dos planos).
+  const elContribua = raiz.querySelector('[data-mp-contribua]');
 
   // Aspas pelo código (\x22 e \x27): um literal de aspas aqui desalinha o detector de texto fixo (SemTextoFixoNosExtraidos)
   // e esconde dele o resto do arquivo.
@@ -176,7 +178,8 @@
     if (sec === 'visao') return montarVisao();
     if (sec === 'contas') return montarContas();
     if (sec === 'oab') return montarOab();
-    if (sec === 'planos') { montarPlanos(); return montarArm(); }
+    // L2-M5: as configurações do Contribua no fim da seção, depois dos planos e do armazenamento.
+    if (sec === 'planos') { montarPlanos(); montarArm(); return anexarConfiguracoesDoContribua(); }
     if (sec === 'audit') return montarAudit();
     if (sec === 'roab') { elSecao.innerHTML = '<div id="mp-roab"></div>'; return montarRevisaoOab(); }
     if (sec === 'blog') { elSecao.innerHTML = '<div id="mp-blog"></div>'; return montarArtigosDoBlog(); }
@@ -1229,6 +1232,17 @@
     }).join('') + '</div>'
       + '<span class="mp-nota">' + T(convenio ? 'master.js.planos.nota' : 'master.js.planos.nota_sem_convenio') + '</span>';
     document.getElementById('mp-planos-aviso').innerHTML = S.aviso && S.aviso.ranking ? '' : avisoHtml();
+  }
+
+  // L2-M5 (pedido do Farlei, lote 2): o pagamento por cartão, os pedidos de espaço e a integração bancária que ficavam
+  // na página Contribua vêm prontos no HTML (master/_contribua_config.html.twig) e entram no fim da seção "Planos e
+  // armazenamento" (renderSecao, depois do montarArm). O mesmo nó
+  // é recolocado a cada montagem: o innerHTML da seção o tira da página, mas a referência (elContribua) guarda o mesmo
+  // nó, então os ouvintes e o que foi digitado continuam.
+  function anexarConfiguracoesDoContribua() {
+    if (!elContribua) return;
+    elSecao.appendChild(elContribua);
+    elContribua.hidden = false;
   }
 
   // Janela "Convênios" (spec convenios §6.2): o módulo convenios.js cuida de tudo; o painel só passa as URLs e recarrega
