@@ -34,6 +34,7 @@ final class ComercialBaseLegalJsTest extends TestCase
         self::assertStringContainsString('frequencia, agendar: agenda, baseLegal }', $js);
         self::assertStringContainsString("semNome: m.semNome || '',", $js);
         self::assertStringContainsString('{ exemplo: Object.assign({}, contagem.exemplo, { publico }) }', $js);
+        self::assertStringContainsString("publico: publicoDaSecao() }, secaoDoTeste(aberto))", self::arquivo('public/js/master/comercial-teste.js'), 'o teste leva o público (rodapé) e a seção (Central)');
         self::assertSame(1, preg_match("/const BASES_LEGAIS = \\[([^\\]]+)\\];/", $js, $m));
         self::assertSame(BaseLegalDoEnvio::valores(), array_map(static fn (string $v): string => trim($v, " '"), explode(',', $m[1])), 'os mesmos valores do servidor');
     }
