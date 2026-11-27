@@ -236,10 +236,13 @@
 
     /* Pedido do Farlei M1 (C1): a base legal que o Master declara na confirmação do Enviar, obrigatória; o botão só libera
        com uma escolhida. Os valores são os do servidor (BaseLegalDoEnvio). */
-    const BASES_LEGAIS = ['consentimento', 'execucao_de_contrato', 'legitimo_interesse'];
     const escolhaDaBaseLegal = () => ({
       rotulo: BJ_T.t('comercial.js.base_legal_rotulo'), vazio: BJ_T.t('comercial.js.base_legal_vazio'),
-      opcoes: BASES_LEGAIS.map(b => [b, BJ_T.t('comercial.js.base_legal_' + b)]),
+      opcoes: [
+        ['consentimento', BJ_T.t('comercial.js.base_legal_consentimento')],
+        ['execucao_de_contrato', BJ_T.t('comercial.js.base_legal_execucao_de_contrato')],
+        ['legitimo_interesse', BJ_T.t('comercial.js.base_legal_legitimo_interesse')],
+      ],
     });
 
     // A chave de idempotência da campanha: nova depois de cada envio aceito; a mesma se o pedido se repetir.

@@ -35,8 +35,9 @@ final class ComercialBaseLegalJsTest extends TestCase
         self::assertStringContainsString("semNome: m.semNome || '',", $js);
         self::assertStringContainsString('{ exemplo: Object.assign({}, contagem.exemplo, { publico }) }', $js);
         self::assertStringContainsString("publico: publicoDaSecao() }, secaoDoTeste(aberto))", self::arquivo('public/js/master/comercial-teste.js'), 'o teste leva o público (rodapé) e a seção (Central)');
-        self::assertSame(1, preg_match("/const BASES_LEGAIS = \\[([^\\]]+)\\];/", $js, $m));
-        self::assertSame(BaseLegalDoEnvio::valores(), array_map(static fn (string $v): string => trim($v, " '"), explode(',', $m[1])), 'os mesmos valores do servidor');
+        preg_match_all("/\\['([a-z_]+)', BJ_T\\.t\\('comercial\\.js\\.base_legal_([a-z_]+)'\\)\\]/", $js, $m);
+        self::assertSame(BaseLegalDoEnvio::valores(), $m[1], 'os mesmos valores do servidor');
+        self::assertSame($m[1], $m[2], 'cada valor com a chave escrita inteira (o catálogo lê o literal)');
     }
 
     #[TestDox('A janela do painel tem o select escondido; com escolha, o botão só libera com uma opção e devolve o valor')]
