@@ -1,6 +1,10 @@
 # Gerado pelo scripts/mudancas.py no PR de release: o texto vem da seção
 # "## Para o cliente" dos arquivos em mudancas/. Lido pela página Novidades.
 versoes:
+- versao: "3.13.0"
+  data: "2026-11-27"
+  itens:
+    - "A página Contribua ficou mais limpa: os ajustes internos da equipe BlueJus (cobrança por cartão, banco e campanhas) saíram dela e foram para a área da equipe, que passa a cuidar de tudo num lugar só."
 - versao: "3.12.0"
   data: "2026-11-27"
   itens:
