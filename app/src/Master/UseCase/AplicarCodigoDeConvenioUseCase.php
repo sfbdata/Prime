@@ -15,6 +15,7 @@ use App\Master\Exception\ConvenioRecusado;
 use App\Master\Repository\ConvenioRepository;
 use App\Master\Repository\ConvenioVinculoRepository;
 use App\Master\Service\ChaveDoConvenio;
+use App\Master\Service\CodigoDeConvenio;
 use App\Repository\UserTenantRepository;
 use App\Shared\Audit\EscopoDeAuditoriaDePlataforma;
 use App\Tenant\Exception\OperacaoDePrimarioRecusada;
@@ -53,12 +54,6 @@ final class AplicarCodigoDeConvenioUseCase
     ) {
     }
 
-    /** O código como o Master o vê: maiúsculas, sem espaço nem hífen (a pessoa pode copiar "abcd-2345"). */
-    public static function normalizar(string $codigo): string
-    {
-        return strtoupper((string) preg_replace('/[\s\-]+/', '', $codigo));
-    }
-
     /**
      * @throws OperacaoDePrimarioRecusada quem pede não é primário do escritório
      * @throws ConvenioRecusado           código que não vale (texto único) ou convênio que já vale
@@ -66,8 +61,8 @@ final class AplicarCodigoDeConvenioUseCase
     public function executar(User $quem, Tenant $tenant, string $codigo): Convenio
     {
         $this->exigirPrimario($quem, $tenant);
-        $codigo = self::normalizar($codigo);
-        if (!$this->chave->ativo() || preg_match('/^[A-Z0-9]{4,16}$/', $codigo) !== 1) {
+        $codigo = CodigoDeConvenio::normalizar($codigo);
+        if (!$this->chave->ativo() || !CodigoDeConvenio::valido($codigo)) {
             throw new ConvenioRecusado(self::RECUSA);
         }
         $tenantId = (int) $tenant->getId();

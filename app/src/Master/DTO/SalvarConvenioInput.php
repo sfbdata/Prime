@@ -8,7 +8,7 @@ use App\Entity\Auth\User;
 
 /**
  * Pedido de criar ou editar um convênio (POST /master/convenios/salvar, JSON; spec docs/specs/convenios.md, §7.3).
- * `id` nulo cria. `doJson()` só dá forma ao que veio; as regras são do UseCase e da entidade.
+ * `id` nulo cria. `codigo` opcional: o Master escolhe o código de convite (vazio sorteia). `doJson()` só dá forma ao que veio; as regras são do UseCase e da entidade.
  */
 final class SalvarConvenioInput
 {
@@ -26,6 +26,7 @@ final class SalvarConvenioInput
         public readonly ?string $validoAte,
         public readonly ?int $limiteDeUsos,
         public readonly bool $gerarOutroCodigo,
+        public readonly ?string $codigo = null,
     ) {
     }
 
@@ -46,6 +47,7 @@ final class SalvarConvenioInput
             self::textoOuNulo($corpo['validoAte'] ?? null),
             self::inteiro($corpo['limiteDeUsos'] ?? null),
             ($corpo['gerarOutroCodigo'] ?? false) === true,
+            self::textoOuNulo($corpo['codigo'] ?? null),
         );
     }
 

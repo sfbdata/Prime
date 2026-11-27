@@ -117,7 +117,7 @@
     const f = {
       id: c ? c.id : null, nome: c ? c.nome : '', instituicao: c ? c.instituicao : '', abrangencia: c ? c.abrangencia : 'nacional', uf: c && c.uf ? c.uf : 'SP',
       beneficio: c ? c.beneficio : 'gratuidade', valor: '', textoSelo: c ? c.textoSelo || '' : '', validoDe: c ? c.validoDe : hoje(), validoAte: c && c.validoAte ? c.validoAte : '',
-      limite: c && c.limiteDeUsos != null ? String(c.limiteDeUsos) : '', codigo: c ? c.codigoConvite : null, oab: !!(c && c.oab), erro: null,
+      limite: c && c.limiteDeUsos != null ? String(c.limiteDeUsos) : '', codigo: c ? c.codigoConvite : null, codigoEscolhido: '', oab: !!(c && c.oab), erro: null,
     };
     if (c) f.valor = c.beneficio === 'desconto_fixo' ? centavosParaTexto(c.beneficioValor) : (c.beneficio === 'gratuidade' ? '' : String(c.beneficioValor));
     return f;
@@ -133,6 +133,7 @@
     const corpo = erroHtml(f.erro) + faixa()
       + (f.codigo ? '<div class="mp-cv-codigo"><div><span>' + esc(T('codigo')) + '</span><b data-cv-codigo>' + esc(f.codigo) + '</b></div>'
         + '<div><button type="button" class="mp-convenio-link" data-cv-outro-codigo' + (ocupado ? ' disabled' : '') + '>' + esc(T('gerar_outro')) + '</button><small>' + esc(T('gerar_outro_nota')) + '</small></div></div>' : '')
+      + (f.oab ? '' : campoHtml(T(f.id ? 'campo_codigo_novo' : 'campo_codigo'), '<input type="text" maxlength="19" autocomplete="off" spellcheck="false" data-cv-f="codigoEscolhido" placeholder="' + esc(T('codigo_dica')) + '" value="' + esc(f.codigoEscolhido) + '"><small>' + esc(T('codigo_nota')) + '</small>'))
       + (f.oab ? '<div class="mp-lim-nota">' + esc(T('nota_oab')) + '</div>' : '')
       + '<div class="mp-lim-duas">' + campoHtml(T('campo_nome'), '<input type="text" maxlength="120" data-cv-f="nome" value="' + esc(f.nome) + '">')
       + campoHtml(T('campo_instituicao'), '<input type="text" maxlength="120" data-cv-f="instituicao" value="' + esc(f.instituicao) + '">') + '</div>'
@@ -180,7 +181,7 @@
     return {
       id: f.id, nome: f.nome.trim(), instituicao: f.instituicao.trim(), abrangencia: f.abrangencia, uf: f.abrangencia === 'uf' ? f.uf : null,
       beneficio: f.beneficio, beneficioValor: valor, textoSelo: f.textoSelo.trim(), validoDe: f.validoDe, validoAte: f.validoAte || null,
-      limiteDeUsos: limite === '' ? null : parseInt(limite, 10), gerarOutroCodigo: !!gerarOutro,
+      limiteDeUsos: limite === '' ? null : parseInt(limite, 10), gerarOutroCodigo: !!gerarOutro, codigo: gerarOutro ? null : (String(f.codigoEscolhido || '').trim() || null),
     };
   }
 
@@ -193,6 +194,7 @@
       if (gerarOutro) {
         const c = L.convenios.find(x => x.id === d.id) || L.convenios.find(x => x.id === f.id);
         if (c) f.codigo = c.codigoConvite;
+        f.codigoEscolhido = '';
         if (d.id) f.id = d.id;
         return desenhar();
       }

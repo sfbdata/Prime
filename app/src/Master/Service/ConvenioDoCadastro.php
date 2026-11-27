@@ -36,7 +36,7 @@ final class ConvenioDoCadastro
         if (!is_string($valor)) {
             return;
         }
-        $codigo = AplicarCodigoDeConvenioUseCase::normalizar($valor);
+        $codigo = CodigoDeConvenio::normalizar($valor);
         if (preg_match('/^[A-Z0-9]{4,16}$/', $codigo) === 1) {
             $sessao->set(self::CHAVE_SESSAO, $codigo);
         }

@@ -26,6 +26,7 @@ use App\Master\UseCase\ConsultarConveniosUseCase;
 use App\Master\UseCase\DesligarConvenioUseCase;
 use App\Master\UseCase\SalvarConvenioUseCase;
 use App\Master\UseCase\SincronizarVinculosDeConvenioUseCase;
+use App\Profile\Controller\ConvenioDoPerfilController;
 use App\Tests\Functional\JusPrimeWebTestCase;
 use Doctrine\ORM\EntityManagerInterface;
 use PHPUnit\Framework\Attributes\CoversClass;
@@ -136,6 +137,42 @@ final class ConveniosControllerTest extends JusPrimeWebTestCase
         $this->postar('/master/convenios/salvar', ['id' => $oab->getId(), 'nome' => 'Convênio OAB', 'instituicao' => 'OAB', 'abrangencia' => 'uf', 'uf' => 'SP', 'beneficio' => 'gratuidade', 'textoSelo' => 'CONVÊNIO OAB', 'validoDe' => '2026-10-26']);
         self::assertResponseStatusCodeSame(422);
         self::assertSame('No convênio OAB, a abrangência e o benefício não mudam por aqui.', $this->json()['erro']);
+    }
+
+    #[TestDox('Master escolhe o código (OABDF2026); duplicado e formato ruim dão 422; a conta aplica "oabdf2026" no Meu Perfil e entra')]
+    public function testMasterEscolheOCodigoEAContaAplica(): void
+    {
+        $this->entrarComoMaster();
+
+        $this->postar('/master/convenios/salvar', ['codigo' => 'OABDF2026'] + $this->pedido());
+        self::assertResponseIsSuccessful();
+        $id = $this->json()['id'];
+        self::assertSame('OABDF2026', array_column($this->json()['convenios'], null, 'id')[$id]['codigoConvite']);
+
+        $this->postar('/master/convenios/salvar', ['codigo' => 'oabdf-2026', 'nome' => 'Outro'] + $this->pedido());
+        self::assertResponseStatusCodeSame(422);
+        self::assertSame('Este código já é de outro convênio. Escolha outro.', $this->json()['erro']);
+
+        $this->postar('/master/convenios/salvar', ['codigo' => 'AB'] + $this->pedido());
+        self::assertResponseStatusCodeSame(422);
+
+        $this->postar('/master/convenios/salvar', ['id' => $id, 'codigo' => 'oabdf2027'] + $this->pedido());
+        self::assertResponseIsSuccessful();
+        self::assertSame('OABDF2027', array_column($this->json()['convenios'], null, 'id')[$id]['codigoConvite']);
+
+        $tenant = $this->escritorioComPrimario();
+        $primario = $this->usuario(['ROLE_USER']);
+        $this->em->persist((new UserTenant($primario, $tenant))->setTenantRole($this->em->getRepository(TenantRole::class)->findOneBy(['tenant' => $tenant])));
+        $tenant->setCriadoPor($primario);
+        $this->em->flush();
+        $this->logarComTenant($this->client, $primario, $tenant);
+        $this->client->request('POST', '/perfil/convenio/codigo', ['_token' => 'TOKEN_' . ConvenioDoPerfilController::CSRF, 'codigo' => 'oabdf2027']);
+
+        $this->em->clear();
+        $vinculos = $this->em->getRepository(ConvenioVinculo::class)->findBy(['tenant' => $tenant->getId()]);
+        self::assertCount(1, $vinculos);
+        self::assertSame($id, $vinculos[0]->getConvenio()->getId());
+        self::assertSame(OrigemDoVinculo::Codigo, $vinculos[0]->getOrigem());
     }
 
     #[TestDox('gratuidade desliga na hora: convênio desligado, vínculo fechado com "convenio_desligado", um aviso')]
