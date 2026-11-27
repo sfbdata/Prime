@@ -8,6 +8,14 @@ cada nível e o procedimento de release estão em [docs/versionamento.md](docs/v
 
 ## [Não lançado]
 
+## [3.13.0] - 2026-11-27
+
+### Alterado
+
+- Painel do Master, seção "Planos e limites": no fim, as configurações que ficavam na página Contribua. São o pagamento por cartão (gateway, chave pública, links dos pacotes, carência e as últimas assinaturas, com "Confirmar pagamento"), os pedidos de espaço dos escritórios (Liberar e Recusar) e a integração bancária (API), com o "Testar mensagem de prêmio".
+- Painel do Master, seção "Comercial e e-mails": no fim, o modo campanha (BlueJus Black), com os pedidos de devolução e os Pix aguardando.
+- Página Contribua: para o Master, fica só o atalho "Configurações no painel do Master" e a prévia das opções de compra. As rotas, as permissões e as regras não mudaram.
+
 ## [3.12.0] - 2026-11-27
 
 ### Adicionado
@@ -2662,7 +2670,8 @@ justificativa está em `docs/versionamento.md`.
 Primeira versão marcada no repositório (tag `v1.0.0`, commit `4940cc87`). Não há registro
 detalhado do que ela continha.
 
-[Não lançado]: https://github.com/sfbdata/Prime/compare/v3.12.0...HEAD
+[Não lançado]: https://github.com/sfbdata/Prime/compare/v3.13.0...HEAD
+[3.13.0]: https://github.com/sfbdata/Prime/compare/v3.12.0...v3.13.0
 [3.12.0]: https://github.com/sfbdata/Prime/compare/v3.11.0...v3.12.0
 [3.11.0]: https://github.com/sfbdata/Prime/compare/v3.10.0...v3.11.0
 [3.10.0]: https://github.com/sfbdata/Prime/compare/v3.9.1...v3.10.0
