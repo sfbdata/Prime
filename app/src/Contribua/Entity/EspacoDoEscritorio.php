@@ -61,9 +61,12 @@ class EspacoDoEscritorio implements Auditavel
     #[ORM\Column(type: 'integer', options: ['default' => 1])]
     private int $multiplicador = 1;
 
-    /** A chave "Ampliação de GB automática" do checkout. Só gravada; a dobra automática é o PR seguinte. */
-    #[ORM\Column(type: 'boolean', options: ['default' => false])]
-    private bool $ampliacaoAutomatica = false;
+    /**
+     * A chave "Ampliação de GB automática" do checkout. Nasce ligada no espaço novo (L2-M1, 27/11/2026); o espaço
+     * que já existia fica como o escritório escolheu.
+     */
+    #[ORM\Column(type: 'boolean', options: ['default' => true])]
+    private bool $ampliacaoAutomatica = true;
 
     /** Quem liberou as opções de espaço extra: `master` fica gravada; `auto` só vale com o uso em 97% ou mais (D3). */
     #[ORM\Column(length: 10, nullable: true, enumType: OrigemDaLiberacao::class)]

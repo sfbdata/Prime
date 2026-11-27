@@ -191,12 +191,12 @@ final class AssinaturaDeEspacoTest extends TestCase
     {
         $espaco = new EspacoDoEscritorio(new Tenant(), new Plano('free', 'Free', 10, 0, 'Grátis', 1, 1));
         self::assertSame(1, $espaco->getMultiplicador());
-        self::assertFalse($espaco->isAmpliacaoAutomatica());
+        self::assertTrue($espaco->isAmpliacaoAutomatica(), 'L2-M1: o espaço novo nasce com a ampliação automática ligada');
 
         $espaco->mudarDePlano(new Plano('avancado', 'Avançado', 100, 6990, 'Para quem precisa de muito', 15, 15), 2);
         self::assertSame(200, $espaco->cotaDoPlanoEmGb());
-        $espaco->definirAmpliacaoAutomatica(true);
-        self::assertTrue($espaco->isAmpliacaoAutomatica());
+        $espaco->definirAmpliacaoAutomatica(false);
+        self::assertFalse($espaco->isAmpliacaoAutomatica());
         $espaco->mudarDePlano(new Plano('free', 'Free', 10, 0, 'Grátis', 1, 1));
         self::assertSame(1, $espaco->getMultiplicador(), 'voltar ao Free zera o multiplicador');
     }

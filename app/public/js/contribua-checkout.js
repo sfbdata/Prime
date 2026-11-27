@@ -243,9 +243,19 @@
         }
     });
 
-    /* Voltou do gateway (?assinatura=ok): abre direto no "Pagamento enviado" */
+    /* Voltou do gateway (?assinatura=ok): abre direto no "Pagamento enviado", com o resumo da esquerda do
+       pacote pago (o servidor manda o pacote, o GB, o multiplicador e o valor). O "HOJE" vem do botão do
+       pacote, como ao abrir pelo clique; sem o botão, o espaço que a assinatura dá. Já pago: sem + e −. */
     if (raiz.dataset.retorno === '1') {
-        plano = { preco: '' };
+        const d = modal.dataset;
+        if (d.retornoPlano) {
+            const botao = $$('[data-pedir-plano]').find((b) => b.dataset.pedirPlano === d.retornoPlano);
+            mul = +d.retornoMul || 1;
+            plano = { codigo: d.retornoPlano, gb: +d.retornoGb, hoje: botao ? +botao.dataset.planoHoje : +d.retornoGb * mul, preco: d.retornoPreco, centavos: +d.retornoCentavos, maior: false };
+            desenhar();
+        } else {
+            plano = { preco: '' };
+        }
         mostrarSucesso(true);
         modal.hidden = false;
     }
