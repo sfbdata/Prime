@@ -79,9 +79,9 @@ final class PainelMenuDaContaJsTest extends TestCase
         $js = self::js('painel.js');
 
         self::assertStringContainsString("const ATIVA = 'Ativa', SUSPENSA = 'Suspensa', QUARENTENA = 'Em quarentena';", $js, 'o valor gravado que o servidor manda');
-        self::assertStringContainsString("'>' + rotuloDaSituacao(QUARENTENA) + '</option></select>'", $js);
+        self::assertStringContainsString("'>' + rotuloDaSituacao(QUARENTENA) + '</option>'", $js);
         self::assertSame('Em quarentena', self::catalogo('master.js.situacao.quarentena'));
-        self::assertStringContainsString('(S.fSit ? c.situacao === S.fSit : c.situacao !== QUARENTENA)', $js);
+        self::assertStringContainsString('S.fSit ? c.situacao === S.fSit : c.situacao !== QUARENTENA;', $js);
         self::assertSame('apagada a partir de', self::catalogo('master.js.contas.purga'));
         self::assertStringContainsString(">' + T('master.js.contas.purga') + '<br>' + esc(dataBr(c.purgaEm))", $js, 'a purga roda às 03h do primeiro dia depois da carência: "a partir de" é exato');
 

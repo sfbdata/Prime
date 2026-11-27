@@ -43,7 +43,7 @@
   const agora = () => dataHora(new Date().toISOString());
 
   const S = { aba: 'painel', sec: 'visao', grMet: 'pastas', grVis: 'mes', grMod: 'acum', grAce: false, grSel: null, mapaModo: 'br', mapaQuem: 'esc', mapaUsu: 'geral', mapaInd: 'env',
-    faltamOn: false, faltamCid: false, busca: '', cOrd: 'num', fSit: '', rBusca: '', rOrd: 'cons', menu: null, menuPos: null, audTipo: '', audConta: null, audPag: 1, audPor: 50, audBusca: '', audTermo: '', audSeq: 0, aviso: null, fx: null, fxMsg: null };
+    faltamOn: false, faltamCid: false, busca: '', cOrd: 'num', fSit: '', fPlano: '', rBusca: '', rOrd: 'cons', menu: null, menuPos: null, audTipo: '', audConta: null, audPag: 1, audPor: 50, audBusca: '', audTermo: '', audSeq: 0, aviso: null, fx: null, fxMsg: null };
   let CONVENIO = {}; // sigla => estado do convênio (do painel Convênio OAB), mais novo que o das contas carregadas
   const D = { visao: null, contas: null, oab: null, audit: null, planos: null };
   const ERRO = {};
@@ -72,6 +72,8 @@
   // A situação gravada vem do servidor em português (ATIVA, SUSPENSA, QUARENTENA): é dado, comparado aqui e no filtro.
   // O rótulo da tela sai do catálogo (SIT_ROTULO); situação desconhecida aparece como veio.
   const ATIVA = 'Ativa', SUSPENSA = 'Suspensa', QUARENTENA = 'Em quarentena';
+  // Opção "Pagantes" do mesmo select de situação: não é situação gravada, é quem paga o Contribua hoje (`c.pagante`).
+  const PAGANTES = 'pagantes';
   // Pedido de exclusão pendente (o Tenant segue ativo): a tabela mostra "Suspensa a pedido", não "Ativa" (desvio pelo
   // dado: o protótipo mostrava Ativa). Só o rótulo muda; filtro e menu seguem a situação gravada da conta.
   const A_PEDIDO = 'a_pedido';
@@ -121,12 +123,17 @@
   // Vale no carregamento e no hashchange (itens "Exclusivo do Master" do menu do usuário com a página já aberta, e o
   // Voltar e o Avançar do navegador). Devolve true quando a seção mudou.
   const doHash = chave => (location.hash.match(new RegExp(chave + '=(\\w+)')) || [])[1];
+  // Filtro por plano de "Contas e escritórios" pelo endereço (#aba=painel&sec=contas&plano=<código>): o cartão de plano
+  // linka para a lista já filtrada. Sem `plano` no endereço, o filtro escolhido na tela fica como está.
   function aplicarAncora() {
     const aba = doHash('aba');
     S.aba = aba && raiz.querySelector('[data-aba="' + aba + '"]') ? aba : 'painel';
     mostrarAba();
     const sec = doHash('sec') || (location.hash.length > 1 ? null : 'visao');
-    if (!SECS.some(([k]) => k === sec) || sec === S.sec) return false;
+    if (!SECS.some(([k]) => k === sec)) return false;
+    const plano = sec === 'contas' ? doHash('plano') : undefined, mudouPlano = plano !== undefined && plano !== S.fPlano;
+    if (mudouPlano) S.fPlano = plano;
+    if (sec === S.sec && !mudouPlano) return false;
     S.sec = sec;
     return true;
   }
@@ -136,7 +143,7 @@
 
   // M5.16: a âncora canônica da tela aberta. pushState e replaceState não disparam o hashchange, então não há laço.
   // `trocar` (replaceState) é para quando o endereço já mudou por fora (link, Voltar) e só falta o formato canônico.
-  const ancoraAtual = () => '#aba=' + S.aba + (S.aba === 'painel' ? '&sec=' + S.sec : '');
+  const ancoraAtual = () => '#aba=' + S.aba + (S.aba === 'painel' ? '&sec=' + S.sec + (S.sec === 'contas' && S.fPlano ? '&plano=' + S.fPlano : '') : '');
   function escreverAncora(trocar) {
     const alvo = ancoraAtual();
     // Parâmetro a mais de outra tela (ex.: &bloco= da I.A.) fica até a aba ou a seção mudar.
@@ -777,7 +784,10 @@
       + '<select class="mp-select mp-select-34" data-f-sit><option value="">' + T('master.js.contas.todas_situacoes') + '</option>'
       + [ATIVA, SUSPENSA].map(v => '<option value="' + v + '"' + (S.fSit === v ? ' selected' : '') + '>' + rotuloDaSituacao(v) + '</option>').join('')
       // C4b: as contas excluídas só aparecem nesta opção, com a data da purga.
-      + '<option value="' + QUARENTENA + '"' + (S.fSit === QUARENTENA ? ' selected' : '') + '>' + rotuloDaSituacao(QUARENTENA) + '</option></select>'
+      + '<option value="' + QUARENTENA + '"' + (S.fSit === QUARENTENA ? ' selected' : '') + '>' + rotuloDaSituacao(QUARENTENA) + '</option>'
+      + '<option value="' + PAGANTES + '"' + (S.fSit === PAGANTES ? ' selected' : '') + '>' + T('master.js.contas.pagantes') + '</option></select>'
+      + '<select class="mp-select mp-select-34" data-f-plano title="' + esc(T('master.js.contas.filtrar_plano')) + '" aria-label="' + esc(T('master.js.contas.filtrar_plano')) + '"><option value="">' + T('master.js.contas.todos_planos') + '</option>'
+      + planosDasContas().map(([cod, nome]) => '<option value="' + esc(cod) + '"' + (S.fPlano === cod ? ' selected' : '') + '>' + esc(nome) + '</option>').join('') + '</select>'
       + '<label class="mp-busca"><i class="bi bi-search"></i><input data-busca value="' + esc(S.busca) + '" placeholder="' + esc(T('master.js.contas.busca')) + '" aria-label="' + esc(T('master.js.contas.busca')) + '"></label></div>'
       + '<div id="mp-contas-aviso"></div><div class="mp-rolagem"><div class="mp-contas-grade"><div class="mp-contas-cab">'
       + ['conta', 'primario_plano', 'usuarios', 'pastas', 'docs', 'armazenamento', 'dias30', 'previsao', 'situacao'].map(k => '<div>' + T('master.js.contas.cab.' + k) + '</div>').join('') + '<div></div></div>'
@@ -814,6 +824,24 @@
     const [cor, texto] = v.modo === 'dif' ? ['#0a6fa0', T('master.js.convenio.rotulo_conta_dif', p)]
       : v.modo === 'sem' ? ['#a3232b', T('master.js.convenio.rotulo_conta_sem', p)] : ['#1e7b45', T('master.js.convenio.rotulo_conta', p)];
     return '<span class="mp-conta-conv" style="color:' + cor + '">' + esc(texto) + '</span>';
+  }
+
+  // Opções do filtro por plano: os planos que as contas têm hoje (`espaco.planoCodigo`), em ordem de nome. O plano vindo
+  // pelo endereço que nenhuma conta tem entra também (com o código como nome), para o select mostrar o filtro aplicado.
+  function planosDasContas() {
+    const planos = new Map(D.contas.contas.map(c => [c.espaco.planoCodigo, c.espaco.planoNome]));
+    if (S.fPlano && !planos.has(S.fPlano)) planos.set(S.fPlano, S.fPlano);
+    return [...planos].sort((a, b) => a[1].localeCompare(b[1], 'pt-BR'));
+  }
+
+  // Quem paga o Contribua (`c.pagante`, do ListarContasPagantesUseCase): plano, valor por mês e até quando vale, na mesma
+  // etiqueta do convênio. Em carência (cobrança recusada ou renovação atrasada) troca o texto e a cor.
+  function rotuloDoPagante(c) {
+    const p = c.pagante;
+    if (!p) return '';
+    const dados = { plano: p.plano, valor: 'R$ ' + window.BJFormato.numero(p.valorCentavos / 100, 2), data: dataBr(p.valeAte) };
+    const [cor, texto] = p.carencia ? ['#b02a37', T('master.js.contas.pagante_carencia', dados)] : ['#1e7b45', T('master.js.contas.pagante', dados)];
+    return '<span class="mp-conta-conv" data-mp-pagante style="color:' + cor + '">' + esc(texto) + '</span>';
   }
 
   // Pedidos de exclusão de conta (desenho 1.2, linhas 148 e 679), de /master/dados/contas (`pedidosExclusao`).
@@ -988,7 +1016,8 @@
 
   function renderContasLista() {
     const b = S.busca.toLowerCase().trim();
-    const contas = ordenarContas(D.contas.contas.filter(c => (S.fSit ? c.situacao === S.fSit : c.situacao !== QUARENTENA) && (!b || casaNaBusca(c, b))));
+    const naSituacao = c => S.fSit === PAGANTES ? !!c.pagante && c.situacao !== QUARENTENA : S.fSit ? c.situacao === S.fSit : c.situacao !== QUARENTENA;
+    const contas = ordenarContas(D.contas.contas.filter(c => naSituacao(c) && (!S.fPlano || c.espaco.planoCodigo === S.fPlano) && (!b || casaNaBusca(c, b))));
     document.getElementById('mp-contas-n').textContent = T('master.js.contas.contagem', { n: num(contas.length) });
     // Resultado de suspender/reativar: uma linha acima da tabela, até trocar de seção.
     document.getElementById('mp-contas-aviso').innerHTML = avisoHtml();
@@ -997,7 +1026,7 @@
       return '<div class="mp-conta mp-lin" data-conta="' + c.id + '">'
         + '<div class="mp-conta-nome mp-hv"><b title="' + esc(c.nome) + '">' + esc(c.nome) + '</b><span class="mp-conta-ids"><span class="mp-conta-nro" title="' + esc(T('master.js.contas.numero_dica')) + '">' + esc(T('master.js.contas.numero', { numero: c.numero })) + '</span>'
         + (c.codigo ? '<span class="mp-conta-codigo" title="' + esc(T('master.js.contas.codigo_dica')) + '">' + esc(c.codigo) + '</span>' : '') + '</span><span>' + esc(T('master.js.contas.desde', { desde: c.desde, acesso: acessoRelativo(c.ultimoAcesso) })) + '</span></div>'
-        + '<div class="mp-conta-prim mp-hv"><span>' + esc(c.titular || T('master.js.contas.titular_ausente')) + '</span><span>' + esc(c.espaco.planoNome) + '</span>' + rotuloDoConvenio(c) + '</div>'
+        + '<div class="mp-conta-prim mp-hv"><span>' + esc(c.titular || T('master.js.contas.titular_ausente')) + '</span><span>' + esc(c.espaco.planoNome) + '</span>' + rotuloDoConvenio(c) + rotuloDoPagante(c) + '</div>'
         + '<div class="mp-conta-usu mp-hv"><b>' + num(c.usuarios) + '</b><span> / ' + (c.espaco.limiteUsuarios === null ? T('master.js.sem_limite') : num(c.espaco.limiteUsuarios)) + '</span></div>'
         + '<div class="mp-conta-num mp-hv">' + num(c.pastas) + '</div><div class="mp-conta-num mp-hv">' + num(c.documentos) + '</div>'
         + celulaArm(c)
@@ -1010,7 +1039,7 @@
           : '<span style="--cor:' + cor + '"><i></i>' + esc(rotuloDaSituacao(sit)) + '</span>') + '</div>'
         + '<div class="mp-conta-acoes mp-hv"><button type="button" class="mp-btn-icone" data-menu="' + c.id + '" title="' + esc(T('master.js.contas.acoes')) + '" aria-label="' + esc(T('master.js.contas.acoes')) + '"><i class="bi bi-three-dots-vertical"></i></button></div>'
         + '</div>';
-    }).join('') : '<div class="mp-vazio-linha">' + T('master.js.contas.nenhuma') + '</div>';
+    }).join('') : '<div class="mp-vazio-linha">' + T(S.fSit === PAGANTES && !b && !S.fPlano ? 'master.js.contas.nenhuma_pagante' : 'master.js.contas.nenhuma') + '</div>';
     renderMenuDaConta();
   }
 
@@ -1521,6 +1550,8 @@
   elSecao.addEventListener('change', e => {
     const t = e.target;
     if (t.matches('[data-gr-met]')) { S.grMet = t.value; return renderGrafico(); }
+    // O endereço acompanha o filtro (replaceState direto: o escreverAncora mantém parâmetro a mais e não limparia o &plano=).
+    if (t.matches('[data-f-plano]')) { S.fPlano = t.value; fecharMenuDaConta(); if (location.hash !== ancoraAtual()) history.replaceState(null, '', ancoraAtual()); return renderContasLista(); }
     if (t.matches('[data-c-ord]')) { S.cOrd = t.value; fecharMenuDaConta(); return renderContasLista(); }
     if (t.matches('[data-f-sit]')) { S.fSit = t.value; fecharMenuDaConta(); return renderContasLista(); }
     if (t.matches('[data-r-ord]')) { S.rOrd = t.value; return renderRanking(); }

@@ -758,6 +758,12 @@ master:
             purga: deleted from
             acoes: Account actions
             nenhuma: No account found.
+            pagantes: Paying
+            todos_planos: All plans
+            filtrar_plano: Filter by plan
+            nenhuma_pagante: No paying account yet.
+            pagante: '{plano} · {valor}/month · valid until {data}'
+            pagante_carencia: 'In grace period · {plano} · {valor}/month · paid until {data}'
             arm_nao_medido: usage not measured
             arm_quarentena: account in quarantine
             arm_em_uso: '{gb} in use'

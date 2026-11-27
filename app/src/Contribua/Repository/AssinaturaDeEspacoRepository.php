@@ -135,6 +135,24 @@ class AssinaturaDeEspacoRepository extends ServiceEntityRepository
         return array_map(static fn (array $linha): int => (int) $linha['tenant'], $linhas);
     }
 
+    /**
+     * As assinaturas pagas que ainda podem valer: Ativa ou Inadimplente (cobrança recusada, em carência), da
+     * mais nova para a mais antiga. Quem chama decide se cada uma vale hoje (`vigenteEm`). Para o filtro
+     * "Pagantes" do Painel do Master, que a chama pela `VisaoDoMaster` (todos os escritórios).
+     *
+     * @return list<AssinaturaDeEspaco>
+     */
+    public function pagasQuePodemValer(): array
+    {
+        return $this->createQueryBuilder('a')
+            ->join('a.plano', 'p')->addSelect('p')
+            ->andWhere('a.situacao IN (:pagas)')
+            ->setParameter('pagas', [SituacaoDaAssinatura::Ativa, SituacaoDaAssinatura::Inadimplente])
+            ->andWhere('a.pagaAte IS NOT NULL')
+            ->orderBy('a.criadaEm', 'DESC')->addOrderBy('a.id', 'DESC')
+            ->getQuery()->getResult();
+    }
+
     /** @return list<AssinaturaDeEspaco> os últimos pedidos de todos os escritórios (modal do Master) */
     public function ultimos(int $quantos): array
     {

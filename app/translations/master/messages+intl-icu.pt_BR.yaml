@@ -795,6 +795,13 @@ master:
             purga: apagada a partir de
             acoes: Ações da conta
             nenhuma: Nenhuma conta encontrada.
+            # Filtro "Pagantes" (assinatura do Contribua paga e valendo) e a etiqueta de quem paga, na linha da conta.
+            pagantes: Pagantes
+            todos_planos: Todos os planos
+            filtrar_plano: Filtrar por plano
+            nenhuma_pagante: Nenhuma conta pagante ainda.
+            pagante: '{plano} · {valor}/mês · vale até {data}'
+            pagante_carencia: 'Em carência · {plano} · {valor}/mês · pago até {data}'
             arm_nao_medido: uso não medido
             arm_quarentena: conta em quarentena
             arm_em_uso: '{gb} em uso'
