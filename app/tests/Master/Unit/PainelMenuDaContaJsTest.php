@@ -79,9 +79,9 @@ final class PainelMenuDaContaJsTest extends TestCase
         $js = self::js('painel.js');
 
         self::assertStringContainsString("const ATIVA = 'Ativa', SUSPENSA = 'Suspensa', QUARENTENA = 'Em quarentena';", $js, 'o valor gravado que o servidor manda');
-        self::assertStringContainsString("'>' + rotuloDaSituacao(QUARENTENA) + '</option></select>'", $js);
+        self::assertStringContainsString("'>' + rotuloDaSituacao(QUARENTENA) + '</option>'", $js);
         self::assertSame('Em quarentena', self::catalogo('master.js.situacao.quarentena'));
-        self::assertStringContainsString('(S.fSit ? c.situacao === S.fSit : c.situacao !== QUARENTENA)', $js);
+        self::assertStringContainsString('S.fSit ? c.situacao === S.fSit : c.situacao !== QUARENTENA;', $js);
         self::assertSame('apagada a partir de', self::catalogo('master.js.contas.purga'));
         self::assertStringContainsString(">' + T('master.js.contas.purga') + '<br>' + esc(dataBr(c.purgaEm))", $js, 'a purga roda às 03h do primeiro dia depois da carência: "a partir de" é exato');
 
@@ -92,7 +92,7 @@ final class PainelMenuDaContaJsTest extends TestCase
         self::assertStringContainsString('.mp-conta-st { display: flex; align-items: center; justify-content: center; }', $css, 'bloco centrado na célula e na altura da linha');
         self::assertStringNotContainsString('apagada em', $js);
         self::assertStringContainsString("const AI = a => (/Limite/.test(a) ? ['bi-hdd', '#0a6fa0'] : /reativada|reativado|Exclusão de conta cancelada/i.test(a) ? ['bi-play-circle', '#1e7b45'] : /suspensa|excluída", $js, 'recuperar da quarentena tem o ícone verde da reativação, testado antes do vermelho');
-        self::assertStringContainsString('D.contas.contas.filter(c => c.situacao !== QUARENTENA && (!b || casaNaBusca(c, b)))', $js, 'o ranking de armazenamento continua sem a quarentena');
+        self::assertStringContainsString('D.contas.contas.filter(c => c.situacao !== QUARENTENA && (!S.rPlano', $js, 'o ranking de armazenamento continua sem a quarentena');
     }
 
     #[TestDox('excluir: modal com o texto aprovado, botão "Excluir conta" e a palavra EXCLUIR, que vai no corpo para o servidor conferir')]

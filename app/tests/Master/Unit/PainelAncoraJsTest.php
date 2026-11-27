@@ -32,12 +32,13 @@ final class PainelAncoraJsTest extends TestCase
         self::assertSame(1, substr_count($js, "location.hash.match("), 'a leitura do hash não é duplicada');
     }
 
-    #[TestDox('seção desconhecida ou igual à atual não troca a seção (sem laço nem render à toa)')]
+    #[TestDox('seção desconhecida ou igual à atual (sem filtro de plano novo) não troca a seção (sem laço nem render à toa)')]
     public function testSecaoDesconhecidaOuIgualNaoTroca(): void
     {
         $js = self::js();
 
-        self::assertStringContainsString("if (!SECS.some(([k]) => k === sec) || sec === S.sec) return false;", $js);
+        self::assertStringContainsString("if (!SECS.some(([k]) => k === sec)) return false;", $js);
+        self::assertStringContainsString("if (sec === S.sec && !mudouPlano) return false;", $js);
     }
 
     #[TestDox('aba ausente ou desconhecida abre o Painel do sistema; âncora vazia volta à Visão geral')]
@@ -46,7 +47,9 @@ final class PainelAncoraJsTest extends TestCase
         $js = self::js();
 
         self::assertStringContainsString("S.aba = aba && raiz.querySelector('[data-aba=\"' + aba + '\"]') ? aba : 'painel';", $js);
-        self::assertStringContainsString("const sec = doHash('sec') || (location.hash.length > 1 ? null : 'visao');", $js);
+        self::assertStringContainsString("const lida = doHash('sec') || (location.hash.length > 1 ? null : 'visao'), sec = SEC_ANTIGA[lida] || lida;", $js);
+        // Armazenamento entrou em "Planos e armazenamento" (27/11): o endereço antigo abre a seção unificada.
+        self::assertStringContainsString("const SEC_ANTIGA = { arm: 'planos' };", $js);
     }
 
     #[TestDox('M5.16: trocar a aba ou a seção escreve a âncora canônica no endereço, com entrada no histórico')]
@@ -54,7 +57,8 @@ final class PainelAncoraJsTest extends TestCase
     {
         $js = self::js();
 
-        self::assertStringContainsString("const ancoraAtual = () => '#aba=' + S.aba + (S.aba === 'painel' ? '&sec=' + S.sec : '');", $js);
+        // Em "Contas e escritórios" com filtro de plano, a âncora leva também o &plano= (link do cartão de plano).
+        self::assertStringContainsString("const ancoraAtual = () => '#aba=' + S.aba + (S.aba === 'painel' ? '&sec=' + S.sec + (S.sec === 'contas' && S.fPlano ? '&plano=' + S.fPlano : '') : '');", $js);
         self::assertStringContainsString("S.aba = b.dataset.aba; mostrarAba(); escreverAncora(); }));", $js, 'clique na aba');
         self::assertMatchesRegularExpression('/function irPara\(sec, trocar\) \{[^\n]*renderSecao\(\); escreverAncora\(trocar\); \}/', $js, 'troca de seção');
         self::assertStringContainsString("history[trocar ? 'replaceState' : 'pushState'](null, '', alvo);", $js);

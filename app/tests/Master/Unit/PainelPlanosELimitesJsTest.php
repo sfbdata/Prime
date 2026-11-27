@@ -70,8 +70,12 @@ final class PainelPlanosELimitesJsTest extends TestCase
         self::assertStringContainsString("'<span> ' + T('master.js.planos.por_mes') + '</span></span>'", $js);
         self::assertSame('/ mês', self::catalogo('master.js.planos.por_mes'));
         self::assertSame('<b>{gb} GB</b> de armazenamento · usuários ilimitados', self::catalogo('master.js.planos.cap'));
-        self::assertStringContainsString("T('master.js.planos.contas', { n: num(p.escritorios), acima: num(acima) }) + '</span></div>'", $js);
-        self::assertSame('{n} conta(s) · {acima} perto ou acima da franquia', self::catalogo('master.js.planos.contas'));
+        // O número de contas em destaque leva a "Contas e escritórios" filtrada pelo plano (27/11); o resto do texto fica igual.
+        self::assertStringContainsString("data-ir-plano=\"' + esc(p.codigo) + '\"", $js);
+        self::assertStringContainsString("T('master.js.planos.contas_n', { n: num(p.escritorios) }) + '</button> · ' + T('master.js.planos.contas_acima', { acima: num(acima) }) + '</span></div>'", $js);
+        self::assertSame('{n} conta(s)', self::catalogo('master.js.planos.contas_n'));
+        self::assertSame('{acima} perto ou acima da franquia', self::catalogo('master.js.planos.contas_acima'));
+        self::assertStringContainsString("S.fPlano = doPlano.dataset.irPlano; S.fSit = ''; S.busca = ''; return irPara('contas');", $js);
         self::assertStringContainsString("const COR_PLANO = { free: '#c08a12', essencial: '#0a6fa0', profissional: '#1e7b45', avancado: '#5b3f9e' };", $js);
         // Com o convênio desligado (M2.1) a nota troca para nota_sem_convenio: o uso no JS está em testChaveDoConvenio.
         self::assertSame('Toda conta nova entra no Plano Free (10 GB) pelo convênio OAB. A partir de 90% de uso o usuário primário recebe aviso no sistema e por e-mail sugerindo ampliar o espaço; em 100% novos envios ficam pausados, mas consultar e baixar arquivos continua liberado e nada é apagado. A assinatura de espaço é mensal no cartão de crédito, sem fidelidade. Mudanças de plano ficam registradas na auditoria.', self::catalogo('master.js.planos.nota'));

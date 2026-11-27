@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Master\Controller;
 
+use App\Contribua\UseCase\ListarContasPagantesUseCase;
 use App\Master\Service\FaixaEtaria;
 use App\Master\UseCase\ConsultarAuditoriaUseCase;
 use App\Master\UseCase\ConsultarContasUseCase;
@@ -29,7 +30,8 @@ use Symfony\Contracts\Translation\TranslatorInterface;
  *
  * A lista de contas leva também os pedidos de exclusão pendentes (`pedidosExclusao`, de todas as contas),
  * para o bloco do desenho acima da tabela; cada pedido leva o token da conta dele, o mesmo da lista. E cada
- * conta leva `pedidoPendente`, para a situação "Suspensa a pedido" da tabela.
+ * conta leva `pedidoPendente`, para a situação "Suspensa a pedido" da tabela, e `pagante` (plano, valor por mês,
+ * até quando vale e se está em carência; null para quem não paga), para o filtro "Pagantes".
  *
  * Idioma (spec idioma-do-sistema, P2b): o rótulo das faixas etárias da Visão geral sai do catálogo no idioma da
  * requisição ({@see FaixaEtaria::chaveDoRotulo()}). O resto é dado (nomes, situação gravada, ação da trilha).
@@ -76,6 +78,7 @@ final class PainelMasterDadosController extends AbstractController
     public function contas(
         ConsultarContasUseCase $useCase,
         ConsultarPedidosDeExclusaoUseCase $pedidos,
+        ListarContasPagantesUseCase $pagantes,
         CsrfTokenManagerInterface $csrf,
         #[Autowire('%tenant_carencia_purga_dias%')]
         int $carenciaPurgaDias,
@@ -86,11 +89,13 @@ final class PainelMasterDadosController extends AbstractController
         );
         // Marca por conta: a tabela mostra "Suspensa a pedido" no lugar de "Ativa" (o Tenant segue ativo durante o pedido).
         $comPedido = array_flip(array_column($pedidosExclusao, 'contaId'));
+        $pagantesPorConta = $pagantes->executar();
 
         $contas = array_map(
             static fn (array $c): array => $c + [
                 'token'          => $csrf->getToken(ContasDoSistemaController::PREFIXO_CSRF . $c['id'])->getValue(),
                 'pedidoPendente' => isset($comPedido[$c['id']]),
+                'pagante'        => $pagantesPorConta[$c['id']] ?? null,
             ],
             $useCase->executar(),
         );
