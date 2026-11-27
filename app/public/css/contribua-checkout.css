@@ -108,6 +108,7 @@
 .co-abrir-master:hover { border-color: var(--bj-master-icone); color: var(--bj-master-icone); }
 .co-abrir-master > .bi-star-fill { color: var(--bj-master-icone); }
 
-/* L2-M5: no Meu espaço do Master, a prévia das opções e o atalho "Configurações no painel do Master" lado a lado. */
+/* L2-M5: o atalho "Configurações no painel do Master" do Meu espaço é um link com a cara do botão. Com a prévia antes
+   dele, só o primeiro empurra para a direita (o .co-abrir-master tem margin-left: auto); o segundo fica colado. */
 a.co-abrir-master { text-decoration: none; }
 .co-abrir-master + .co-abrir-master { margin-left: 0; }

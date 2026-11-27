@@ -1193,7 +1193,8 @@
 
   // L2-M5 (pedido do Farlei, lote 2): o pagamento por cartão, os pedidos de espaço e a integração bancária que ficavam
   // na página Contribua vêm prontos no HTML (master/_contribua_config.html.twig) e entram no fim desta seção. O mesmo nó
-  // é movido a cada montagem (o innerHTML da seção não o apaga), então os ouvintes e o que foi digitado continuam.
+  // é recolocado a cada montagem: o innerHTML da seção o tira da página, mas a referência (elContribua) guarda o mesmo
+  // nó, então os ouvintes e o que foi digitado continuam.
   function anexarConfiguracoesDoContribua() {
     if (!elContribua) return;
     elSecao.appendChild(elContribua);
