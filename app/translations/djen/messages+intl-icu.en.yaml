@@ -18,7 +18,7 @@ djen:
     abas:
         rotulo: Case Push sections
         publicacoes: Publications
-        processos: OAB Cases
+        processos: Court Cases
         diario: OAB Gazette
         oabs: Monitored OABs
         novas: '{n} new'
@@ -191,8 +191,8 @@ djen:
         inteiro_teor: Full text at the source
         sem_teor: No text available.
     processos:
-        titulo_pagina: 'Case Push | OAB Cases'
-        titulo: OAB Cases
+        titulo_pagina: 'Case Push | Court Cases'
+        titulo: Court Cases
         capturados_das: 'Captured from the OABs {oabs}'
         sem_oab: 'No active OAB: register one in Monitored OABs'
         buscar: Search OAB cases
@@ -317,7 +317,7 @@ djen:
         busca_vazia: 'No cases found. Use "Register new (CNJ)".'
         pasta_n: 'Matter {n}'
         sem_selecao: Select a case from the list.
-        localizar_fora_da_lista: 'Link the case first and use Link matter in the OAB Cases tab.'
+        localizar_fora_da_lista: 'Link the case first and use Link matter in the Court Cases tab.'
         sem_numero_pasta: Enter or choose the case number before finding the matter.
         aba_info: Information
         aba_partes: Parties
