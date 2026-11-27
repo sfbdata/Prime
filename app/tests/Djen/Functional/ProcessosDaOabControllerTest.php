@@ -205,6 +205,7 @@ final class ProcessosDaOabControllerTest extends JusPrimeWebTestCase
         self::assertCount(2, $crawler->filter('.pp-linha--dado'));
         self::assertStringContainsString('0703333-33.2026.8.07.0002', $crawler->filter('.pp-linha--dado')->eq(1)->text());
         self::assertCount(1, $crawler->filter('.pp-linha--dado form[action$="/incluir-do-relatorio"]'), 'número só de publicação oferece incluir, não editar/parar');
+        self::assertCount(1, $crawler->filter('.pp-linha--dado [data-pp-marca][disabled]'), 'e fica fora da seleção em massa, que só oferece Parar');
 
         ob_start();
         $client->request('GET', '/push-processual/processos/exportar', ['pasta' => 's']);
