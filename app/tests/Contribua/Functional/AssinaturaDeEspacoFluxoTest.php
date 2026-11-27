@@ -132,6 +132,8 @@ final class AssinaturaDeEspacoFluxoTest extends JusPrimeWebTestCase
         self::assertStringContainsString('Pagamento enviado', $html);
         self::assertStringContainsString('seu espaço passa para <span data-co-ok-gb>20 GB</span>', $html);
         self::assertStringContainsString('data-retorno="1"', $html, 'abre direto no Pagamento enviado');
+        // L2-M1: o resumo da esquerda do checkout recebe o pacote pago (o JS desenha "+N GB", HOJE, Subtotal e Total).
+        self::assertSelectorExists('[data-checkout][data-retorno-plano="essencial"][data-retorno-gb="20"][data-retorno-mul="1"][data-retorno-centavos="1990"][data-retorno-preco="R$ 19,90"]');
         self::assertSame('free', $this->planoDoEscritorio(), 'a URL de retorno não libera nada sozinha');
     }
 
@@ -167,6 +169,35 @@ final class AssinaturaDeEspacoFluxoTest extends JusPrimeWebTestCase
         self::assertSame(400 * 1024 ** 3, static::getContainer()->get(SituacaoDoEspaco::class)->doEscritorio((int) $this->escritorio->getId())->bytesLimite);
     }
 
+    #[TestDox('L2-M1: voltou do gateway com o maior pacote ×4: o resumo do checkout recebe o GB do pacote, o ×4, o preço de uma vez e o total')]
+    public function testRetornoDoMaiorPacoteDobrado(): void
+    {
+        $resposta = $this->assinarCom($this->primario, 'avancado', 4);
+        self::assertTrue($resposta['ok'], json_encode($resposta) ?: '');
+
+        $this->client->request('GET', '/contribua?assinatura=ok');
+
+        self::assertSelectorExists('[data-checkout][data-retorno-plano="avancado"][data-retorno-gb="100"][data-retorno-mul="4"][data-retorno-centavos="6990"][data-retorno-preco="R$ 279,60"]');
+        self::assertStringContainsString('seu espaço passa para <span data-co-ok-gb>400 GB</span>', (string) $this->client->getResponse()->getContent());
+    }
+
+    #[TestDox('L2-M1: escritório ainda sem espaço gravado vê a chave "Ampliação de GB automática" ligada')]
+    public function testChaveLigadaSemEspacoGravado(): void
+    {
+        $espacos = static::getContainer()->get(EspacoDoEscritorioRepository::class);
+        $espaco = $espacos->doTenant((int) $this->escritorio->getId());
+        self::assertNotNull($espaco);
+        $this->em->remove($espaco);
+        $this->em->flush();
+        self::assertNull($espacos->doTenant((int) $this->escritorio->getId()));
+
+        $this->logarComTenant($this->client, $this->primario, $this->escritorio);
+        $this->client->request('GET', '/contribua');
+
+        self::assertSelectorExists('[data-checkout] .co-auto[aria-checked="true"]');
+        self::assertSelectorNotExists('[data-checkout][data-retorno-plano]', 'sem a volta do gateway, nada de data-retorno-*');
+    }
+
     #[TestDox('VS 03.11.26: só o maior pacote dobra; multiplicador fora de 1, 2, 4, 8 e 16 é recusado')]
     public function testSoOMaiorDobra(): void
     {
@@ -180,22 +211,26 @@ final class AssinaturaDeEspacoFluxoTest extends JusPrimeWebTestCase
         self::assertSame(0, $this->contarAssinaturas());
     }
 
-    #[TestDox('VS 03.11.26: a chave "Ampliação de GB automática" grava por escritório; só o primário liga')]
+    #[TestDox('VS 03.11.26: a chave "Ampliação de GB automática" vem ligada (L2-M1) e grava por escritório; só o primário muda')]
     public function testAmpliacaoAutomatica(): void
     {
         $this->logarComTenant($this->client, $this->primario, $this->escritorio);
         $this->client->request('GET', '/contribua');
-        self::assertSelectorExists('[data-checkout] .co-auto[aria-checked="false"]');
+        self::assertSelectorExists('[data-checkout] .co-auto[aria-checked="true"]', 'L2-M1: ligada por padrão');
+
+        $resposta = $this->post('/contribua/espaco/ampliacao-automatica', ['ligada' => '0']);
+        self::assertTrue($resposta['ok'], json_encode($resposta) ?: '');
+        self::assertFalse($resposta['ligada']);
+        $this->em->clear();
+        self::assertFalse(static::getContainer()->get(EspacoDoEscritorioRepository::class)->doTenant((int) $this->escritorio->getId())?->isAmpliacaoAutomatica());
+        self::assertSame('free', $this->planoDoEscritorio(), 'mudar a chave não muda o plano');
+
+        $this->client->request('GET', '/contribua');
+        self::assertSelectorExists('[data-checkout] .co-auto[aria-checked="false"]', 'desligada pelo escritório, fica desligada');
 
         $resposta = $this->post('/contribua/espaco/ampliacao-automatica', ['ligada' => '1']);
         self::assertTrue($resposta['ok'], json_encode($resposta) ?: '');
         self::assertTrue($resposta['ligada']);
-        $this->em->clear();
-        self::assertTrue(static::getContainer()->get(EspacoDoEscritorioRepository::class)->doTenant((int) $this->escritorio->getId())?->isAmpliacaoAutomatica());
-        self::assertSame('free', $this->planoDoEscritorio(), 'ligar a chave não muda o plano');
-
-        $this->client->request('GET', '/contribua');
-        self::assertSelectorExists('[data-checkout] .co-auto[aria-checked="true"]');
 
         $this->logarComTenant($this->client, $this->secundario, $this->escritorio);
         $resposta = $this->post('/contribua/espaco/ampliacao-automatica', ['ligada' => '0']);

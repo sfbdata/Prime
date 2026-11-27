@@ -73,7 +73,8 @@ final class MontarPagamentoDoContribuaUseCase
             'script' => $gateway === null ? null : 'js/contribua-' . str_replace('_', '-', $gateway->codigo()) . '.js',
             'assinatura' => $this->assinaturaDoEscritorio($quem->tenantId()),
             // A chave "Ampliação de GB automática" do checkout (desenho 08 VS 03.11.26), gravada por escritório.
-            'ampliacaoAutomatica' => $this->espacos->doTenant($quem->tenantId())?->isAmpliacaoAutomatica() ?? false,
+            // Sem espaço gravado ainda, mostra o padrão do espaço novo: ligada (L2-M1, 27/11/2026).
+            'ampliacaoAutomatica' => $this->espacos->doTenant($quem->tenantId())?->isAmpliacaoAutomatica() ?? true,
             'master' => $quem->ehMaster ? $this->doMaster() : null,
         ];
     }
