@@ -62,6 +62,27 @@ final class FiltroDeProcessosDaOab
         return $r;
     }
 
+    /**
+     * Todos os processos sem pasta: os acompanhados mais os números que a OAB trouxe (Relatório), sem repetir
+     * o mesmo número. É o conjunto do cartão "Sem pasta" e da lista que ele abre.
+     *
+     * @param list<LinhaDoProcessoDaOab> $acompanhados
+     * @param list<LinhaDoProcessoDaOab> $relatorio
+     *
+     * @return list<LinhaDoProcessoDaOab>
+     */
+    public function semPastaDeTodos(array $acompanhados, array $relatorio): array
+    {
+        $unicas = [];
+        foreach ([...$acompanhados, ...$relatorio] as $l) {
+            if ($l->pastaId === null) {
+                $unicas[$l->numero] ??= $l;
+            }
+        }
+
+        return array_values($unicas);
+    }
+
     private static function passaPelaMovimentacao(LinhaDoProcessoDaOab $l, string $mov, \DateTimeImmutable $hoje): bool
     {
         if ($mov === '') {

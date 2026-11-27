@@ -202,6 +202,7 @@ djen:
         kpi_parados: PARADOS +30 DIAS
         kpi_nunca: NUNCA CAPTURADOS
         kpi_sem_pasta: SEM PASTA
+        kpi_sem_pasta_ajuda: 'Todos os processos sem pasta: os que você acompanha e os que a OAB trouxe em publicações.'
         inclusao_titulo: Inclusão de processos para acompanhamento
         numero_do_processo: Número do processo
         email_alternativo: E-mail alternativo

@@ -49,7 +49,7 @@
         <a class="pp-kpi{{ criterios.mov == 'nc' ? ' pp-kpi--ativo pp-kpi--ambar' : '' }}" href="{{ path('push_processual_processos', {mov: criterios.mov == 'nc' ? '' : 'nc'}) }}" data-pp-kpi="nunca"{% if criterios.mov == 'nc' %} aria-current="true"{% endif %}>
             <span class="pp-kpi__corpo"><span class="pp-kpi__rotulo">{{ 'djen.processos.kpi_nunca'|trans }}</span><b class="pp-kpi__valor pp-kpi__valor--ambar">{{ indicadores.nuncaCapturados }}</b></span><i class="bi bi-question-circle"></i>
         </a>
-        <a class="pp-kpi{{ criterios.pasta == 's' ? ' pp-kpi--ativo pp-kpi--roxo' : '' }}" href="{{ path('push_processual_processos', {pasta: criterios.pasta == 's' ? '' : 's'}) }}" data-pp-kpi="sem_pasta"{% if criterios.pasta == 's' %} aria-current="true"{% endif %}>
+        <a class="pp-kpi{{ criterios.pasta == 's' ? ' pp-kpi--ativo pp-kpi--roxo' : '' }}" href="{{ path('push_processual_processos', {pasta: criterios.pasta == 's' ? '' : 's'}) }}" data-pp-kpi="sem_pasta" title="{{ 'djen.processos.kpi_sem_pasta_ajuda'|trans|e('html_attr') }}"{% if criterios.pasta == 's' %} aria-current="true"{% endif %}>
             <span class="pp-kpi__corpo"><span class="pp-kpi__rotulo">{{ 'djen.processos.kpi_sem_pasta'|trans }}</span><b class="pp-kpi__valor pp-kpi__valor--roxo">{{ indicadores.semPasta }}</b></span><i class="bi bi-folder-x"></i>
         </a>
     </div>
@@ -155,9 +155,11 @@
             </div>
             {% for l in linhas %}
                 {% set dias = l.diasParado(hoje) %}
+                {% set linha_do_relatorio = no_relatorio or l.numero in numeros_do_relatorio %}
                 <div class="pp-linha pp-linha--proc pp-linha--dado" data-pp-linha-proc data-numero="{{ l.numero }}" data-numero-exibicao="{{ l.numeroComMascara }}" data-partes="{{ l.partes }}" data-pasta-id="{{ l.pastaId ?? '' }}" data-pasta-nup="{{ l.pastaNup ?? '' }}"{% if l.pastaId %} data-pasta-url="{{ path('pasta_show', {id: l.pastaId}) }}"{% endif %} data-publicacoes-url="{{ path('push_processual_index', {busca: l.numero}) }}" title="{{ 'djen.index.dica_botao_direito'|trans }}">
                     <span class="pp-c-numero">
-                        <input type="checkbox" class="pp-marca" value="{{ l.numero }}" data-pp-marca aria-label="{{ 'djen.processos.selecionar_processo'|trans }}">
+                        {# Na lista "Sem pasta" da aba acompanhados, a linha que só veio do relatório não entra na seleção em massa: a barra só oferece "Parar", que não vale para ela. #}
+                        <input type="checkbox" class="pp-marca" value="{{ l.numero }}" data-pp-marca aria-label="{{ 'djen.processos.selecionar_processo'|trans }}"{% if linha_do_relatorio and not no_relatorio %} disabled hidden{% endif %}>
                         <span>
                             <b>{{ l.numeroComMascara }}</b>
                             <span class="pp-fino">{{ l.tribunal|upper }}{% if l.fase and grupo_da_fase[l.fase] is defined %} · {{ grupo_da_fase[l.fase] }}{% endif %}{% if criterios.oab == '' and oabs_opcoes|length > 1 and l.oab %} · OAB {{ l.oab }}{% endif %}</span>
@@ -178,7 +180,7 @@
                         {% if l.pastaId %}<a href="{{ path('pasta_show', {id: l.pastaId}) }}" class="pp-pasta">{{ l.pastaNup }}</a>{% else %}<span class="pp-sem-pasta">{{ 'djen.processos.sem_pasta'|trans }}</span>{% endif %}
                     </span>
                     <span class="pp-c-acoes">
-                        {% if no_relatorio %}
+                        {% if linha_do_relatorio %}
                             <form method="POST" action="{{ path('push_processual_processos_incluir_relatorio') }}">
                                 <input type="hidden" name="_token" value="{{ csrf_token('push_processos') }}">
                                 <input type="hidden" name="numeros[]" value="{{ l.numero }}">

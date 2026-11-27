@@ -185,6 +185,36 @@ final class ProcessosDaOabControllerTest extends JusPrimeWebTestCase
     }
 
     #[Test]
+    public function semPastaSomaAcompanhadosEnumerosSoDePublicacaoNoCartaoNaListaENoCsv(): void
+    {
+        $client = static::createClient();
+        $tenant = $this->criarTenant();
+        $this->criarProcesso($tenant, self::NUMERO_A);
+        $oab = $this->criarOab($tenant, '49613', 'DF');
+        $publicacao = $this->criarPublicacao($tenant, '950002', self::NUMERO_B);
+        $publicacao->setOabMonitorada($oab);
+        $this->em()->flush();
+        $this->logarComTenant($client, $this->criarGestor($tenant, 'g_' . uniqid() . '@test.com'), $tenant);
+        $this->limparIdentityMap();
+
+        $crawler = $client->request('GET', '/push-processual/processos');
+        self::assertSame('2', trim($crawler->filter('[data-pp-kpi="sem_pasta"] .pp-kpi__valor')->text()));
+        self::assertSame('1', trim($crawler->filter('[data-pp-kpi="processos"] .pp-kpi__valor')->text()), 'os outros cartões não mudam');
+
+        $crawler = $client->request('GET', '/push-processual/processos', ['pasta' => 's']);
+        self::assertCount(2, $crawler->filter('.pp-linha--dado'));
+        self::assertStringContainsString('0703333-33.2026.8.07.0002', $crawler->filter('.pp-linha--dado')->eq(1)->text());
+        self::assertCount(1, $crawler->filter('.pp-linha--dado form[action$="/incluir-do-relatorio"]'), 'número só de publicação oferece incluir, não editar/parar');
+        self::assertCount(1, $crawler->filter('.pp-linha--dado [data-pp-marca][disabled]'), 'e fica fora da seleção em massa, que só oferece Parar');
+
+        ob_start();
+        $client->request('GET', '/push-processual/processos/exportar', ['pasta' => 's']);
+        $csv = ob_get_clean() . (string) $client->getInternalResponse()->getContent();
+        self::assertStringContainsString('0702222-22.2026.8.07.0001', $csv);
+        self::assertStringContainsString('0703333-33.2026.8.07.0002', $csv);
+    }
+
+    #[Test]
     public function anotacoesGravamObservacaoAreaEFase(): void
     {
         $client = static::createClient();

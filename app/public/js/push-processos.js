@@ -4,7 +4,7 @@
     var raiz = document.querySelector('[data-pp-processos]');
     if (!raiz) { return; }
 
-    var caixas = Array.prototype.slice.call(raiz.querySelectorAll('[data-pp-marca]'));
+    var caixas = Array.prototype.slice.call(raiz.querySelectorAll('[data-pp-marca]:not([disabled])'));
     var barra = raiz.querySelector('[data-pp-selecao-barra]');
     var contador = raiz.querySelector('[data-pp-selecao-n]');
     var todos = raiz.querySelector('[data-pp-marcar-todos]');
