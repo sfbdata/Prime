@@ -648,6 +648,8 @@ Entre contêineres, a trava do schedule impede gerar a mesma tarefa duas vezes; 
 envio ao Drive na lista, para a hora cheia não a atrasar. Os horários da reconciliação caem fora da janela
 dos backups (23h30 a 0h50 de Brasília).
 
+**Tentativas (27/11/2026).** Antes de classificar `erro_de_consulta`, a reconciliação repete a mesma referência até 2 vezes a mais (pausa de 2 s e 5 s); só o erro que persiste nas 3 tentativas conta. `ArquivoNaoEncontrado` e chave inválida não repetem.
+
 **Alerta da P2.7.** Com `--se-ligado` e o espelho ligado, a reconciliação confere só as categorias que a
 política espelha (sem o filtro, cada categoria desligada viraria "ausente") e sai com FALHA, e o aviso do
 agendador (log, e-mail de `AGENDADOR_ALERTA_EMAIL`, tela do Master) dispara, quando há:

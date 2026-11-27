@@ -36,6 +36,12 @@ use App\Shared\EspelhoRemoto\PoliticaDeEspelhamento;
  * (`ausente_no_espelho`, `sem_sha_no_espelho`, `tamanho_divergente`, `sha_divergente`). Presente no
  * disco E com linha aberta: a classe é `restaurado_sem_registro` (alerta leve), salvo quando a
  * comparação de sempre deu uma de {@see PREVALECEM_SOBRE_A_RESTAURACAO}: essa vale mais e não some.
+ *
+ * ## Erro de consulta
+ *
+ * Pane passageira (espelho, disco, banco) repete a mesma referência até 2 vezes a mais, com pausa de 2 s e 5 s
+ * ({@see PAUSAS_ENTRE_TENTATIVAS}). Só o erro que persiste nas 3 tentativas vira `erro_de_consulta`, que
+ * continua falhando a rodada (D10: pane ≠ ausência). Arquivo ausente e chave inválida não repetem.
  */
 final class ReconciliadorDoEspelho
 {
@@ -47,6 +53,9 @@ final class ReconciliadorDoEspelho
      * semana), e a semana cobre tudo sem nenhuma noite ler o acervo inteiro.
      */
     public const FATIAS_DO_SHA = 7;
+
+    /** Pausas (em segundos) antes de cada nova tentativa de uma consulta que deu erro: 2 tentativas a mais. */
+    public const PAUSAS_ENTRE_TENTATIVAS = [2, 5];
 
     /**
      * Com o arquivo de volta ao disco e a liberação aberta, estas classes valem mais que
@@ -63,6 +72,7 @@ final class ReconciliadorDoEspelho
         private readonly OutboxDeReplicacao $outbox,
         private readonly RegistroDeLiberacao $liberacoes,
         private readonly string $shaSuspeito = self::SHA_DO_ERRO_401_DO_DRIVE,
+        private readonly PausaEntreTentativas $pausa = new PausaReal(),
     ) {
     }
 
@@ -118,16 +128,24 @@ final class ReconciliadorDoEspelho
             return ClasseDeReconciliacao::CHAVE_INVALIDA;
         }
 
-        try {
-            return $this->comparar($espelho, $chave, $conferirSha && ($fatiaDoSha === null || self::fatiaDe($chave) === $fatiaDoSha));
-        } catch (ArquivoNaoEncontrado) {
-            return ClasseDeReconciliacao::LOCAL_AUSENTE;
-        } catch (ChaveDeArquivoInvalida) {
-            return ClasseDeReconciliacao::CHAVE_INVALIDA;
-        } catch (\Throwable) {
-            // Pane de qualquer lado (espelho, disco, banco da outbox): registra e segue — o relatório
-            // parcial vale mais que a rodada abortada. Pane ≠ ausência (D10).
-            return ClasseDeReconciliacao::ERRO_DE_CONSULTA;
+        $compararSha = $conferirSha && ($fatiaDoSha === null || self::fatiaDe($chave) === $fatiaDoSha);
+
+        for ($tentativa = 0; ; $tentativa++) {
+            try {
+                return $this->comparar($espelho, $chave, $compararSha);
+            } catch (ArquivoNaoEncontrado) {
+                return ClasseDeReconciliacao::LOCAL_AUSENTE;
+            } catch (ChaveDeArquivoInvalida) {
+                return ClasseDeReconciliacao::CHAVE_INVALIDA;
+            } catch (\Throwable) {
+                // Pane de qualquer lado (espelho, disco, banco da outbox): tenta de novo com pausa crescente;
+                // se persistir, registra e segue (o relatório parcial vale mais que a rodada abortada).
+                // Pane ≠ ausência (D10).
+                if (!isset(self::PAUSAS_ENTRE_TENTATIVAS[$tentativa])) {
+                    return ClasseDeReconciliacao::ERRO_DE_CONSULTA;
+                }
+                $this->pausa->aguardar(self::PAUSAS_ENTRE_TENTATIVAS[$tentativa]);
+            }
         }
     }
 
