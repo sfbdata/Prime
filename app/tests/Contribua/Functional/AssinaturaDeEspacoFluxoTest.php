@@ -765,8 +765,9 @@ final class AssinaturaDeEspacoFluxoTest extends JusPrimeWebTestCase
         $this->client->request('GET', '/contribua?assinatura=ok');
         self::assertNotNull($this->pedido()->getRetornouEm());
 
+        // L2-M5: as últimas assinaturas ficam no modal "Pagamento por cartão" do painel do Master.
         $this->logarComTenant($this->client, $this->master, $this->escritorio);
-        $this->client->request('GET', '/contribua');
+        $this->client->request('GET', '/master');
         $html = (string) $this->client->getResponse()->getContent();
         self::assertStringContainsString('voltou do gateway, não confirmado', $html);
         self::assertStringNotContainsString('pago, aguardando', $html);

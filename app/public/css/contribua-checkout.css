@@ -107,3 +107,7 @@
 .co-abrir-master { background: var(--bj-master-claro); color: var(--bj-master-texto); border: 1px solid var(--bj-master-borda); }
 .co-abrir-master:hover { border-color: var(--bj-master-icone); color: var(--bj-master-icone); }
 .co-abrir-master > .bi-star-fill { color: var(--bj-master-icone); }
+
+/* L2-M5: no Meu espaço do Master, a prévia das opções e o atalho "Configurações no painel do Master" lado a lado. */
+a.co-abrir-master { text-decoration: none; }
+.co-abrir-master + .co-abrir-master { margin-left: 0; }

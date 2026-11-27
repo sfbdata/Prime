@@ -2,6 +2,7 @@
 # restante da página ainda é fixo no Twig.
 contribua:
     espaco:
+        atalho_master: 'Configurações no painel do {papel}'
         bonus_ate: 'Inclui {gb} GB de bônus até {data}'
         inclui_liberados: '(inclui +{gb} GB liberados)'
         liberada_auto: 'Opções liberadas automaticamente porque o uso passou de {limiar}%. O BlueJus continua gratuito; o pacote é opcional.'

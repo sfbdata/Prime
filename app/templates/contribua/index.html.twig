@@ -119,8 +119,13 @@
         <div class="ct-espaco-topo" style="background: {{ e.fundo }}">
             <span class="ct-espaco-icone"><i class="bi {{ e.icone }}"></i></span>
             <div class="ct-espaco-titulos"><b>{{ e.titulo }}</b><span>{{ e.subtitulo }}</span></div>
-            {% if pagamento.master %}
-                <button type="button" class="co-abrir-master" data-abrir-master><i class="bi bi-star-fill"></i>Configurar pagamento<span>· {{ pagamento.master.estado }}</span></button>
+            {# As configurações só do Master (pagamento por cartão, pedidos de espaço, integração bancária e modo campanha)
+               ficam no painel do Master (pedido do Farlei, lote 2, L2-M5); aqui fica só o atalho e a prévia, que é desta página. #}
+            {% if p.ehMaster %}
+                {% if p.previaDoMaster %}
+                    <button type="button" class="co-abrir-master" data-espaco-previa data-rotulo-ver="Ver prévia das opções de compra" data-rotulo-ocultar="Ocultar prévia das opções"><i class="bi bi-eye"></i> <span>Ver prévia das opções de compra</span></button>
+                {% endif %}
+                <a class="co-abrir-master" href="{{ path('master_painel') }}#aba=painel&amp;sec=planos" data-atalho-master><i class="bi bi-star-fill"></i>{{ 'contribua.espaco.atalho_master'|trans({papel: 'termos.master'|trans}) }}</a>
             {% endif %}
         </div>
         <div class="ct-espaco-uso">
@@ -208,7 +213,6 @@
                 {% endfor %}
             </div>
 
-            {% if painelDePedidos is not null %}{% include 'contribua/_pedidos_de_espaco.html.twig' with {painel: painelDePedidos, previa: p.previaDoMaster} only %}{% endif %}
         </div>
     </section>
 
@@ -348,11 +352,6 @@
         <a href="https://wa.me/556141049958" target="_blank" rel="noopener" class="ct-suporte-whats"><i class="bi bi-whatsapp"></i>(61) 4104-9958</a>
     </section>
 
-    {# Modo campanha, só Master (painelDaCampanha vem do controller): depois do Suporte e antes da Integração bancária. #}
-    {% if painelDaCampanha is defined and painelDaCampanha is not null %}{% include 'contribua/campanha/_painel.html.twig' with {painel: painelDaCampanha} only %}{% endif %}
-
-    {# Integração bancária (API), só Master: C4 (sessão 4b). Parcial próprio, com JS e CSS próprios. #}
-    {% if p.ehMaster %}{% include 'contribua/_integracao_bancaria.html.twig' ignore missing %}{% endif %}
 </div>
 
 {# Modal: enviar sugestão #}
@@ -374,7 +373,6 @@
 </div>
 
 {% include 'contribua/_checkout.html.twig' %}
-{% if pagamento.master %}{% include 'contribua/_pagamento_master.html.twig' %}{% endif %}
 
 {# Prêmio do apoiador (modal com confete quando o banco confirma um apoio): C4 (sessão 4b). #}
 {% include 'contribua/_premio.html.twig' ignore missing %}

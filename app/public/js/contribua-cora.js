@@ -1,12 +1,14 @@
 /* Contribua C4: Integração bancária do Master e prêmio do apoiador (desenho 08, L80-101, L192-203, L249-256,
-   L285-291). Usa o CSRF e o toast da página Contribua (data-contribua / data-toast); não mexe no contribua.js. */
+   L285-291). Usa o CSRF e o toast da página Contribua (data-contribua / data-toast) ou do painel do Master
+   (data-mp-contribua, pedido do Farlei L2-M5); não mexe no contribua.js. */
 (function () {
     'use strict';
     if (window.__bjContribuaCora) { return; }
     window.__bjContribuaCora = true;
 
     const $ = (s, el) => (el || document).querySelector(s);
-    const raiz = () => $('[data-contribua]');
+    // Na página Contribua ou, para a integração bancária e o teste do prêmio, no painel do Master (L2-M5): o mesmo CSRF.
+    const raiz = () => $('[data-contribua]') || $('[data-mp-contribua]');
     let tempoToast = null;
     function avisar(texto) {
         const toast = $('[data-toast]');

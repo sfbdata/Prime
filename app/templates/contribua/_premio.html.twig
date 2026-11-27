@@ -2,7 +2,8 @@
     Prêmio do apoiador (desenho 08, L192-203): aparece uma vez por apoio confirmado pelo banco, na página
     Contribua da conta. Também abre pelo "Testar mensagem de prêmio" do Master (só na tela, sem gravar).
 #}
-{% set premio = contribua_premio_pendente() %}
+{# Com `simulacao` (o painel do Master), só o "Testar mensagem de prêmio": sem prêmio pendente, nunca abre sozinho. #}
+{% set premio = simulacao|default(false) ? null : contribua_premio_pendente() %}
 <link rel="stylesheet" href="{{ asset('css/contribua-cora.css') }}">
 <div class="cc-premio" data-cc-premio hidden
      data-url-visto="{{ path('contribua_premio_visto', {id: 0}) }}"

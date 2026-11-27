@@ -26,6 +26,8 @@
   const URLS = JSON.parse(raiz.dataset.urls || '{}');
   const elSecs = document.getElementById('mp-secs');
   const elSecao = document.getElementById('mp-secao');
+  // L2-M5: as configurações do Contribua (anexarConfiguracoesDoContribua, na seção dos planos).
+  const elContribua = raiz.querySelector('[data-mp-contribua]');
 
   // Aspas pelo código (\x22 e \x27): um literal de aspas aqui desalinha o detector de texto fixo (SemTextoFixoNosExtraidos)
   // e esconde dele o resto do arquivo.
@@ -1186,6 +1188,16 @@
     }).join('') + '</div>'
       + '<span class="mp-nota">' + T(convenio ? 'master.js.planos.nota' : 'master.js.planos.nota_sem_convenio') + '</span>';
     document.getElementById('mp-planos-aviso').innerHTML = avisoHtml();
+    anexarConfiguracoesDoContribua();
+  }
+
+  // L2-M5 (pedido do Farlei, lote 2): o pagamento por cartão, os pedidos de espaço e a integração bancária que ficavam
+  // na página Contribua vêm prontos no HTML (master/_contribua_config.html.twig) e entram no fim desta seção. O mesmo nó
+  // é movido a cada montagem (o innerHTML da seção não o apaga), então os ouvintes e o que foi digitado continuam.
+  function anexarConfiguracoesDoContribua() {
+    if (!elContribua) return;
+    elSecao.appendChild(elContribua);
+    elContribua.hidden = false;
   }
 
   // Janela "Convênios" (spec convenios §6.2): o módulo convenios.js cuida de tudo; o painel só passa as URLs e recarrega

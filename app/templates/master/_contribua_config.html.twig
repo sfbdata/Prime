@@ -1,0 +1,27 @@
+{#
+    Configurações só do Master que ficavam na página Contribua (pedido do Farlei, lote 2, L2-M5, 27/11/2026): o
+    pagamento por cartão (gateway e últimas assinaturas), os pedidos de espaço e a integração bancária. Os parciais e
+    as rotas são os do Contribua, sem mudança de regra; o servidor confere o Master de novo em cada rota.
+    Fica escondido aqui e o painel.js o põe no fim da seção "Planos e armazenamento" (anexarConfiguracoesDoContribua).
+    Recebe `contribua` (ConfiguracoesDoContribuaNoMasterView); nulo, nada aparece.
+#}
+{% if contribua %}
+<link rel="stylesheet" href="{{ asset('css/contribua.css') }}">
+<link rel="stylesheet" href="{{ asset('css/contribua-checkout.css') }}">
+<link rel="stylesheet" href="{{ asset('css/master-contribua.css') }}">
+<div class="mp-contribua" data-mp-contribua data-csrf="{{ csrf_token('contribua') }}" hidden>
+    <div class="mp-planos-rotulo">{{ 'master.painel.contribua.rotulo'|trans }}</div>
+    <div class="mp-card mp-contribua-pagamento">
+        <span class="mp-contribua-icone"><i class="bi bi-credit-card"></i></span>
+        <div class="mp-contribua-texto"><b>{{ 'master.painel.contribua.pagamento_titulo'|trans }}</b><span>{{ 'master.painel.contribua.pagamento_texto'|trans }}</span></div>
+        <button type="button" class="co-abrir-master" data-abrir-master><i class="bi bi-star-fill"></i>{{ 'master.painel.contribua.configurar'|trans }}<span>· {{ contribua.pagamento.master.estado }}</span></button>
+    </div>
+    {% include 'contribua/_pedidos_de_espaco.html.twig' with {painel: contribua.pedidos, previa: false} only %}
+    {% include 'contribua/_integracao_bancaria.html.twig' %}
+</div>
+{% include 'contribua/_pagamento_master.html.twig' with {pagamento: contribua.pagamento} only %}
+{# Só para o "Testar mensagem de prêmio" da integração bancária: aqui nunca abre sozinho nem marca um prêmio como visto. #}
+{% include 'contribua/_premio.html.twig' with {simulacao: true} only %}
+<div class="ct-toast" data-toast hidden><i class="bi bi-check-circle"></i><span></span></div>
+<script src="{{ asset('js/master/contribua-no-master.js') }}" defer></script>
+{% endif %}

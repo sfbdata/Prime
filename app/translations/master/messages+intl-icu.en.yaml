@@ -1,5 +1,11 @@
 master:
     painel:
+        # L2-M5: the Master-only settings that left the Contribua page (end of the Plans and storage section).
+        contribua:
+            rotulo: 'PAYMENT, STORAGE REQUESTS AND BANK (FROM CONTRIBUA)'
+            pagamento_titulo: Card payment
+            pagamento_texto: 'Gateway, public key, package links, grace period and the latest firm subscriptions.'
+            configurar: Configure payment
         titulo_pagina: 'Edit Role | System {papel}'
         titulo: 'Edit Role: System {papel}'
         voltar: Back
