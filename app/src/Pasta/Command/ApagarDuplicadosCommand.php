@@ -15,17 +15,17 @@ use Symfony\Component\Console\Output\OutputInterface;
 use Symfony\Component\Console\Style\SymfonyStyle;
 
 /**
- * Manda para a LIXEIRA as cópias repetidas (mesmo sha256) de documentos dentro da MESMA pasta.
+ * Manda para a LIXEIRA as cópias repetidas (mesmo sha256) de documentos dentro da MESMA pasta e da MESMA seção.
  * Não apaga arquivo: a lixeira guarda 30 dias, a purga agendada apaga depois, e restaurar desfaz.
  *
- * Simulação por padrão: só grava com `--confirmar`. Em fatias, como o `calcular-hash`: `--limite=N`
+ * Simulação por padrão: só grava com `--confirmar`, que exige `--saida` (CSV novo, gravado pasta a pasta). Em fatias, como o `calcular-hash`: `--limite=N`
  * (grupos por rodada, a última pasta vem inteira) e `--a-partir-de=<id da pasta>` com o cursor que o
  * resumo imprime. Um COMMIT por pasta. A regra de qual cópia fica mora em
  * {@see EnviarDuplicadosParaALixeiraUseCase}. Não roda sozinho em produção: é do dono.
  */
 #[AsCommand(
     name: 'app:documentos:apagar-duplicados',
-    description: 'Manda para a lixeira as cópias repetidas (mesmo conteúdo) de documentos dentro da mesma pasta; simulação por padrão',
+    description: 'Manda para a lixeira as cópias repetidas (mesmo conteúdo) de documentos dentro da mesma pasta e seção; simulação por padrão',
 )]
 final class ApagarDuplicadosCommand extends Command
 {
@@ -42,7 +42,7 @@ final class ApagarDuplicadosCommand extends Command
             ->addOption('pasta', null, InputOption::VALUE_REQUIRED, 'Só esta pasta (id)')
             ->addOption('limite', null, InputOption::VALUE_REQUIRED, 'Grupos repetidos por rodada (a última pasta vem inteira)')
             ->addOption('a-partir-de', null, InputOption::VALUE_REQUIRED, 'Só pastas com id MAIOR que este (passe a última pasta da fatia anterior)')
-            ->addOption('saida', null, InputOption::VALUE_REQUIRED, 'Grava o detalhe em CSV (só ids e tamanhos, sem nome de cliente nem de arquivo)');
+            ->addOption('saida', null, InputOption::VALUE_REQUIRED, 'CSV de detalhe, gravado pasta a pasta (só ids e tamanhos). Obrigatório com --confirmar; recusa arquivo que já existe');
     }
 
     protected function execute(InputInterface $input, OutputInterface $output): int
@@ -58,21 +58,58 @@ final class ApagarDuplicadosCommand extends Command
             return Command::FAILURE;
         }
 
-        $io->title('Limpeza de documentos duplicados (cópias na mesma pasta)');
+        $arquivo = $this->abrirSaida($input, $gravar, $io);
+        if ($arquivo === false) {
+            return Command::FAILURE;
+        }
+
+        $io->title('Limpeza de documentos duplicados (cópias na mesma pasta e na mesma seção)');
         $io->note($gravar ? 'GRAVANDO: as cópias repetidas vão para a lixeira (30 dias, dá para restaurar).' : 'Modo simulação: nada é gravado. Use --confirmar para gravar.');
 
-        $resultado = $this->limpeza->executar($gravar, $tenant, $pasta, $limite, $aPartirDe);
-
-        $saida = $input->getOption('saida');
-        if (\is_string($saida) && $saida !== '' && !$this->gravarCsv($saida, $resultado)) {
-            $io->error(sprintf('Não consegui gravar o CSV em %s.', $saida));
-
-            return Command::FAILURE;
+        try {
+            $resultado = $this->limpeza->executar(
+                $gravar,
+                $tenant,
+                $pasta,
+                $limite,
+                $aPartirDe,
+                $arquivo === null ? null : fn (array $decisoes) => $this->gravarLinhas($arquivo, $decisoes, $gravar),
+            );
+        } finally {
+            if ($arquivo !== null) {
+                fclose($arquivo);
+            }
         }
 
         $this->imprimirResumo($io, $resultado);
 
         return Command::SUCCESS;
+    }
+
+    /**
+     * @return resource|null|false null = sem --saida (só simulação); false = recusado (já reportado)
+     */
+    private function abrirSaida(InputInterface $input, bool $gravar, SymfonyStyle $io)
+    {
+        $saida = $input->getOption('saida');
+        $saida = \is_string($saida) && $saida !== '' ? $saida : null;
+        if ($gravar && $saida === null) {
+            $io->error('--confirmar exige --saida=<arquivo.csv>: sem o CSV não há como conferir depois o que foi enviado à lixeira.');
+
+            return false;
+        }
+        if ($saida === null) {
+            return null;
+        }
+
+        $arquivo = $this->abrirCsv($saida);
+        if ($arquivo === null) {
+            $io->error(sprintf('Não consegui criar o CSV em %s (o arquivo já existe ou a pasta não aceita gravação). Use um nome novo por fatia.', $saida));
+
+            return false;
+        }
+
+        return $arquivo;
     }
 
     private function imprimirResumo(SymfonyStyle $io, ResultadoDaLimpezaDeDuplicados $r): void
@@ -107,26 +144,38 @@ final class ApagarDuplicadosCommand extends Command
         }
     }
 
-    /** Uma linha por grupo: só ids e tamanhos. */
-    private function gravarCsv(string $caminho, ResultadoDaLimpezaDeDuplicados $r): bool
+    /**
+     * Cria o CSV (`xb`: nunca sobrescreve) e escreve o cabeçalho. Só ids e tamanhos, sem nome de
+     * cliente nem de arquivo.
+     *
+     * @return resource|null
+     */
+    private function abrirCsv(string $caminho)
     {
-        $arquivo = @fopen($caminho, 'wb');
+        $arquivo = @fopen($caminho, 'xb');
         if ($arquivo === false) {
-            return false;
+            return null;
         }
 
-        fputcsv($arquivo, ['tenant_id', 'pasta_id', 'documento_mantido', 'documentos_enviados', 'bytes_enviados', 'motivo', 'modo'], ',', '"', '');
-        foreach ($r->decisoes as $d) {
-            fputcsv($arquivo, $this->linhaDoCsv($d, $r->gravou), ',', '"', '');
-        }
+        fputcsv($arquivo, ['tenant_id', 'pasta_id', 'secao_id', 'documento_mantido', 'documentos_enviados', 'bytes_enviados', 'motivo', 'modo'], ',', '"', '');
+        fflush($arquivo);
 
-        return fclose($arquivo);
+        return $arquivo;
     }
 
-    /** @return list<int|string> */
-    private function linhaDoCsv(DecisaoSobreGrupoDeDuplicados $d, bool $gravou): array
+    /**
+     * As linhas de UMA pasta, logo depois do COMMIT dela: se a execução falhar no meio, o CSV tem
+     * tudo o que já foi gravado.
+     *
+     * @param resource                            $arquivo
+     * @param list<DecisaoSobreGrupoDeDuplicados> $decisoes
+     */
+    private function gravarLinhas($arquivo, array $decisoes, bool $gravou): void
     {
-        return [$d->tenantId, $d->pastaId, $d->mantidoId ?? '', implode(' ', $d->enviadosIds), $d->bytesEnviados, $d->motivo, $gravou ? 'gravacao' : 'simulacao'];
+        foreach ($decisoes as $d) {
+            fputcsv($arquivo, [$d->tenantId, $d->pastaId, $d->secaoId ?? '', $d->mantidoId ?? '', implode(' ', $d->enviadosIds), $d->bytesEnviados, $d->motivo, $gravou ? 'gravacao' : 'simulacao'], ',', '"', '');
+        }
+        fflush($arquivo);
     }
 
     /** @return int|null|false null quando a opção não veio; false quando veio inválida (já reportada) */

@@ -10,10 +10,11 @@ use Doctrine\DBAL\Connection;
 
 /**
  * As consultas (SQL cru, só leitura) da limpeza de cópias repetidas de documentos
- * (`app:documentos:apagar-duplicados`): os grupos de mesmo conteúdo DENTRO de uma pasta e o que
+ * (`app:documentos:apagar-duplicados`): os grupos de mesmo conteúdo DENTRO de uma seção da pasta e o que
  * prende cada documento (vínculo) a outra parte do sistema.
  *
- * Critério único: o MESMO `sha256` na MESMA pasta. O critério "provável" (nome + tamanho) do
+ * Critério único: o MESMO `sha256` na MESMA pasta E na MESMA seção (subpasta; sem seção conta como uma
+ * seção, a "raiz"). Cópia idêntica em seções diferentes NÃO é duplicado aqui: fica. O critério "provável" (nome + tamanho) do
  * relatório de duplicados do conector NUNCA entra aqui: é indício, não prova. Documento na lixeira,
  * pasta com lápide e arquivo de 0 byte ficam de fora. SQL cru não passa pelo `LixeiraFilter`: o
  * `excluido_em IS NULL` e o escopo do escritório (nos dois lados do JOIN) são escritos à mão.
@@ -31,12 +32,12 @@ class ConsultaDeDuplicadosDaPasta
      * inteira (o cursor `$aPartirDe` é por pasta: cortar no meio dela perderia os grupos restantes).
      * `ids` e `tamanhos` vêm do documento mais antigo (`uploaded_at`, `id`) ao mais novo.
      *
-     * @return list<array{tenant_id: int, pasta_id: int, sha256: string, ids: list<int>, tamanhos: list<int>}>
+     * @return list<array{tenant_id: int, pasta_id: int, secao_id: int|null, sha256: string, ids: list<int>, tamanhos: list<int>}>
      */
     public function grupos(?int $tenantId, ?int $pastaId, ?int $aPartirDe, ?int $limite): array
     {
-        $recorte = $limite === null ? '' : ' WHERE pasta_id <= COALESCE((SELECT pasta_id FROM g ORDER BY pasta_id, sha256 OFFSET :corte LIMIT 1), pasta_id)';
-        $sql     = $this->sqlDosGrupos($tenantId, $pastaId) . ' SELECT * FROM g' . $recorte . ' ORDER BY pasta_id, sha256';
+        $recorte = $limite === null ? '' : ' WHERE pasta_id <= COALESCE((SELECT pasta_id FROM g ORDER BY pasta_id, secao_id NULLS FIRST, sha256 OFFSET :corte LIMIT 1), pasta_id)';
+        $sql     = $this->sqlDosGrupos($tenantId, $pastaId) . ' SELECT * FROM g' . $recorte . ' ORDER BY pasta_id, secao_id NULLS FIRST, sha256';
 
         $parametros = $this->parametros($tenantId, $pastaId, $aPartirDe ?? 0);
         if ($limite !== null) {
@@ -48,6 +49,7 @@ class ConsultaDeDuplicadosDaPasta
             $grupos[] = [
                 'tenant_id' => (int) $linha['tenant_id'],
                 'pasta_id'  => (int) $linha['pasta_id'],
+                'secao_id'  => $linha['secao_id'] === null ? null : (int) $linha['secao_id'],
                 'sha256'    => (string) $linha['sha256'],
                 'ids'       => array_map('intval', explode(',', (string) $linha['ids'])),
                 'tamanhos'  => array_map('intval', explode(',', (string) $linha['tamanhos'])),
@@ -123,7 +125,7 @@ class ConsultaDeDuplicadosDaPasta
         return $parametros;
     }
 
-    /** A CTE `g`: um grupo por (pasta, sha256) com 2 ou mais documentos vivos. */
+    /** A CTE `g`: um grupo por (pasta, seção, sha256) com 2 ou mais documentos vivos. */
     private function sqlDosGrupos(?int $tenantId, ?int $pastaId): string
     {
         $doTenant = $tenantId !== null ? ' AND d.tenant_id = :tenant AND p.tenant_id = :tenant' : '';
@@ -131,14 +133,14 @@ class ConsultaDeDuplicadosDaPasta
 
         return <<<SQL
             WITH g AS (
-                SELECT d.tenant_id, d.pasta_id, d.sha256::text AS sha256,
+                SELECT d.tenant_id, d.pasta_id, d.secao_id, d.sha256::text AS sha256,
                        string_agg(d.id::text, ',' ORDER BY d.uploaded_at, d.id) AS ids,
                        string_agg(d.tamanho_bytes::text, ',' ORDER BY d.uploaded_at, d.id) AS tamanhos
                   FROM pasta_documento d
                   JOIN pasta p ON p.id = d.pasta_id AND p.tenant_id = d.tenant_id
                  WHERE d.sha256 IS NOT NULL AND d.excluido_em IS NULL AND p.excluida_em IS NULL
                    AND d.tamanho_bytes > 0 AND d.pasta_id > :depois{$doTenant}{$daPasta}
-                 GROUP BY d.tenant_id, d.pasta_id, d.sha256
+                 GROUP BY d.tenant_id, d.pasta_id, d.secao_id, d.sha256
                 HAVING COUNT(*) > 1
             )
             SQL;
