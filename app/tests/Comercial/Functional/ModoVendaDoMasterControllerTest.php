@@ -183,7 +183,8 @@ final class ModoVendaDoMasterControllerTest extends JusPrimeWebTestCase
 
         $this->postar($client, self::CAMPANHAS, $this->pedido($ana));
         self::assertResponseIsSuccessful();
-        self::assertSame('convite', $this->conexao()->fetchOne('SELECT modelo_chave FROM comercial_campanha WHERE id = ?', [$this->json($client)['id']]));
+        $gravada = $this->conexao()->fetchAssociative('SELECT modelo_chave, central FROM comercial_campanha WHERE id = ?', [$this->json($client)['id']]);
+        self::assertSame(['modelo_chave' => 'convite', 'central' => 'indicacoes'], $gravada, 'M1 (D5): a campanha da seção Indicações fica com a Central de lá');
     }
 
     /**
@@ -195,7 +196,7 @@ final class ModoVendaDoMasterControllerTest extends JusPrimeWebTestCase
     {
         return array_merge([
             'modo' => 'venda', 'chave' => bin2hex(random_bytes(16)), 'modelo' => (array) (new ModelosDeCampanha())->fixo('convite'),
-            'publico' => 'indiv', 'individual' => $email, 'frequencia' => 'unica', 'agendar' => '',
+            'publico' => 'indiv', 'individual' => $email, 'frequencia' => 'unica', 'agendar' => '', 'baseLegal' => 'consentimento',
         ], $troca);
     }
 

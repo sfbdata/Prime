@@ -266,6 +266,23 @@ final class CampanhaDoMasterControllerTest extends JusPrimeWebTestCase
         self::assertSame(1, $this->contar('comercial_envio'), 'só uma pessoa');
     }
 
+    #[TestDox('M1: o teste da seção Indicações fica com a Central de lá (D5); sem nome, o {nome} vira o texto do modelo, com maiúscula no começo da frase (A6)')]
+    public function testTesteDaVendaComTextoSemNome(): void
+    {
+        $client = $this->clienteMaster();
+        $modelo = ['titulo' => '{nome}, conheça o BlueJus', 'corpo' => 'Olá, {nome}!', 'semNome' => 'doutor(a)'] + $this->convite();
+        $this->postar($client, '/master/comercial/teste', $modelo + ['secao' => 'ind', 'para' => 'sem.nome@exemplo.com']);
+
+        self::assertResponseIsSuccessful();
+        $conteudo = $this->conexao()->fetchAssociative('SELECT c.titulo, c.corpo_html FROM comercial_envio_conteudo c');
+        self::assertSame('Doutor(a), conheça o BlueJus', $conteudo['titulo']);
+        self::assertStringContainsString('Olá, doutor(a)!', (string) $conteudo['corpo_html']);
+        self::assertSame(
+            ['central' => 'indicacoes', 'texto_sem_nome' => 'doutor(a)', 'base_legal' => null],
+            $this->conexao()->fetchAssociative("SELECT central, texto_sem_nome, base_legal FROM comercial_campanha WHERE estado = 'teste'"),
+        );
+    }
+
     #[TestDox('Enviar teste (F3f): [TESTE] no assunto e o teste gravado como campanha "teste", com o destino ligado ao envio, fora das ativas e no KPI')]
     public function testTesteGravado(): void
     {

@@ -40,7 +40,7 @@ final class SalvarComoMeuModeloUseCase
         $this->imagens->exigirVigente($base, $agora);
         $modelo = new ModeloDeCampanha($nome, $base->icone, $base->modo, $por, $agora);
         $html = $base->modo === 'html' ? $this->sanitizador->sanitizar($base->html) : '';
-        $modelo->preencher($base->assunto, $base->selo, $base->titulo, ModeloDaGrade::conteudoParaGravar($base, $html), $agora);
+        $modelo->preencher($base->assunto, $base->selo, $base->titulo, ModeloDaGrade::conteudoParaGravar($base, $html), $agora, $base->semNome);
         $this->modelos->salvar($modelo, ModeloDeCampanhaRepository::NOVO, $por);
         $this->imagens->renovarPeloModelo($base, $agora);
 

@@ -5,12 +5,14 @@ declare(strict_types=1);
 namespace App\Conector\Ferramenta;
 
 use App\Comercial\Entity\CampanhaDeEmail;
+use App\Comercial\Enum\BaseLegalDoEnvio;
 use App\Conector\Exception\ErroDaFerramenta;
 
 /**
  * A entrada da `campanhas_de_email` já conferida: a ação e os campos que ela aceita. Campo de outra ação ou de tipo
  * errado é entrada inválida; texto acima do limite é recusado com o nome do campo e o limite, nunca cortado em silêncio.
- * Pelo conector só saem os públicos `leads`, `prim`, `sec` e `todos` (6.9: nunca lista de e-mails).
+ * Pelo conector só saem os públicos `leads`, `prim`, `sec` e `todos` (6.9: nunca lista de e-mails). Criar exige a base
+ * legal do envio, como a tela (pedido do Farlei M1, C1).
  */
 final class CampanhasDeEmailEntrada
 {
@@ -20,7 +22,7 @@ final class CampanhasDeEmailEntrada
     public const PASSOU_DO_LIMITE = 'O campo %s passa do limite de %d caracteres.';
 
     private const CAMPOS_DA_ACAO = [
-        CampanhasDeEmailFerramenta::CRIAR => ['modelo', 'publico', 'frequencia', 'agendar'],
+        CampanhasDeEmailFerramenta::CRIAR => ['modelo', 'publico', 'frequencia', 'agendar', 'base_legal'],
         CampanhasDeEmailFerramenta::EDITAR => ['campanha_id', 'frequencia', 'agendar', 'atualizar_do_modelo'],
         CampanhasDeEmailFerramenta::CANCELAR => ['campanha_id'],
         CampanhasDeEmailFerramenta::ENVIAR_TESTE => ['modelo'],
@@ -56,7 +58,7 @@ final class CampanhasDeEmailEntrada
         if (isset($argumentos['modelo'])) {
             $argumentos['modelo'] = self::chaveDoModelo($argumentos['modelo']);
         }
-        foreach (['criar' => ['modelo', 'publico'], 'editar' => ['campanha_id'], 'cancelar' => ['campanha_id'], 'enviar_teste' => ['modelo']][$acao] as $obrigatorio) {
+        foreach (['criar' => ['modelo', 'publico', 'base_legal'], 'editar' => ['campanha_id'], 'cancelar' => ['campanha_id'], 'enviar_teste' => ['modelo']][$acao] as $obrigatorio) {
             if (!isset($argumentos[$obrigatorio])) {
                 throw ErroDaFerramenta::entradaInvalida();
             }
@@ -84,6 +86,9 @@ final class CampanhasDeEmailEntrada
     private static function exigirValoresValidos(array $campos): void
     {
         if (isset($campos['publico']) && !\in_array($campos['publico'], self::PUBLICOS, true)) {
+            throw ErroDaFerramenta::entradaInvalida();
+        }
+        if (isset($campos['base_legal']) && !\in_array($campos['base_legal'], BaseLegalDoEnvio::valores(), true)) {
             throw ErroDaFerramenta::entradaInvalida();
         }
         if (isset($campos['frequencia']) && !\in_array($campos['frequencia'], CampanhaDeEmail::FREQUENCIAS, true)) {

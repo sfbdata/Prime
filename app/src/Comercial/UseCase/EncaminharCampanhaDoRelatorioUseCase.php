@@ -6,6 +6,7 @@ namespace App\Comercial\UseCase;
 
 use App\Comercial\Campanha\ComposicaoDaCampanha;
 use App\Comercial\DTO\TesteEnviado;
+use App\Comercial\Enum\CentralDaCampanha;
 use App\Comercial\Exception\CampanhaRecusada;
 use App\Comercial\Repository\CampanhaDeEmailRepository;
 use App\Entity\Auth\User;
@@ -38,6 +39,7 @@ final class EncaminharCampanhaDoRelatorioUseCase
             throw new CampanhaRecusada('Esta campanha não pode mais ser montada para o encaminhamento.');
         }
 
-        return $this->teste->executar($mensagem, $master, $para);
+        // O teste encaminhado fica na mesma seção da campanha (a antiga sem Central, na Comercial).
+        return $this->teste->executar($mensagem, $master, $para, CentralDaCampanha::tryFrom((string) $campanha['central']) ?? CentralDaCampanha::Comercial);
     }
 }

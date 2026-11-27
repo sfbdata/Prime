@@ -6,6 +6,8 @@ namespace App\Tests\Comercial\Functional;
 
 use App\Comercial\Service\RastreioDaLeitura;
 use App\Comercial\Controller\RelatorioDoMasterController;
+use App\Comercial\Enum\BaseLegalDoEnvio;
+use App\Comercial\Enum\CentralDaCampanha;
 use App\Comercial\Repository\CampanhaMarcaRepository;
 use App\Comercial\Repository\RelatorioDeCampanhasRepository;
 use App\Comercial\UseCase\AbrirCampanhaDoRelatorioUseCase;
@@ -179,6 +181,30 @@ final class RelatorioDoMasterControllerTest extends JusPrimeWebTestCase
 
         $client->request('GET', '/master/comercial/relatorio?aba=rec');
         self::assertSame(['Recorrente', 'Convite · mensal'], [$this->json($client)['campanhas'][0]['rotulo'], $this->json($client)['campanhas'][0]['sub']]);
+    }
+
+    #[TestDox('M1 (D5): cada seção lista as campanhas da sua Central e as antigas sem Central; sem a seção, vale a Comercial; o detalhe mostra a base legal declarada (M1, C1)')]
+    public function testCentralDaSecaoEBaseLegal(): void
+    {
+        $client = $this->clienteMaster();
+        $comercial = $this->campanha(['a@exemplo.com'], ['base_legal' => BaseLegalDoEnvio::ExecucaoDeContrato]);
+        $indicacoes = $this->campanha(['a@exemplo.com'], ['central' => CentralDaCampanha::Indicacoes]);
+        $antiga = $this->campanha(['a@exemplo.com']);
+        $this->conexao()->executeStatement('UPDATE comercial_campanha SET central = NULL WHERE id = ?', [$antiga]);
+
+        $client->request('GET', '/master/comercial/relatorio?secao=com');
+        self::assertSame([$antiga, $comercial], array_column($this->json($client)['campanhas'], 'id'));
+        self::assertSame(2, $this->json($client)['abas']['env']);
+        $client->request('GET', '/master/comercial/relatorio');
+        self::assertSame([$antiga, $comercial], array_column($this->json($client)['campanhas'], 'id'));
+        $client->request('GET', '/master/comercial/relatorio?secao=ind');
+        self::assertSame([$antiga, $indicacoes], array_column($this->json($client)['campanhas'], 'id'));
+        self::assertSame(2, $this->json($client)['abas']['env']);
+
+        $client->request('GET', '/master/comercial/campanhas/' . $comercial);
+        self::assertSame('Execução de contrato (LGPD, art. 7º, V)', $this->json($client)['base_legal']);
+        $client->request('GET', '/master/comercial/campanhas/' . $indicacoes);
+        self::assertNull($this->json($client)['base_legal']);
     }
 
     #[TestDox('Busca por campanha, pelo rótulo do público ou por e-mail de destinatário (o % e o _ são literais) e paginação de 50 no SQL')]

@@ -98,6 +98,32 @@ final class CampanhasDoMasterControllerTest extends JusPrimeWebTestCase
         self::assertResponseStatusCodeSame(422, 'a seção Indicações não mostra Contatos salvos');
     }
 
+    #[TestDox('Base legal (M1, C1): sem ela ou fora da lista, 422 com "Escolha a base legal do envio." e nada é gravado; o texto sem nome do modelo vai para a cópia congelada')]
+    public function testBaseLegalObrigatoriaETextoSemNome(): void
+    {
+        $client = $this->clienteMaster();
+        $email = (string) $this->cadastradoAtivo('ana')->getEmail();
+        foreach ([null, '', 'contrato'] as $base) {
+            $pedido = $this->pedido([$email]);
+            if ($base === null) {
+                unset($pedido['baseLegal']);
+            } else {
+                $pedido['baseLegal'] = $base;
+            }
+            $this->postar($client, '/master/comercial/campanhas', $pedido);
+            self::assertResponseStatusCodeSame(422);
+            self::assertSame(['erro' => 'Escolha a base legal do envio.'], $this->json($client));
+        }
+        self::assertSame(0, $this->contar('comercial_campanha'));
+
+        $pedido = $this->pedido([$email], ['baseLegal' => 'legitimo_interesse']);
+        $pedido['modelo']['semNome'] = '  Doutor(a)  ';
+        $this->postar($client, '/master/comercial/campanhas', $pedido);
+        self::assertResponseIsSuccessful();
+        $campanha = $this->conexao()->fetchAssociative('SELECT base_legal, texto_sem_nome FROM comercial_campanha');
+        self::assertSame(['base_legal' => 'legitimo_interesse', 'texto_sem_nome' => 'Doutor(a)'], $campanha);
+    }
+
     #[TestDox('Chave desligada (M8.4): a campanha é gravada do mesmo jeito e fica esperando; nada sai')]
     public function testChaveDesligadaGravaEEspera(): void
     {
@@ -109,7 +135,7 @@ final class CampanhasDoMasterControllerTest extends JusPrimeWebTestCase
         self::assertEmailCount(0);
     }
 
-    #[TestDox('Confirmar: nasce na fila com a cópia do conteúdo, audita camp_conf só com {publico, frequencia, total}; nada sai (o expansor a pega na volta do minuto)')]
+    #[TestDox('Confirmar: nasce na fila com a cópia do conteúdo, a base legal e a Central Comercial, audita camp_conf só com {publico, frequencia, total, base_legal}; nada sai (o expansor a pega na volta do minuto)')]
     public function testConfirmar(): void
     {
         $client = $this->clienteMaster();
@@ -124,8 +150,9 @@ final class CampanhasDoMasterControllerTest extends JusPrimeWebTestCase
         self::assertSame(['na_fila', 'indiv', 'unica', 1, 'Convite · novos escritórios', 'convite', null], [$campanha['estado'], $campanha['publico'], $campanha['frequencia'], $campanha['total'], $campanha['modelo_nome'], $campanha['modelo_chave'], $campanha['agendada_para']]);
         self::assertSame([['email' => $ana->getEmail(), 'nome' => '']], json_decode((string) $campanha['publico_parametros'], true));
         self::assertFalse($campanha['rastrear_leitura'], 'F3g: sem a escolha no pedido, a campanha fica sem confirmação de leitura');
+        self::assertSame(['consentimento', 'comercial', 'colega'], [$campanha['base_legal'], $campanha['central'], $campanha['texto_sem_nome']]);
         $trilha = (string) $this->conexao()->fetchOne("SELECT changes FROM audit_log WHERE action = 'camp_conf' AND entity_id = ?", [(string) $saida['id']]);
-        self::assertSame(['publico' => 'indiv', 'frequencia' => 'unica', 'total' => 1], json_decode($trilha, true));
+        self::assertSame(['publico' => 'indiv', 'frequencia' => 'unica', 'total' => 1, 'base_legal' => 'consentimento'], json_decode($trilha, true));
         self::assertStringNotContainsString((string) $campanha['assunto'], $trilha);
         self::assertSame(0, $this->contar('comercial_envio'), 'nada sai no confirmar');
         $fila = static::getContainer()->get('messenger.transport.comercial');
@@ -444,7 +471,7 @@ final class CampanhasDoMasterControllerTest extends JusPrimeWebTestCase
         return array_merge([
             'chave' => bin2hex(random_bytes(16)),
             'modelo' => (array) (new ModelosDeCampanha())->fixo('convite'),
-            'publico' => 'indiv', 'individual' => implode(', ', $emails), 'frequencia' => 'unica', 'agendar' => '',
+            'publico' => 'indiv', 'individual' => implode(', ', $emails), 'frequencia' => 'unica', 'agendar' => '', 'baseLegal' => 'consentimento',
         ], $troca);
     }
 

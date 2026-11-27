@@ -31,6 +31,8 @@ final class CampanhaDoRelatorio
         public readonly ?string $html,
         public readonly array $destinatarios,
         public readonly int $mais,
+        /** O rótulo da base legal declarada (pedido do Farlei M1, C1); nulo nas sem declaração (antigas, testes, datas). */
+        public readonly ?string $baseLegal = null,
     ) {
     }
 
@@ -53,6 +55,7 @@ final class CampanhaDoRelatorio
             'situacao' => $this->situacao, 'de' => $this->de, 'publico' => $this->publico, 'modelo' => $this->modelo,
             'quando' => $this->quando, 'cancelavel' => $this->cancelavel, 'iniciada' => $this->iniciada, 'kpis' => $this->kpis(),
             'metricas' => $this->metricas->paraArray(), 'html' => $this->html, 'mais' => $this->mais,
+            'base_legal' => $this->baseLegal,
             'destinatarios' => array_map(static fn (DestinatarioDoRelatorio $d): array => $d->paraArray(), $this->destinatarios),
         ];
     }

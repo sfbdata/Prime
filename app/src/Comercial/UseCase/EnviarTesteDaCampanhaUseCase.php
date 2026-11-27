@@ -10,6 +10,7 @@ use App\Comercial\DTO\DestinatarioDaCampanha;
 use App\Comercial\DTO\MensagemDaCampanha;
 use App\Comercial\DTO\TesteEnviado;
 use App\Comercial\Entity\CampanhaDeEmail;
+use App\Comercial\Enum\CentralDaCampanha;
 use App\Comercial\Envio\CarteiroInterface;
 use App\Comercial\Envio\MensagemDeEmail;
 use App\Comercial\Exception\CampanhaRecusada;
@@ -59,17 +60,21 @@ final class EnviarTesteDaCampanhaUseCase
     ) {
     }
 
-    /** @param list<string> $para endereços já validados (DestinosDoTeste); vazio = só o Master */
-    public function executar(MensagemDaCampanha $mensagem, User $master, array $para = []): TesteEnviado
+    /**
+     * @param list<string> $para endereços já validados (DestinosDoTeste); vazio = só o Master
+     *
+     * `$central` é a seção de onde veio o teste (pedido do Farlei M1, D5): a linha do teste aparece só no Relatório dela.
+     */
+    public function executar(MensagemDaCampanha $mensagem, User $master, array $para = [], CentralDaCampanha $central = CentralDaCampanha::Comercial): TesteEnviado
     {
         $para = $para === [] ? [mb_strtolower(trim((string) $master->getEmail()))] : $para;
 
         // Um teste por vez para cada Master: o teto, os envios e o registro (que é o contador) sob a mesma trava.
-        return $this->campanhas->comTravaDoTesteDoMaster((int) $master->getId(), fn (): TesteEnviado => $this->enviar($mensagem, $master, $para));
+        return $this->campanhas->comTravaDoTesteDoMaster((int) $master->getId(), fn (): TesteEnviado => $this->enviar($mensagem, $master, $para, $central));
     }
 
     /** @param non-empty-list<string> $para */
-    private function enviar(MensagemDaCampanha $mensagem, User $master, array $para): TesteEnviado
+    private function enviar(MensagemDaCampanha $mensagem, User $master, array $para, CentralDaCampanha $central): TesteEnviado
     {
         $this->exigirTeto(\count($para), (int) $master->getId());
         ComposicaoDaCampanha::exigirAncoraDeVagas($mensagem);
@@ -91,14 +96,14 @@ final class EnviarTesteDaCampanhaUseCase
         } catch (\Throwable $e) {
             // O que já saiu fica registrado; a falha segue para a tela.
             if ($enviados !== []) {
-                $this->registrar($teste, $enviados, $master);
+                $this->registrar($teste, $enviados, $master, $central);
             }
             throw $e;
         }
         if ($enviados === []) {
             throw new CampanhaRecusada(\count($para) === 1 ? self::DESCADASTRADO : self::DESCADASTRADOS);
         }
-        $this->registrar($teste, $enviados, $master);
+        $this->registrar($teste, $enviados, $master, $central);
 
         return new TesteEnviado(array_column($enviados, 'email'), $bloqueados);
     }
@@ -121,10 +126,10 @@ final class EnviarTesteDaCampanhaUseCase
      *
      * @param list<array{email: string, nome: string, envio: int}> $enviados
      */
-    private function registrar(MensagemDaCampanha $teste, array $enviados, User $master): void
+    private function registrar(MensagemDaCampanha $teste, array $enviados, User $master, CentralDaCampanha $central): void
     {
         try {
-            $this->campanhas->emTransacao(fn () => $this->gravar($teste, $enviados, $master));
+            $this->campanhas->emTransacao(fn () => $this->gravar($teste, $enviados, $master, $central));
         } catch (\Throwable $e) {
             throw new CampanhaRecusada(self::NAO_REGISTRADO, 0, $e);
         }
@@ -136,7 +141,7 @@ final class EnviarTesteDaCampanhaUseCase
      *
      * @param list<array{email: string, nome: string, envio: int}> $enviados
      */
-    private function gravar(MensagemDaCampanha $teste, array $enviados, User $master): void
+    private function gravar(MensagemDaCampanha $teste, array $enviados, User $master, CentralDaCampanha $central): void
     {
         $agora = $this->relogio->now();
         $total = \count($enviados);
@@ -147,6 +152,7 @@ final class EnviarTesteDaCampanhaUseCase
             'parametros' => null,
             'frequencia' => CampanhaDeEmail::UNICA, 'agendada_para' => null, 'proxima' => $agora,
             'estado' => Relatorio::TESTE, 'total' => $total, 'criada_por' => $master->getId(), 'agora' => $agora,
+            'central' => $central, 'sem_nome' => $teste->semNome,
         ]) ?? throw new CampanhaRecusada('Pedido inválido.');
         $this->destinos->materializar($id, 1, array_map(static fn (array $e): DestinatarioDaCampanha => new DestinatarioDaCampanha($e['email'], $e['nome']), $enviados), $agora);
         $this->campanhas->registrarExecucao($id, 1, $total, Relatorio::TESTE, null);
@@ -160,6 +166,6 @@ final class EnviarTesteDaCampanhaUseCase
     {
         $assunto = str_starts_with($m->assunto, self::PREFIXO) ? $m->assunto : mb_substr(self::PREFIXO . $m->assunto, 0, 255);
 
-        return new MensagemDaCampanha($m->chave, $m->modo, $assunto, $m->selo, $m->titulo, $m->corpo, $m->itens, $m->cta, $m->link, $m->blocos, $m->html, $m->nome, $m->icone, $m->imagem);
+        return new MensagemDaCampanha($m->chave, $m->modo, $assunto, $m->selo, $m->titulo, $m->corpo, $m->itens, $m->cta, $m->link, $m->blocos, $m->html, $m->nome, $m->icone, $m->imagem, $m->semNome);
     }
 }

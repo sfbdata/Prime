@@ -12,6 +12,7 @@ use App\Comercial\DTO\PedidoDeCampanha;
 use App\Comercial\DTO\PedidoDeEdicao;
 use App\Comercial\DTO\PedidoDePublico;
 use App\Comercial\Entity\CampanhaDeEmail;
+use App\Comercial\Enum\BaseLegalDoEnvio;
 use App\Comercial\Exception\CampanhaRecusada;
 use App\Comercial\Service\ModelosEfetivos;
 use App\Comercial\UseCase\AbrirCampanhaDoRelatorioUseCase;
@@ -91,7 +92,7 @@ final class CampanhasDeEmailFerramenta implements FerramentaDoConector
 
     public function descricao(): string
     {
-        return 'Cria, edita, cancela e testa as campanhas de e-mail do Comercial (só para o Master da plataforma). Criar, editar e cancelar esperam o sim da pessoa: mostre o resumo e chame confirmar_acao só se ela disser sim. "criar" (modelo: id, cu12 ou chave de um modelo salvo, como veio em ler_comercial; publico: leads, prim, sec ou todos; frequencia: unica, semanal, quinzenal ou mensal; agendar: AAAA-MM-DDTHH:MM, hora de Brasília, ou vazio para enviar já) usa só o modelo salvo, nunca texto solto. "editar" (campanha_id; agendar, frequencia e atualizar_do_modelo, que regrava o conteúdo com a versão atual do modelo; só antes de a campanha começar a sair; o que não vier fica como está). "cancelar" (campanha_id) para o envio e não volta. "enviar_teste" (modelo) manda na hora um teste só para o e-mail do próprio Master, no máximo 10 por hora. Lista de e-mails de destinatários nunca sai, e os públicos de CSV e individual não existem aqui.';
+        return 'Cria, edita, cancela e testa as campanhas de e-mail do Comercial (só para o Master da plataforma). Criar, editar e cancelar esperam o sim da pessoa: mostre o resumo e chame confirmar_acao só se ela disser sim. "criar" (modelo: id, cu12 ou chave de um modelo salvo, como veio em ler_comercial; publico: leads, prim, sec ou todos; frequencia: unica, semanal, quinzenal ou mensal; agendar: AAAA-MM-DDTHH:MM, hora de Brasília, ou vazio para enviar já; base_legal: a base legal do envio que a pessoa declarar, consentimento, execucao_de_contrato ou legitimo_interesse, sem escolher por ela) usa só o modelo salvo, nunca texto solto. "editar" (campanha_id; agendar, frequencia e atualizar_do_modelo, que regrava o conteúdo com a versão atual do modelo; só antes de a campanha começar a sair; o que não vier fica como está). "cancelar" (campanha_id) para o envio e não volta. "enviar_teste" (modelo) manda na hora um teste só para o e-mail do próprio Master, no máximo 10 por hora. Lista de e-mails de destinatários nunca sai, e os públicos de CSV e individual não existem aqui.';
     }
 
     public function esquemaDeEntrada(): array
@@ -103,6 +104,7 @@ final class CampanhasDeEmailFerramenta implements FerramentaDoConector
                 'modelo' => ['type' => 'string', 'minLength' => 1, 'maxLength' => CampanhasDeEmailEntrada::TAMANHO_DO_MODELO, 'description' => 'Em criar e enviar_teste. O id (12), a chave de um próprio (cu12) ou a chave de um padrão.'],
                 'publico' => ['type' => 'string', 'enum' => CampanhasDeEmailEntrada::PUBLICOS, 'description' => 'Só em criar. leads (base de contatos), prim, sec ou todos.'],
                 'frequencia' => ['type' => 'string', 'enum' => CampanhaDeEmail::FREQUENCIAS, 'description' => 'Em criar e editar. unica (padrão), semanal, quinzenal ou mensal.'],
+                'base_legal' => ['type' => 'string', 'enum' => BaseLegalDoEnvio::valores(), 'description' => 'Só em criar, obrigatória. A base legal (LGPD, art. 7º) que a pessoa declara para o envio: consentimento, execucao_de_contrato ou legitimo_interesse. Pergunte a ela; nunca escolha sozinho.'],
                 'agendar' => ['type' => 'string', 'maxLength' => CampanhasDeEmailEntrada::TAMANHO_DA_DATA, 'description' => 'Em criar e editar. Data e hora do primeiro envio, AAAA-MM-DDTHH:MM, no futuro. Vazio: criar envia já; editar tira a data.'],
                 'campanha_id' => ['type' => 'integer', 'minimum' => 1, 'description' => 'Em editar e cancelar. O id que veio na ação campanhas de ler_comercial.'],
                 'atualizar_do_modelo' => ['type' => 'boolean', 'description' => 'Só em editar. true regrava o conteúdo da campanha com a versão atual do modelo dela.'],
@@ -164,6 +166,7 @@ final class CampanhasDeEmailFerramenta implements FerramentaDoConector
         $agendar = (string) ($campos['agendar'] ?? '');
         $this->exigirDataFutura($agendar);
         $publico = (string) $campos['publico'];
+        $baseLegal = PedidoDeCampanha::baseLegal($campos['base_legal'] ?? null);
         $total = $this->contar->executar(new PedidoDePublico($publico, modelo: $mensagem->chave))->destinatarios;
         if ($total === 0) {
             throw ErroDaFerramenta::recusada(ConfirmarCampanhaUseCase::SEM_DESTINATARIOS);
@@ -175,14 +178,16 @@ final class CampanhasDeEmailFerramenta implements FerramentaDoConector
             'total' => $total,
             'frequencia' => $frequencia,
             'agendar' => $agendar,
+            'base_legal' => $baseLegal->value,
             'chave' => bin2hex(random_bytes(16)),
         ];
         $resumo = sprintf(
-            "Criar campanha do modelo \"%s\" (%s).\nPúblico: %s, %d destinatário(s).\nEnvio: %s.\n%sAssunto: %s\nTexto:\n%s",
+            "Criar campanha do modelo \"%s\" (%s).\nPúblico: %s, %d destinatário(s).\nBase legal: %s.\nEnvio: %s.\n%sAssunto: %s\nTexto:\n%s",
             (string) $modelo['nome'],
             $mensagem->chave,
             PublicosDaCampanha::ROTULOS[$publico],
             $total,
+            $baseLegal->rotulo(),
             self::fraseDaAgenda($frequencia, $agendar),
             $this->avisoDoEnvio(),
             $mensagem->assunto,
@@ -268,7 +273,7 @@ final class CampanhasDeEmailFerramenta implements FerramentaDoConector
     {
         $mensagem = ModelosDeEmailResumos::mensagem($this->modelo(self::texto($dados, 'modelo')));
         $data = $this->data(self::texto($dados, 'agendar'));
-        $pedido = new PedidoDeCampanha(self::texto($dados, 'chave'), $mensagem, new PedidoDePublico(self::texto($dados, 'publico'), modelo: $mensagem->chave), self::texto($dados, 'frequencia'), $data);
+        $pedido = new PedidoDeCampanha(self::texto($dados, 'chave'), $mensagem, new PedidoDePublico(self::texto($dados, 'publico'), modelo: $mensagem->chave), self::texto($dados, 'frequencia'), $data, PedidoDeCampanha::baseLegal($dados['base_legal'] ?? null));
         $feita = $this->confirmar->executar($pedido, $pessoa);
 
         return ['estado' => 'concluida', 'acao' => self::CRIAR, 'campanha_id' => $feita->id, 'total' => $feita->total, 'mensagem' => $feita->mensagem];

@@ -26,6 +26,12 @@ final class MensagemDaCampanha
     private const MAXIMO_DE_BLOCOS = 60;
     private const MAXIMO_DE_ITENS = 30;
     public const IMAGEM_INVALIDA = 'Imagem inválida.';
+    /**
+     * O "texto quando não houver nome" padrão (pedido do Farlei M1, A6): minúsculo, como sai no meio da frase ("Olá,
+     * colega!"); no começo de uma frase o montador põe a maiúscula ("Colega, conheça...").
+     */
+    public const SEM_NOME_PADRAO = 'colega';
+    public const TAMANHO_DO_SEM_NOME = 40;
 
     /**
      * @param list<string> $itens
@@ -46,7 +52,16 @@ final class MensagemDaCampanha
         public readonly string $nome = '',
         public readonly string $icone = '',
         public readonly string $imagem = '',
+        public readonly string $semNome = self::SEM_NOME_PADRAO,
     ) {
+    }
+
+    /** Aparado, até 40 caracteres, sem quebra de linha; vazio volta ao padrão. */
+    public static function semNomeValido(string $texto): string
+    {
+        $limpo = trim((string) preg_replace('/\s+/u', ' ', $texto));
+
+        return $limpo === '' ? self::SEM_NOME_PADRAO : mb_substr($limpo, 0, self::TAMANHO_DO_SEM_NOME);
     }
 
     /** @param array<mixed> $dados */
@@ -74,6 +89,7 @@ final class MensagemDaCampanha
             self::texto($dados, 'nome', 200),
             self::texto($dados, 'icone', 60),
             $modo === 'simples' ? self::imagem($dados['imagem'] ?? '') : '',
+            self::semNomeValido(self::texto($dados, 'semNome', 200)),
         );
     }
 
@@ -105,6 +121,7 @@ final class MensagemDaCampanha
             'chave' => $this->chave, 'modo' => $this->modo, 'nome' => $this->nome, 'icone' => $this->icone, 'assunto' => $this->assunto,
             'selo' => $this->selo, 'titulo' => $this->titulo, 'corpo' => $this->corpo, 'itens' => $this->itens, 'cta' => $this->cta,
             'link' => $this->link, 'blocos' => $this->blocos, 'html' => $this->html, 'imagem' => $this->imagem,
+            'semNome' => $this->semNome,
         ];
     }
 

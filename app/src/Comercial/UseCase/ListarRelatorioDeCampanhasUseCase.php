@@ -42,10 +42,10 @@ final class ListarRelatorioDeCampanhasUseCase
 
     public function executar(PedidoDoRelatorio $pedido, int $masterId): RelatorioDeCampanhas
     {
-        $abas = $this->relatorio->contarPorAba($masterId);
-        $total = $this->relatorio->contar($masterId, $pedido->aba, $pedido->busca);
+        $abas = $this->relatorio->contarPorAba($masterId, $pedido->central);
+        $total = $this->relatorio->contar($masterId, $pedido->aba, $pedido->busca, $pedido->central);
         $pagina = min($pedido->pagina, max(1, (int) ceil($total / self::POR_PAGINA)));
-        $linhas = $total === 0 ? [] : $this->relatorio->pagina($masterId, $pedido->aba, $pedido->busca, self::POR_PAGINA, ($pagina - 1) * self::POR_PAGINA);
+        $linhas = $total === 0 ? [] : $this->relatorio->pagina($masterId, $pedido->aba, $pedido->busca, self::POR_PAGINA, ($pagina - 1) * self::POR_PAGINA, $pedido->central);
         $metricas = $this->relatorio->metricas(array_map(static fn (array $l): int => $l['id'], $linhas));
 
         return new RelatorioDeCampanhas(

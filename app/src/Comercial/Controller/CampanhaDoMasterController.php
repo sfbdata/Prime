@@ -11,6 +11,7 @@ use App\Comercial\DTO\MensagemDaCampanha;
 use App\Comercial\DTO\ModeloSalvoOutput;
 use App\Comercial\DTO\PedidoDeCampanha;
 use App\Comercial\DTO\PedidoDePublico;
+use App\Comercial\Enum\CentralDaCampanha;
 use App\Comercial\Exception\CampanhaRecusada;
 use App\Comercial\UseCase\ConfirmarCampanhaUseCase;
 use App\Comercial\UseCase\ContarPublicosUseCase;
@@ -112,7 +113,9 @@ final class CampanhaDoMasterController extends AbstractController
     {
         return $this->protegido($request, function (array $corpo) use ($teste, $validador): JsonResponse {
             $destinos = DestinosDoTeste::deEntrada($corpo['para'] ?? null, $validador);
-            $saida = $teste->executar(MensagemDaCampanha::deArray($corpo), $this->master(), $destinos->enderecos);
+            // `secao: ind` vem da seção Indicações (pedido do Farlei M1, D5): o teste fica no Relatório de lá. Não é `modo`,
+            // que no corpo do teste já é o modo do modelo (simples, blocos, html).
+            $saida = $teste->executar(MensagemDaCampanha::deArray($corpo), $this->master(), $destinos->enderecos, CentralDaCampanha::daSecao($corpo['secao'] ?? null));
 
             return new JsonResponse(['mensagem' => $saida->mensagem(), 'enviados' => $saida->enviados, 'aviso' => $saida->aviso()]);
         });

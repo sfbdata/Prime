@@ -4,6 +4,9 @@ declare(strict_types=1);
 
 namespace App\Comercial\Entity;
 
+use App\Comercial\DTO\MensagemDaCampanha;
+use App\Comercial\Enum\BaseLegalDoEnvio;
+use App\Comercial\Enum\CentralDaCampanha;
 use App\Comercial\Repository\CampanhaDeEmailRepository;
 use App\Entity\Auth\User;
 use Doctrine\ORM\Mapping as ORM;
@@ -13,7 +16,8 @@ use Doctrine\ORM\Mapping as ORM;
  * só nasce no "Enviar campanha", depois da confirmação literal do dc (L.560), com a chave de idempotência gerada na tela
  * (UNIQUE: clique duplo não cria duas campanhas).
  *
- * Guarda a cópia congelada do conteúdo (`modelo_chave`, `modelo_nome`, `modo`, `assunto`, `selo`, `titulo`, `conteudo`):
+ * Guarda a cópia congelada do conteúdo (`modelo_chave`, `modelo_nome`, `modo`, `assunto`, `selo`, `titulo`, `conteudo`,
+ * `texto_sem_nome`):
  * excluir ou editar o modelo depois não muda a campanha. `publico_parametros`: sem filtro, os e-mails do CSV ou digitados
  * que passaram no B1; com o "Filtrar destinatários" (§9), `{informados, filtro}`, com a busca livre. Apagados quando a
  * campanha vira `enviada` ou `cancelada`.
@@ -114,6 +118,24 @@ class CampanhaDeEmail
      */
     #[ORM\Column(options: ['default' => false])]
     private bool $rastrearLeitura = false;
+
+    /**
+     * A base legal declarada pelo Master na confirmação (pedido do Farlei M1, C1). Obrigatória na campanha nova; nula nas
+     * de antes, nos testes e nas das datas comemorativas.
+     */
+    #[ORM\Column(name: 'base_legal', length: 30, nullable: true, enumType: BaseLegalDoEnvio::class)]
+    private ?BaseLegalDoEnvio $baseLegal = null;
+
+    /**
+     * A Central de onde saiu (pedido do Farlei M1, D5): o Relatório de cada seção lista só as dela. Nula só nas antigas
+     * que a migration não conseguiu separar (aparecem nas duas).
+     */
+    #[ORM\Column(length: 12, nullable: true, enumType: CentralDaCampanha::class, options: ['default' => 'comercial'])]
+    private ?CentralDaCampanha $central = CentralDaCampanha::Comercial;
+
+    /** A cópia congelada do "texto quando não houver nome" do modelo (pedido do Farlei M1, A6). */
+    #[ORM\Column(name: 'texto_sem_nome', length: 40, options: ['default' => MensagemDaCampanha::SEM_NOME_PADRAO])]
+    private string $textoSemNome = MensagemDaCampanha::SEM_NOME_PADRAO;
 
     #[ORM\ManyToOne(targetEntity: User::class)]
     #[ORM\JoinColumn(name: 'criada_por_id', nullable: true, onDelete: 'SET NULL')]

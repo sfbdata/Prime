@@ -38,6 +38,7 @@ comercial_relatorio:
         cancelar: Cancelar envio
         para: para
         modelo: modelo
+        base_legal: base legal
         quadro: Campanha
         destinatarios: DESTINATÁRIOS
     menu:

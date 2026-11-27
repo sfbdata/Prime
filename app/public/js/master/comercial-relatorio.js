@@ -174,10 +174,10 @@
       temporizador = setTimeout(() => {
         temporizador = null;
         if (!raiz.isConnected) return;
-        const q = new URLSearchParams({ aba: estado.aba, q: estado.q, p: String(estado.p) });
+        const q = new URLSearchParams({ aba: estado.aba, q: estado.q, p: String(estado.p), secao });
         const pedido = q.toString();
         // Resposta que chega depois de trocar de aba, busca ou página é de outra lista: descarta.
-        const aindaVale = () => new URLSearchParams({ aba: estado.aba, q: estado.q, p: String(estado.p) }).toString() === pedido;
+        const aindaVale = () => new URLSearchParams({ aba: estado.aba, q: estado.q, p: String(estado.p), secao }).toString() === pedido;
         pedir(raiz.dataset.urlLista + '?' + pedido)
           .then(d => { if (aindaVale()) desenhar(d); })
           .catch(() => { if (aindaVale()) agendarAtualizacao([{ estado: 'na_fila' }]); });
@@ -185,7 +185,7 @@
     }
 
     function carregar() {
-      const q = new URLSearchParams({ aba: estado.aba, q: estado.q, p: String(estado.p) });
+      const q = new URLSearchParams({ aba: estado.aba, q: estado.q, p: String(estado.p), secao });
       lista.setAttribute('aria-busy', 'true');
       return pedir(raiz.dataset.urlLista + '?' + q.toString())
         .then(d => { carregado = true; desenhar(d); })
@@ -212,6 +212,9 @@
       texto('endereco', corte > 0 ? de.slice(corte + 1) : '');
       texto('publico', c.publico);
       texto('modelo', c.modelo);
+      // Pedido do Farlei M1 (C1): a base legal declarada na confirmação; sem ela (antigas, testes, datas), o trecho some.
+      texto('base_legal', c.base_legal);
+      ver.querySelector('[data-mc-rl-base]').hidden = !c.base_legal;
       texto('quando', c.quando);
       ver.querySelector('[data-mc-rl-cancelar]').hidden = !c.cancelavel;
       ver.querySelector('[data-mc-rl-kpis]').innerHTML = (c.kpis || []).map(k => '<div class="mc-rl-kpi"><span class="mc-rl-kpi-rot"><i class="bi ' + esc(k.icone) + '" aria-hidden="true"></i> ' + esc(k.rotulo) + '</span><b class="mc-rl-kpi-v">' + esc(k.valor) + '</b></div>').join('');

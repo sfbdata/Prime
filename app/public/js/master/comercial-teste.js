@@ -54,6 +54,13 @@
     return window.McCampanha && typeof window.McCampanha.modeloAtual === 'function' ? window.McCampanha.modeloAtual() : null;
   }
 
+  /* Pedido do Farlei M1 (D5): o teste da seção Indicações (modo venda) vai com `secao: 'ind'` e aparece só no Relatório
+     de lá. Não usa `modo`, que no corpo do teste já é o modo do modelo (simples, blocos, html). */
+  function secaoDoTeste(aberto) {
+    const caixa = aberto.secao ? aberto.secao.closest('[data-modo]') : null;
+    return caixa && caixa.dataset.modo === 'venda' ? { secao: 'ind' } : {};
+  }
+
   function enviar() {
     const modelo = modeloDaSecao();
     if (!modelo) { erro(BJ_T.t('comercial.js.teste_sem_modelo')); return; }
@@ -64,7 +71,7 @@
     fetch(aberto.raiz.dataset.url, {
       method: 'POST', credentials: 'same-origin',
       headers: { 'Content-Type': 'application/json', Accept: 'application/json', 'X-CSRF-Token': aberto.token },
-      body: JSON.stringify(Object.assign({}, modelo, { para: aberto.raiz.querySelector('[data-mc-tst-para]').value })),
+      body: JSON.stringify(Object.assign({}, modelo, { para: aberto.raiz.querySelector('[data-mc-tst-para]').value }, secaoDoTeste(aberto))),
     })
       .then(r => r.json().catch(() => ({})).then(j => (r.ok ? j : Promise.reject(new Error(j.erro || BJ_T.t('comercial.js.teste_erro'))))))
       .then(r => {

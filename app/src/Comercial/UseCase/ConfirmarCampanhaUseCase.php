@@ -11,6 +11,8 @@ use App\Comercial\DTO\CampanhaConfirmada;
 use App\Comercial\DTO\PedidoDeCampanha;
 use App\Comercial\DTO\PublicoResolvido;
 use App\Comercial\Entity\CampanhaDeEmail;
+use App\Comercial\Enum\BaseLegalDoEnvio;
+use App\Comercial\Enum\CentralDaCampanha;
 use App\Comercial\Exception\CampanhaRecusada;
 use App\Comercial\Repository\CampanhaDeEmailRepository;
 use App\Comercial\Service\MontadorDeEmail;
@@ -26,8 +28,9 @@ use Psr\Clock\ClockInterface;
  *   2. a chave de idempotência já usada devolve a mesma campanha (clique duplo não cria duas);
  *   3. confere a mensagem, a âncora do modelo `vagas` (§11: só no modo simples com o botão para as vagas), a data
  *      ("Escolha uma data futura.") e o público ("Nenhum destinatário nesta lista."), resolvido com o modelo;
- *   4. grava a cópia congelada, o público (no CSV e no Individual, só os e-mails que passaram) e a trilha manual
- *      (`camp_conf`, `{publico, frequencia, total}`), numa transação. O expansor a pega na volta seguinte (a cada
+ *   4. grava a cópia congelada, o público (no CSV e no Individual, só os e-mails que passaram), a base legal declarada,
+ *      a Central de onde saiu (pedido do Farlei M1, C1 e D5) e a trilha manual (`camp_conf`, `{publico, frequencia,
+ *      total, base_legal}`), numa transação. O expansor a pega na volta seguinte (a cada
  *      minuto, pelo schedule `cadeias`).
  *
  * F3i (§12): a imagem do modo simples precisa existir e não ter vencido ("A imagem expirou; envie de novo."); gravada a
@@ -84,7 +87,10 @@ final class ConfirmarCampanhaUseCase
         $id = $this->campanhas->emTransacao(function () use ($pedido, $publico, $master, $agora): ?int {
             $id = $this->campanhas->inserir($this->linha($pedido, $publico, $master, $agora));
             if ($id !== null) {
-                $changes = ['publico' => $pedido->publico->publico, 'frequencia' => $pedido->frequencia, 'total' => $publico->total()];
+                $changes = [
+                    'publico' => $pedido->publico->publico, 'frequencia' => $pedido->frequencia, 'total' => $publico->total(),
+                    'base_legal' => $pedido->baseLegal->value,
+                ];
                 $this->campanhas->auditar($id, CampanhaDeEmailRepository::CONFIRMADA, $changes, $master->getId(), $master->getEmail(), $agora);
                 $this->imagens->renovarPeloEnvio($pedido->mensagem, $agora);
             }
@@ -118,7 +124,7 @@ final class ConfirmarCampanhaUseCase
         ];
     }
 
-    /** @return array{chave: string, assunto: string, modelo_chave: string, modelo_nome: string, modo: string, selo: string, titulo: string, conteudo: string, publico: string, parametros: list<array{email: string, nome: string}>|array{informados: ?list<array{email: string, nome: string}>, filtro: array<string, string>}|null, frequencia: string, agendada_para: ?\DateTimeImmutable, proxima: \DateTimeImmutable, estado: string, total: int, criada_por: ?int, agora: \DateTimeImmutable} */
+    /** @return array{chave: string, assunto: string, modelo_chave: string, modelo_nome: string, modo: string, selo: string, titulo: string, conteudo: string, publico: string, parametros: list<array{email: string, nome: string}>|array{informados: ?list<array{email: string, nome: string}>, filtro: array<string, string>}|null, frequencia: string, agendada_para: ?\DateTimeImmutable, proxima: \DateTimeImmutable, estado: string, total: int, criada_por: ?int, agora: \DateTimeImmutable, rastrear_leitura: bool, base_legal: BaseLegalDoEnvio, central: CentralDaCampanha, sem_nome: string} */
     private function linha(PedidoDeCampanha $pedido, PublicoResolvido $publico, User $master, \DateTimeImmutable $agora): array
     {
         $m = $pedido->mensagem;
@@ -135,6 +141,9 @@ final class ConfirmarCampanhaUseCase
             'estado' => $recorrente ? CampanhaDeEmail::RECORRENTE : ($pedido->agendarPara !== null ? CampanhaDeEmail::AGENDADA : CampanhaDeEmail::NA_FILA),
             'total' => $publico->total(), 'criada_por' => $master->getId(), 'agora' => $agora,
             'rastrear_leitura' => $pedido->rastrearLeitura,
+            'base_legal' => $pedido->baseLegal,
+            'central' => $pedido->publico->ehVenda() ? CentralDaCampanha::Indicacoes : CentralDaCampanha::Comercial,
+            'sem_nome' => $m->semNome,
         ];
     }
 

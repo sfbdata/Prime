@@ -47,6 +47,15 @@ final class NomeNoEmailTest extends TestCase
         self::assertSame('colega', MontadorDeEmail::primeiroNome('  '));
     }
 
+    #[TestDox('M1 (A6): sem nome, primeiroNome devolve o texto do modelo (aparado); vazio volta a "colega"; com nome, o texto não entra')]
+    public function testPrimeiroNomeComTextoDoModelo(): void
+    {
+        self::assertSame('Doutor(a)', MontadorDeEmail::primeiroNome(null, '  Doutor(a) '));
+        self::assertSame('colega', MontadorDeEmail::primeiroNome('', '   '));
+        self::assertSame('Ana', MontadorDeEmail::primeiroNome('ANA LIMA', 'Doutor(a)'));
+        self::assertSame('Prezado(a), veja', MontadorDeEmail::trocarNome('{nome}, veja', MontadorDeEmail::primeiroNome(null, 'prezado(a)')));
+    }
+
     #[TestDox('trocarNome: "Colega" com maiúscula quando {nome} abre o texto ou a frase, minúsculo no meio')]
     public function testTrocarNome(): void
     {

@@ -49,23 +49,26 @@ final class ComposicaoDaCampanha
     }
 
     /**
-     * O e-mail para um destinatário (o `{nome}` fica para o montador trocar pelo primeiro nome). A campanha pede o
-     * rastreio (só vale com as duas chaves da 1a) e o reply-to da {@see PoliticaDeDestinatarios}; o teste, não.
-     * `$lista` é a lista pela qual o destinatário entrou (null = `comercial_campanhas`).
+     * O e-mail para um destinatário. O `{nome}` já sai trocado aqui pelo primeiro nome, ou, sem nome, pelo "texto quando
+     * não houver nome" do modelo (pedido do Farlei M1, A6): o envio vai para a fila sem esse texto, e o montador, que
+     * roda no worker, só conhece o nome. A campanha pede o rastreio (só vale com as duas chaves da 1a) e o reply-to da
+     * {@see PoliticaDeDestinatarios}; o teste, não. `$lista` é a lista pela qual o destinatário entrou (null =
+     * `comercial_campanhas`).
      */
     public function mensagemPara(MensagemDaCampanha $m, string $para, ?string $nome, string $origem, bool $rastrear = false, ?string $replyTo = null, ?string $lista = null): MensagemDeEmail
     {
+        $primeiroNome = MontadorDeEmail::primeiroNome($nome, $m->semNome);
         try {
             return new MensagemDeEmail(
                 $para,
                 $m->assunto,
-                $this->corpo($m),
+                MontadorDeEmail::trocarNome($this->corpo($m), htmlspecialchars($primeiroNome, ENT_QUOTES)),
                 TipoDeEnvio::Lista,
                 $origem,
                 $lista ?? self::LISTA,
                 nome: $nome,
                 selo: $m->selo,
-                titulo: $m->titulo,
+                titulo: MontadorDeEmail::trocarNome($m->titulo, $primeiroNome),
                 replyTo: $replyTo,
                 rastrear: $rastrear,
                 layout: self::layout($m),
@@ -119,6 +122,7 @@ final class ComposicaoDaCampanha
         $base = [
             'chave' => $campanha['modelo_chave'], 'nome' => $campanha['modelo_nome'], 'modo' => $campanha['modo'],
             'assunto' => $campanha['assunto'], 'selo' => $campanha['selo'], 'titulo' => $campanha['titulo'],
+            'semNome' => $campanha['texto_sem_nome'],
         ];
         if ($campanha['modo'] === 'html') {
             return MensagemDaCampanha::deArray($base + ['html' => $campanha['conteudo']]);
