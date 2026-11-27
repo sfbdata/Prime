@@ -168,6 +168,8 @@
                     </div>
                 </div>
                 <label class="mc-cp-csv" for="{{ ids }}-cp-csv-arquivo" data-mc-cp-csv hidden><i class="bi bi-upload" aria-hidden="true"></i><span class="mc-cp-csv-txt" data-mc-cp-csv-txt>{{ 'comercial.campanha.csv_selecionar'|trans }}</span><input type="file" accept=".csv,.txt" class="mc-cp-arquivo" id="{{ ids }}-cp-csv-arquivo" name="{{ ids }}-cp-csv-arquivo" data-mc-cp-csv-arquivo></label>
+                {# A2 (teste do Farlei, 27/11/2026): o relatório do CSV lido e o botão que baixa as linhas recusadas, com o motivo. #}
+                <div class="mc-cp-csv-rel" data-mc-cp-csv-rel role="status" hidden><i class="bi bi-list-check" aria-hidden="true"></i><span class="mc-cp-csv-rel-txt" data-mc-cp-csv-rel-txt></span><button type="button" class="mc-cp-csv-baixar" id="{{ ids }}-cp-csv-baixar" name="{{ ids }}-cp-csv-baixar" data-mc-cp-csv-baixar hidden><i class="bi bi-download" aria-hidden="true"></i>{{ 'comercial.campanha.csv_baixar_recusadas'|trans }}</button></div>
                 <textarea class="mc-cp-individual" id="{{ ids }}-cp-individual" name="{{ ids }}-cp-individual" rows="2" placeholder="{{ 'comercial.campanha.individual'|trans }}" aria-label="{{ 'comercial.campanha.individual'|trans }}" data-mc-cp-individual hidden></textarea>
                 <div class="mc-cp-passo mc-cp-passo-seguinte"><span data-mc-cp-passo-n="msg">{{ passos.msg }}</span> {{ 'comercial.campanha.passo_msg'|trans }}</div>
                 <label class="mc-cp-campo" for="{{ ids }}-cp-assunto">{{ 'comercial.campanha.assunto'|trans }}<input type="text" class="mc-cp-entrada" id="{{ ids }}-cp-assunto" name="{{ ids }}-cp-assunto" data-mc-cp-campo="assunto" maxlength="255"></label>

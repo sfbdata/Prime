@@ -6,6 +6,7 @@ namespace App\Tests\Comercial\Unit;
 
 use App\Comercial\Campanha\ListaInformada;
 use App\Comercial\DTO\DestinatarioDaCampanha;
+use App\Comercial\DTO\RelatorioDaImportacao;
 use App\Comercial\Exception\CampanhaRecusada;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\TestDox;
@@ -17,6 +18,7 @@ use PHPUnit\Framework\TestCase;
  */
 #[CoversClass(ListaInformada::class)]
 #[CoversClass(DestinatarioDaCampanha::class)]
+#[CoversClass(RelatorioDaImportacao::class)]
 final class ListaInformadaTest extends TestCase
 {
     #[TestDox('CSV: separa por ; , ou tabulação; o e-mail é a coluna com @ e o nome a primeira outra, sem aspas; linha sem @ sai; e-mail com @ inválido segue para a contagem dos inválidos')]
@@ -33,6 +35,35 @@ final class ListaInformadaTest extends TestCase
             ['email' => 'x@y', 'nome' => ''],
         ], array_map(static fn (DestinatarioDaCampanha $d): array => $d->paraArray(), $lista));
         self::assertFalse($lista[3]->valido(), 'quem filtra e conta é o PublicosDaCampanha (dc 21.10 L665)');
+    }
+
+    #[TestDox('A2: o relatório conta lidas, válidas, repetidas (sem diferença de maiúsculas), inválidas e vazias, com o número da linha no arquivo e o motivo; o cabeçalho e a linha em branco não contam')]
+    public function testRelatorioDaImportacao(): void
+    {
+        $csv = "email;nome\nana@exemplo.com;Ana\n\nANA@Exemplo.com;Ana de novo\nsem-email;Fulano\n;;\nx@y\nbruno@exemplo.com\n";
+
+        $relatorio = ListaInformada::relatorioDoCsv($csv);
+
+        self::assertSame([
+            'lidas' => 6, 'validas' => 2, 'repetidas' => 1, 'invalidas' => 2, 'vazias' => 1,
+            'recusadas' => [
+                ['linha' => 4, 'conteudo' => 'ANA@Exemplo.com;Ana de novo', 'motivo' => 'repetido'],
+                ['linha' => 5, 'conteudo' => 'sem-email;Fulano', 'motivo' => 'invalido'],
+                ['linha' => 6, 'conteudo' => ';;', 'motivo' => 'vazia'],
+                ['linha' => 7, 'conteudo' => 'x@y', 'motivo' => 'invalido'],
+            ],
+        ], $relatorio->paraArray());
+    }
+
+    #[TestDox('A2: sem cabeçalho, a primeira linha com e-mail conta; os limites de tamanho valem também para o relatório')]
+    public function testRelatorioSemCabecalhoELimites(): void
+    {
+        self::assertSame(['lidas' => 1, 'validas' => 1, 'repetidas' => 0, 'invalidas' => 0, 'vazias' => 0, 'recusadas' => []], ListaInformada::relatorioDoCsv("ana@exemplo.com\n")->paraArray());
+        self::assertSame(0, ListaInformada::relatorioDoCsv('')->lidas());
+        $longa = ListaInformada::relatorioDoCsv("ana@exemplo.com\r\n" . str_repeat('x', 300) . "\r\n");
+        self::assertSame([2, 200], [$longa->recusadas[0]['linha'], mb_strlen($longa->recusadas[0]['conteudo'])], 'linha com \\r\\n e texto cortado em 200');
+        $this->expectException(CampanhaRecusada::class);
+        ListaInformada::relatorioDoCsv(str_repeat("a@exemplo.com\n", 5001));
     }
 
     #[TestDox('CSV: o nome sai sem ; : ( ) < > " e apóstrofo')]
