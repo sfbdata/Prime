@@ -8,6 +8,7 @@ use App\AssinaturaEletronica\Armazenamento\ChavesDeAssinaturaEletronica;
 use App\AssinaturaEletronica\Entity\DocumentoParaAssinar;
 use App\AssinaturaEletronica\Exception\AcaoRecusada;
 use App\AssinaturaEletronica\Exception\DocumentoNaoEncontrado;
+use App\AssinaturaEletronica\Exception\ExclusaoPedeConfirmacao;
 use App\AssinaturaEletronica\Repository\DocumentoParaAssinarRepository;
 use App\AssinaturaEletronica\Repository\VersaoDoPdfRepository;
 use App\AssinaturaEletronica\Service\DocumentosDaSelecao;
@@ -16,13 +17,17 @@ use App\Shared\Armazenamento\ChaveDeArquivo;
 use App\Shared\Armazenamento\RemocaoAposTransacao;
 
 /**
- * "Excluir definitivamente" na Lixeira (desenho): só rascunho, e tudo ou nada. Se algum marcado foi enviado, nada sai
- * e a resposta é "Documentos enviados permanecem na Lixeira para preservar as evidências.". A conferência é feita
- * dentro da transação, com as linhas travadas e relidas: um envio ou uma restauração que chegou antes não é apagado.
- * Documento, signatários, eventos e versões do PDF saem no banco (as versões pelo CASCADE); o PDF, a logo própria e o
- * arquivo de cada versão (etapa 5: o original já assinado tem arquivo próprio), só depois do COMMIT.
+ * "Excluir definitivamente" na Lixeira (desenho): rascunho e também documento enviado ou assinado, e tudo ou nada.
+ * Com algum enviado na seleção, só apaga quando o usuário já viu o aviso das evidências (`$confirmouEnviados`); sem a
+ * confirmação nada sai e a resposta é {@see ExclusaoPedeConfirmacao}. A conferência é feita dentro da transação, com as
+ * linhas travadas e relidas: uma restauração que chegou antes não é apagada, e um envio que chegou antes exige a
+ * confirmação. Documento, signatários, eventos e versões do PDF saem no banco (pelo CASCADE); o PDF, a logo própria, o
+ * PDF final, a rubrica e a selfie de cada signatário e o arquivo de cada versão, só depois do COMMIT. A cópia que está
+ * na pasta (`pasta_documento`) é outro arquivo e nunca é tocada. Documento enviado na Lixeira é sempre cancelado,
+ * concluído, recusado ou com prazo vencido: o signatário apagado faz o link responder "inválido" (404) e o código de
+ * validação deixa de ser achado.
  */
-final readonly class ExcluirRascunhosUseCase
+final readonly class ExcluirDaLixeiraUseCase
 {
     public function __construct(
         private DocumentosDaSelecao $selecao,
@@ -37,16 +42,17 @@ final readonly class ExcluirRascunhosUseCase
      *
      * @throws DocumentoNaoEncontrado
      * @throws AcaoRecusada
+     * @throws ExclusaoPedeConfirmacao
      */
-    public function executar(Tenant $tenant, array $ids): void
+    public function executar(Tenant $tenant, array $ids, bool $confirmouEnviados = false): void
     {
         $documentos = $this->selecao->carregar($ids, $tenant);
 
         // A recusa volta do trabalho em vez de ser lançada lá dentro: nada foi mudado, a transação só solta as travas
         // (exceção dentro dela fecharia o EntityManager por uma simples recusa).
-        $resultado = $this->documentos->emTransacao(function () use ($documentos, $tenant): array|AcaoRecusada {
+        $resultado = $this->documentos->emTransacao(function () use ($documentos, $tenant, $confirmouEnviados): array|AcaoRecusada|ExclusaoPedeConfirmacao {
             $this->selecao->travar($documentos, $tenant);
-            $recusa = self::recusa($documentos);
+            $recusa = self::recusa($documentos, $confirmouEnviados);
             if ($recusa !== null) {
                 return $recusa;
             }
@@ -59,32 +65,31 @@ final readonly class ExcluirRascunhosUseCase
             return $chaves;
         });
 
-        if ($resultado instanceof AcaoRecusada) {
+        if ($resultado instanceof AcaoRecusada || $resultado instanceof ExclusaoPedeConfirmacao) {
             throw $resultado;
         }
 
         if ($resultado !== []) {
-            $this->remocao->remover($resultado, 'assinatura_eletronica_excluir_rascunho');
+            $this->remocao->remover($resultado, 'assinatura_eletronica_excluir_da_lixeira');
         }
     }
 
     /**
-     * Enviado no lote recusa primeiro (o texto do desenho); depois, o que não está na Lixeira.
+     * O que não está na Lixeira recusa primeiro; depois, o enviado sem confirmação (nada foi apagado).
      *
      * @param list<DocumentoParaAssinar> $documentos já travados e relidos
      */
-    private static function recusa(array $documentos): ?AcaoRecusada
+    private static function recusa(array $documentos, bool $confirmouEnviados): AcaoRecusada|ExclusaoPedeConfirmacao|null
     {
-        foreach ($documentos as $documento) {
-            if (!$documento->ehRascunho()) {
-                return new AcaoRecusada('assinatura_eletronica.erro.excluir_enviado');
-            }
-        }
-
         foreach ($documentos as $documento) {
             if (!$documento->podeSairDeVez()) {
                 return new AcaoRecusada('assinatura_eletronica.erro.excluir_fora_da_lixeira');
             }
+        }
+
+        $enviados = \count(array_filter($documentos, static fn (DocumentoParaAssinar $d): bool => !$d->ehRascunho()));
+        if ($enviados > 0 && !$confirmouEnviados) {
+            return new ExclusaoPedeConfirmacao($enviados);
         }
 
         return null;
@@ -103,6 +108,11 @@ final readonly class ExcluirRascunhosUseCase
         foreach ($documentos as $documento) {
             $chaves[] = ChavesDeAssinaturaEletronica::arquivo($documento);
             $chaves[] = ChavesDeAssinaturaEletronica::logo($documento);
+            $chaves[] = ChavesDeAssinaturaEletronica::pdfFinal($documento);
+            foreach ($documento->getSignatarios() as $signatario) {
+                $chaves[] = ChavesDeAssinaturaEletronica::rubrica($signatario);
+                $chaves[] = ChavesDeAssinaturaEletronica::selfie($signatario);
+            }
             foreach ($this->versoes->doDocumento($documento) as $versao) {
                 $chaves[] = ChavesDeAssinaturaEletronica::versao($versao);
             }

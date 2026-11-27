@@ -319,6 +319,7 @@
             + '<span class="bjaVao"></span>'
             + (s.filtro === 'lixeira'
                 ? (url.restaurar ? '<button type="button" class="bjaB" data-bja-acao="restaurar-lote"><i class="bi bi-arrow-counterclockwise"></i>' + esc(T('restaurar')) + '</button>' : '')
+                + (url.excluir ? '<button type="button" class="bjaB bjaR" data-bja-acao="excluir-def-lote"><i class="bi bi-trash3"></i>' + esc(T('ctx.excluir_def')) + '</button>' : '')
                 : (url.lixeira ? '<button type="button" class="bjaB bjaR" data-bja-acao="excluir-lote"><i class="bi bi-trash3"></i>' + esc(T('excluir')) + '</button>' : ''))
             + '<button type="button" class="bjaB bjaN" data-bja-acao="limpar-sel">' + esc(T('limpar_selecao')) + '</button>';
 
@@ -1270,7 +1271,7 @@
         L.push(['bi-ui-checks', T('ctx.selecionar_tudo'), 'ctx-sel-tudo']);
         if (d0.naLixeira) {
             if (url.restaurar) { L.push(['bi-arrow-counterclockwise', T('ctx.restaurar'), 'ctx-restaurar']); }
-            if (url.excluir && ids.every(i => (doc(i) || {}).situacao === 'rascunho')) { L.push(['bi-trash3', T('ctx.excluir_def'), 'ctx-excluir-def', 1]); }
+            if (url.excluir) { L.push(['bi-trash3', T('ctx.excluir_def'), 'ctx-excluir-def', 1]); }
         } else if (url.lixeira) {
             L.push(['bi-trash3', T('ctx.excluir'), 'ctx-excluir', 1]);
         }
@@ -1293,7 +1294,7 @@
         const def = !!s.exc.def;
         return '<div class="bjaModal"><div class="bjaCard bjaOculto bjaModalCx" role="dialog" aria-modal="true" aria-label="' + esc(T('exc.rotulo')) + '">'
             + '<div class="bjaHd is-perigo"><i class="bi bi-trash3"></i>' + esc(def ? T('exc.titulo_def') : T('exc.titulo_lixeira')) + '</div>'
-            + '<div class="bjaModalTx">' + esc(def ? T('exc.texto_def') : T('exc.texto_lixeira', { n: s.exc.ids.length })) + '</div>'
+            + '<div class="bjaModalTx">' + esc(def ? T(s.exc.enviados || enviadosDe(s.exc.ids) > 0 ? 'exc.texto_def_enviados' : 'exc.texto_def') : T('exc.texto_lixeira', { n: s.exc.ids.length })) + '</div>'
             + '<div class="bjaModalPe"><button type="button" class="bjaB bjaN" data-bja-acao="exc-nao">' + esc(T('exc.voltar')) + '</button>'
             + '<button type="button" class="bjaB bjaR" data-bja-acao="exc-sim">' + esc(def ? T('exc.botao_def') : T('exc.botao')) + '</button></div></div></div>';
     }
@@ -1313,6 +1314,9 @@
         const b = el.modal.querySelector('[data-bja-acao="canc-nao"]');
         if (b) { b.focus(); }
     }
+
+    /* Quantos dos marcados já foram enviados (não são rascunho): o aviso das evidências só aparece com algum. */
+    const enviadosDe = ids => ids.filter(k => (doc(k) || {}).situacao !== 'rascunho').length;
 
     function pedirExclusao(ids, def) {
         s.ctx = null;
@@ -1339,12 +1343,18 @@
         await carregar();
     }
 
-    async function apagar(ids) {
-        if (ids.some(k => (doc(k) || {}).situacao !== 'rascunho')) { avisar(T('toast.enviados_ficam'), 'erro'); return; }
-        try { await postJson(url.excluir, { ids: idsReais(ids) }); } catch (e) { falha(e); return; }
+    async function apagar(ids, forcado) {
+        /* Quem chega aqui já viu a confirmação (com o aviso das evidências, se há enviado): o servidor recebe o aceite. */
+        // `forcado`: o servidor já disse (409) que há enviado, mesmo que a lista local ainda mostre rascunho; sem isso a
+        // confirmação voltaria para sempre.
+        const comEnviados = forcado || enviadosDe(ids) > 0;
+        try { await postJson(url.excluir, { ids: idsReais(ids), confirmar_enviados: comEnviados }); } catch (e) {
+            if (e && e.status === 409 && e.dados && e.dados.precisa_confirmar) { s.exc = { ids: ids, def: true, enviados: e.dados.enviados || 1 }; desenharCamadas(); return; }
+            falha(e); return;
+        }
         s.sel = {}; s.exc = null; s.ctx = null;
         desenharCamadas();
-        avisar(T('toast.excluido_def'));
+        avisar(T(comEnviados ? 'toast.excluido_def_enviados' : 'toast.excluido_def'));
         await carregar();
     }
 
@@ -1439,8 +1449,9 @@
             case 'ctx-excluir': pedirExclusao(idsDoCtx(), false); break;
             case 'ctx-excluir-def': pedirExclusao(idsDoCtx(), true); break;
             case 'exc-nao': s.exc = null; desenharCamadas(); break;
-            case 'exc-sim': if (s.exc.mod) { excluirModelo(s.exc.mod.id); } else if (s.exc.def) { apagar(s.exc.ids); } else { moverParaLixeira(s.exc.ids); } break;
+            case 'exc-sim': if (s.exc.mod) { excluirModelo(s.exc.mod.id); } else if (s.exc.def) { apagar(s.exc.ids, !!s.exc.enviados); } else { moverParaLixeira(s.exc.ids); } break;
             case 'restaurar-lote': restaurar(selDe(vis())); break;
+            case 'excluir-def-lote': pedirExclusao(selDe(vis()), true); break;
             case 'excluir-lote': pedirExclusao(selDe(vis()), false); break;
             case 'limpar-sel': s.sel = {}; desenharDocs(); break;
             case 'voltar-lista': irParaLista(); break;

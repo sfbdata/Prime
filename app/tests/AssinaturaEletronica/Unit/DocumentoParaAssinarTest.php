@@ -166,7 +166,7 @@ final class DocumentoParaAssinarTest extends TestCase
         $documento->restaurar();
     }
 
-    #[TestDox('só rascunho na Lixeira sai de vez')]
+    #[TestDox('só o que está na Lixeira sai de vez, enviado ou não (o enviado pede confirmação no UseCase)')]
     public function testPodeSairDeVez(): void
     {
         $rascunho = self::documento();
@@ -176,8 +176,9 @@ final class DocumentoParaAssinarTest extends TestCase
 
         $concluido = self::documento();
         self::situacao($concluido, SituacaoDoDocumento::Concluido);
+        self::assertFalse($concluido->podeSairDeVez(), 'fora da Lixeira');
         $concluido->moverParaLixeira(null, new \DateTimeImmutable());
-        self::assertFalse($concluido->podeSairDeVez());
+        self::assertTrue($concluido->podeSairDeVez());
     }
 
     #[TestDox('cópia do Duplicar: rascunho novo com pasta, cor, conteúdo e signatários pendentes; sem arquivo nem Lixeira')]

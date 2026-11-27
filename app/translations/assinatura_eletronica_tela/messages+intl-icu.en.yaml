@@ -82,6 +82,7 @@ assinatura_eletronica_tela:
             titulo_lixeira: 'Move to Trash'
             titulo_def: 'Delete permanently'
             texto_lixeira: '{n} document(s) will go to the Trash. Sending in progress will be canceled and the links will stop working. Sent documents and their evidence are preserved and can be restored.'
+            texto_def_enviados: 'There are documents already sent for signature in the selection. When you delete them, the signature evidence (signers, records and PDF versions) is gone for good. The copy saved in the folder stays. Are you sure you want to continue?'
             texto_def: 'The draft will be deleted and cannot be recovered.'
             voltar: 'Back'
             botao: 'Delete'
@@ -95,8 +96,8 @@ assinatura_eletronica_tela:
         toast:
             lixeira: '{n} document(s) in the Trash.'
             restaurados: 'Document(s) restored.'
+            excluido_def_enviados: 'Documents permanently deleted.'
             excluido_def: 'Draft permanently deleted.'
-            enviados_ficam: 'Sent documents stay in the Trash to preserve the evidence.'
             copia: 'Copy created in Drafts.'
             rascunho_salvo: 'Draft saved.'
             pronto: 'Document ready. Copy the link or send it by email.'
