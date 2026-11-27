@@ -501,7 +501,7 @@ final class ProcessosDaOabController extends AbstractController
     {
         $this->addFlash($tipo, $mensagem);
 
-        // Sem destino dito, volta à lista de acompanhados (de onde saem estas ações), não à aba padrão (relacionados).
+        // Sem destino dito, volta à lista de acompanhados (de onde saem estas ações), não à aba padrão (acervo).
         return $this->redirectToRoute('push_processual_processos', $parametros !== [] ? $parametros : ['sub' => 'acompanhados']);
     }
 
