@@ -1,6 +1,30 @@
 # Gerado pelo scripts/mudancas.py no PR de release: o texto vem da seção
 # "## Para o cliente" dos arquivos em mudancas/. Lido pela página Novidades.
 versoes:
+- versao: "3.12.0"
+  data: "2026-11-27"
+  itens:
+    - "Na compra de espaço, a ampliação automática já vem ligada: quando o espaço contratado acabar, ele pode crescer sem você precisar voltar aqui. Você pode desligar quando quiser, na mesma tela. Se você já tinha escolhido, sua escolha continua valendo."
+    - "Depois de pagar o espaço, a tela de confirmação mostra o resumo completo da compra (espaço e valor), que antes aparecia em branco."
+    - "Quando o BlueJus limpar as cópias repetidas de um mesmo documento dentro da mesma pasta e da mesma subpasta, elas vão para a lixeira da pasta e ficam lá por 30 dias, onde você pode restaurar. Fica uma cópia de cada, a que já está ligada a uma assinatura, a um cliente ou aos favoritos, ou a mais antiga. Versões diferentes do documento, como DOC e PDF, não são mexidas."
+    - "Na Lixeira da Assinatura eletrônica, agora você pode excluir de vez também os documentos que já foram enviados ou assinados. Antes de apagar, o sistema avisa que os registros da assinatura (quem assinou, o histórico e as versões do PDF) serão apagados para sempre, e só segue se você confirmar. A cópia do documento que foi salva na pasta do cliente continua lá."
+    - "Os e-mails do BlueJus passam a registrar, em cada envio, por que motivo a pessoa recebe (a base legal da LGPD), escolhida pela equipe antes de enviar."
+    - "Quem não tem nome no cadastro recebe o e-mail com um tratamento escolhido pela equipe (por exemplo, \"Olá, colega!\" ou \"Olá, doutor(a)!\")."
+    - "Quando você indica o BlueJus para alguém que já está na sua conta, a janela agora mostra um aviso em destaque e mantém o nome e o e-mail digitados, para você corrigir sem digitar tudo de novo."
+    - "Os e-mails do BlueJus passam a tratar você pelo nome com a escrita certa (por exemplo, \"Farlei\" em vez de \"FARLEI\")."
+    - "O convite para conhecer o BlueJus ficou mais direto, sem a frase \"é grátis para começar\"."
+    - "Na Central de envios do BlueJus, quem importa uma lista de e-mails agora vê quantas linhas foram aceitas e quantas foram recusadas (e por quê), e pode baixar as recusadas para corrigir. Antes de enviar uma campanha, a janela de confirmação mostra o modelo, a lista de destino e os primeiros endereços, para conferir antes de disparar."
+    - "Quando o CNJ está sobrecarregado e não responde à consulta de processos, o aviso agora diz isso com clareza: \"O serviço do CNJ está sobrecarregado no momento. Tente de novo em alguns minutos.\" Antes, o texto dava a entender que você tinha feito consultas demais."
+    - "A conferência noturna da cópia de segurança dos seus documentos não acusa mais falha por uma instabilidade passageira de poucos segundos. O aviso só aparece quando o problema continua depois de novas tentativas."
+    - "A equipe do BlueJus passa a ver com clareza quais escritórios apoiam o sistema pelo Contribua, qual plano cada um assinou e até quando ele vale. Assim, se um pagamento do seu escritório for recusado, a equipe percebe logo e pode avisar você antes que o espaço extra deixe de valer."
+    - "Se o seu escritório faz parte de um convênio (por exemplo, com uma seccional da OAB), o código para entrar agora pode ser fácil de lembrar e de divulgar, como OABDF2026, em vez de uma sequência sorteada. Você digita o código no Meu Perfil, em \"Tenho um código de convênio\", com letras maiúsculas ou minúsculas, e o benefício é aplicado ao escritório."
+    - "Na Central do BlueJus, a equipe agora consegue receber na própria caixa de entrada os e-mails de confirmação e de boas-vindas que um novo cadastro recebe, para conferir como chegam antes de qualquer mudança. O cadastro de quem abre uma conta continua igual."
+    - "A equipe ganhou um guia passo a passo para fazer o menu e as telas respeitarem as ferramentas que cada conta escolheu em Meu Perfil. O guia prevê uma fase de observação antes de valer de verdade e um jeito simples de voltar atrás se algo sair diferente do esperado. Escritórios que já existem continuam com todas as ferramentas."
+    - "Na aba Processos da OAB, o cartão \"Sem pasta\" agora mostra todos os processos que ainda não estão em nenhuma pasta, inclusive os que a OAB trouxe e você não cadastrou. Ao clicar no cartão, a lista mostra todos eles, e a exportação também."
+    - "No Push Processual, a aba que se chamava \"Processos da OAB\" agora se chama \"Processos dos Tribunais\". Ao entrar, você vê primeiro o Acervo por jurisdição; os processos que você acompanha ficam na segunda subaba. Clicar nos cartões do topo (movidos, parados, sem pasta) leva direto para os processos acompanhados."
+    - "Ao editar as permissões de um usuário, a aba Batidas de Ponto agora mostra a tabela inteira na tela, sem cortar as colunas."
+    - "No Meu Perfil, o botão \"Aplicar código\" do cartão Convênio ficou alinhado com o campo do código."
+    - "Os e-mails de novidades e convites do BlueJus agora explicam no rodapé, com clareza, por que você os recebeu: porque tem conta no BlueJus, porque confirmou seu endereço para receber nossas novidades ou porque seu contato profissional está na nossa base. O link para deixar de receber continua no mesmo lugar."
 - versao: "3.11.0"
   data: "2026-11-26"
   itens:
