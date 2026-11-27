@@ -78,11 +78,20 @@ final class SimularNovoCadastroUseCase
         if (!$this->disparador->estaLigada(Automacao::Val)) {
             return sprintf(self::MENSAGEM_SEM_BOAS_VINDAS, $destino->email);
         }
-        // A confirmação já saiu e está contada: uma falha nas boas-vindas vira aviso claro, não um erro que pede repetir tudo.
+        return sprintf($this->enviarBoasVindas($destino->email, $nome) ? self::MENSAGEM : self::MENSAGEM_BOAS_VINDAS_FALHOU, $destino->email);
+    }
+
+    /**
+     * As boas-vindas de teste pelo Carteiro. A confirmação já saiu e está contada: uma falha aqui vira aviso claro (false),
+     * não um erro que pede repetir tudo.
+     */
+    private function enviarBoasVindas(string $para, ?string $nome): bool
+    {
         try {
             $modelo = $this->modelos->montar(Automacao::Val, $nome);
-            $envio = $this->carteiro->enviar(new MensagemDeEmail(
-                para: $destino->email,
+
+            return $this->carteiro->enviar(new MensagemDeEmail(
+                para: $para,
                 assunto: self::PREFIXO . $modelo->assunto,
                 corpoHtml: $modelo->corpoHtml,
                 tipo: TipoDeEnvio::Transacional,
@@ -91,11 +100,9 @@ final class SimularNovoCadastroUseCase
                 selo: $modelo->selo,
                 titulo: $modelo->titulo,
                 layout: $modelo->layout,
-            ));
+            ))->foiEnfileirado();
         } catch (\Throwable) {
-            return sprintf(self::MENSAGEM_BOAS_VINDAS_FALHOU, $destino->email);
+            return false;
         }
-
-        return sprintf($envio->foiEnfileirado() ? self::MENSAGEM : self::MENSAGEM_BOAS_VINDAS_FALHOU, $destino->email);
     }
 }
