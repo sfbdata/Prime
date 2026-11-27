@@ -47,8 +47,8 @@ use Symfony\Component\Routing\Attribute\Route;
 final class ProcessosDaOabController extends AbstractController
 {
     private const POR_PAGINA = 25;
-    /** Ordem das sub-abas na tela; a primeira (acompanhados) abre por padrão. Pedido do Samuel em 03/11: Acompanhados primeiro, para a lista de processos aparecer ao entrar. */
-    private const SUBABAS = ['acompanhados', 'relatorio', 'acervo'];
+    /** Ordem das sub-abas na tela; a primeira (acervo) abre por padrão. Pedido do dono em 27/11: Acervo por jurisdição, Processos acompanhados, Processos relacionados. Os cartões (KPIs) levam sub=acompanhados porque o acervo ignora os filtros. */
+    private const SUBABAS = ['acervo', 'acompanhados', 'relatorio'];
 
     public function __construct(
         private readonly PublicacaoDoDiarioDaOabRepository $diarioRepository,
@@ -501,7 +501,7 @@ final class ProcessosDaOabController extends AbstractController
     {
         $this->addFlash($tipo, $mensagem);
 
-        // Sem destino dito, volta à lista de acompanhados (de onde saem estas ações), não à aba padrão (relacionados).
+        // Sem destino dito, volta à lista de acompanhados (de onde saem estas ações), não à aba padrão (acervo).
         return $this->redirectToRoute('push_processual_processos', $parametros !== [] ? $parametros : ['sub' => 'acompanhados']);
     }
 

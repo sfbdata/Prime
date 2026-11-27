@@ -96,9 +96,10 @@ final class RelacaoDeVotantesTest extends JusPrimeWebTestCase
             ['Dora', 'B · A-1', 'Não votou'],
             ['Zélia', 'Z-1', 'Votou 10h às 11h'],
         ], $linhas);
-        $html = (string) $this->client->getResponse()->getContent();
-        self::assertStringNotContainsString('10:15', $html, 'a hora exata não aparece');
-        self::assertStringNotContainsString('23:59', $html);
+        // Na relação, não na página inteira: a ata mostra a hora em que foi gerada, que pode ser 10:15 ou 23:59 de verdade.
+        $relacao = $tabela->closest('section')?->text() ?? '';
+        self::assertStringNotContainsString('10:15', $relacao, 'a hora exata não aparece');
+        self::assertStringNotContainsString('23:59', $relacao);
         self::assertStringContainsString('Não indica em quem cada pessoa votou.', $tabela->closest('section')?->text() ?? '');
     }
 

@@ -18,7 +18,7 @@ djen:
     abas:
         rotulo: Seções do Push Processual
         publicacoes: Publicações
-        processos: Processos da OAB
+        processos: Processos dos Tribunais
         diario: Diário da OAB
         oabs: OABs monitoradas
         novas: '{n} novas'
@@ -191,8 +191,8 @@ djen:
         inteiro_teor: Inteiro teor na origem
         sem_teor: Sem teor textual disponível.
     processos:
-        titulo_pagina: 'Push Processual | Processos da OAB'
-        titulo: Processos da OAB
+        titulo_pagina: 'Push Processual | Processos dos Tribunais'
+        titulo: Processos dos Tribunais
         capturados_das: 'Capturados das OABs {oabs}'
         sem_oab: 'Nenhuma OAB ativa: cadastre em OABs monitoradas'
         buscar: Buscar processos da OAB
@@ -317,7 +317,7 @@ djen:
         busca_vazia: 'Nenhum processo encontrado. Use "Cadastrar novo (CNJ)".'
         pasta_n: 'Pasta {n}'
         sem_selecao: Selecione um processo da lista.
-        localizar_fora_da_lista: 'Vincule o processo primeiro e use Vincular pasta na aba Processos da OAB.'
+        localizar_fora_da_lista: 'Vincule o processo primeiro e use Vincular pasta na aba Processos dos Tribunais.'
         sem_numero_pasta: Informe ou escolha o número do processo antes de localizar a pasta.
         aba_info: Informações
         aba_partes: Partes

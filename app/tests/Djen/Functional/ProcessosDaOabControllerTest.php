@@ -92,19 +92,33 @@ final class ProcessosDaOabControllerTest extends JusPrimeWebTestCase
     }
 
     #[Test]
-    public function aAbaProcessosAbrePorAcompanhadosEAsSubAbasSaemNaOrdemAprovada(): void
+    public function aAbaProcessosAbrePorAcervoEAsSubAbasSaemNaOrdemAprovada(): void
     {
         [$client] = $this->entrar();
         $crawler = $client->request('GET', '/push-processual/processos');
 
         $subabas = $crawler->filter('.pp-subabas > .pp-subaba');
         self::assertCount(3, $subabas);
-        self::assertStringContainsString('sub=acompanhados', $subabas->eq(0)->attr('href'));
-        self::assertStringContainsString('sub=relatorio', $subabas->eq(1)->attr('href'));
-        self::assertStringContainsString('sub=acervo', $subabas->eq(2)->attr('href'));
-        self::assertSame('pp-subaba is-ativa', $subabas->eq(0)->attr('class'), 'sem ?sub, abre em Acompanhados');
+        self::assertStringContainsString('sub=acervo', $subabas->eq(0)->attr('href'));
+        self::assertStringContainsString('sub=acompanhados', $subabas->eq(1)->attr('href'));
+        self::assertStringContainsString('sub=relatorio', $subabas->eq(2)->attr('href'));
+        self::assertSame('pp-subaba is-ativa', $subabas->eq(0)->attr('class'), 'sem ?sub, abre em Acervo por jurisdição');
         self::assertSame('pp-subaba', $subabas->eq(1)->attr('class'));
         self::assertCount(1, $crawler->filter('.pp-subabas > .pp-subaba.is-ativa'));
+    }
+
+    #[Test]
+    public function osCartoesLevamParaAcompanhadosPoisOAcervoIgnoraOsFiltros(): void
+    {
+        [$client] = $this->entrar();
+        $crawler = $client->request('GET', '/push-processual/processos?sub=acompanhados');
+
+        $semPasta = $crawler->filter('.pp-kpis > a[data-pp-kpi="sem_pasta"]')->attr('href');
+        self::assertStringContainsString('sub=acompanhados', $semPasta);
+        self::assertStringContainsString('pasta=s', $semPasta);
+        foreach (['processos', 'movidos7', 'parados30', 'nunca'] as $kpi) {
+            self::assertStringContainsString('sub=acompanhados', $crawler->filter(sprintf('.pp-kpis > a[data-pp-kpi="%s"]', $kpi))->attr('href'), $kpi);
+        }
     }
 
     #[Test]
@@ -197,11 +211,13 @@ final class ProcessosDaOabControllerTest extends JusPrimeWebTestCase
         $this->logarComTenant($client, $this->criarGestor($tenant, 'g_' . uniqid() . '@test.com'), $tenant);
         $this->limparIdentityMap();
 
-        $crawler = $client->request('GET', '/push-processual/processos');
+        $crawler = $client->request('GET', '/push-processual/processos', ['sub' => 'acompanhados']);
+        self::assertSame('sem_pasta', $crawler->filter('.pp-kpis > a[data-pp-kpi="sem_pasta"]')->attr('data-pp-kpi'));
+        self::assertStringContainsString('sub=acompanhados&pasta=s', $crawler->filter('.pp-kpis > a[data-pp-kpi="sem_pasta"]')->attr('href'), 'o cartão leva ao acompanhados, que respeita o filtro');
         self::assertSame('2', trim($crawler->filter('[data-pp-kpi="sem_pasta"] .pp-kpi__valor')->text()));
         self::assertSame('1', trim($crawler->filter('[data-pp-kpi="processos"] .pp-kpi__valor')->text()), 'os outros cartões não mudam');
 
-        $crawler = $client->request('GET', '/push-processual/processos', ['pasta' => 's']);
+        $crawler = $client->request('GET', '/push-processual/processos', ['sub' => 'acompanhados', 'pasta' => 's']);
         self::assertCount(2, $crawler->filter('.pp-linha--dado'));
         self::assertStringContainsString('0703333-33.2026.8.07.0002', $crawler->filter('.pp-linha--dado')->eq(1)->text());
         self::assertCount(1, $crawler->filter('.pp-linha--dado form[action$="/incluir-do-relatorio"]'), 'número só de publicação oferece incluir, não editar/parar');

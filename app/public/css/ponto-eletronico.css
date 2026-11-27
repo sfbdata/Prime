@@ -497,6 +497,12 @@
 .pe-lin:hover td.pe-sm,
 .pe-lin:hover .pe-pl { color: #fff; }
 .pe-tab.pe-resp td.pe-folha-vazia { padding: 18px; color: var(--pe-mudo); text-align: center; }
+/* Folha na aba Batidas de Ponto de Editar Permissões (pedido do dono, 27/11): células mais justas só ali, para as 10 colunas
+   caberem sem rolagem em 1366px. A página Ponto principal não muda; no celular vale o molde em cartões. */
+@media (min-width: 761px) {
+    #tab-ponto .pe-tab th { padding: 8px 8px; }
+    #tab-ponto .pe-tab td { padding: 6px 8px; }
+}
 
 /* Batida que falta (L154): o "+" do esquecimento e o do gestor na ficha. O "x" de excluir do gestor usa o mesmo molde. */
 .pe-mais {

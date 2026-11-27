@@ -7,7 +7,7 @@
             <span class="mp-card-selo"><i class="bi bi-patch-check"></i></span>
             <div><b>{{ 'perfil.convenio.titulo'|trans }}</b><div class="mp-card-sub">{{ 'perfil.convenio.sub'|trans }}</div></div>
         </div>
-        <form class="mp-seguranca" method="post" action="{{ path('app_profile_convenio_codigo') }}">
+        <form class="mp-seguranca mp-convenio-form" method="post" action="{{ path('app_profile_convenio_codigo') }}">
             <input type="hidden" name="_token" value="{{ csrf_token('profile_convenio_codigo') }}">
             <label class="mp-campo mp-convenio-codigo">
                 <span>{{ 'perfil.convenio.rotulo'|trans }}</span>
