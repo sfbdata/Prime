@@ -8,6 +8,49 @@ cada nível e o procedimento de release estão em [docs/versionamento.md](docs/v
 
 ## [Não lançado]
 
+## [3.12.0] - 2026-11-27
+
+### Adicionado
+
+- Central de envios do Master: ao confirmar o envio de uma campanha, o Master escolhe a base legal (consentimento, execução de contrato ou legítimo interesse). Sem ela, a campanha não sai. A base legal aparece no detalhe da campanha no Relatório e fica na trilha do envio. O conector do Claude também passa a pedir a base legal ao criar campanha.
+- O Relatório de cada seção (Comercial e e-mails, Indicações do BlueJus) mostra só as campanhas e os testes enviados por ela. As campanhas antigas que podiam ter saído de qualquer uma das duas continuam aparecendo nas duas.
+- Modelo de e-mail: campo novo "Sem nome, usar", com o texto que entra no lugar do nome de quem não tem nome cadastrado. Vazio, vale "colega", como antes.
+- A prévia da campanha mostra o rodapé do público escolhido.
+- Painel do Master, "Contas e escritórios": novo filtro "Pagantes" no seletor de situação. Mostra só as contas com assinatura do Contribua paga e valendo hoje; as que estão em carência (cobrança recusada ou renovação atrasada) aparecem com etiqueta própria. Sem nenhuma, a lista diz "Nenhuma conta pagante ainda.".
+- Cada conta pagante ganha, embaixo do plano, a etiqueta com o plano assinado, o valor por mês e até quando vale.
+- Novo filtro por plano na mesma lista. Ele também vem pelo endereço (`#aba=painel&sec=contas&plano=<código>`), para outras telas do painel levarem direto à lista filtrada.
+- As seções "Armazenamento" e "Planos e limites" viraram uma só, "Planos e armazenamento": primeiro os cartões de plano e a chave do Convênio OAB, depois a duplicidade, as faixas de alerta e o ranking "Contas por consumo". Nada saiu. O endereço antigo da seção Armazenamento abre a nova.
+- Nos cartões de plano, o número de contas fica em destaque e abre "Contas e escritórios" já filtrada pelo plano.
+- No ranking "Contas por consumo", nova coluna Plano e filtros por plano e por situação (faixa de consumo ou sem limite).
+- O Master pode escolher o código de um convênio (ex.: OABDF2026) ao criar ou editar. Em branco, o sistema continua sorteando. O código vale com maiúsculas ou minúsculas, de 4 a 16 letras e números, e não pode repetir o de outro convênio.
+
+### Alterado
+
+- Contribua, checkout "Pagamento do espaço": a chave "Ampliação de GB automática" passa a vir ligada para o escritório que ainda não escolheu. Quem já ligou ou desligou a chave continua como escolheu.
+- Contribua, checkout: ao voltar da página de pagamento ("Pagamento enviado"), o resumo da esquerda passa a mostrar o espaço comprado, o espaço de hoje, o Subtotal e o Total mensal. Antes esses campos apareciam vazios.
+- Assinatura eletrônica, Documentos, Lixeira: "Excluir definitivamente" (individual e em massa) agora também apaga documentos enviados e assinados, não só rascunhos. Quando a seleção tem algum documento com assinatura, a tela pede uma confirmação avisando que as evidências (signatários, registros e versões do PDF) saem de vez. O servidor recusa (409) a exclusão de enviados sem a confirmação (`confirmar_enviados`). A cópia salva na pasta não é tocada.
+- Central de envios do Master, "Importar lista (CSV)": depois de ler o arquivo, aparece o resumo "N linha(s) lida(s), X válida(s), Y repetida(s), Z inválida(s)" (e as vazias, quando houver), e o botão "Baixar linhas recusadas (CSV)" baixa as linhas que ficaram de fora, com o número da linha no arquivo e o motivo (e-mail inválido, repetido ou linha vazia). O relatório é feito na hora, a partir do arquivo enviado; nada fica guardado.
+- O número do cartão "Importar lista (CSV)" e do "Individual" passa a contar os e-mails válidos sem repetidos (o mesmo e-mail em maiúsculas contava duas vezes).
+- A confirmação do botão Enviar mostra, abaixo da pergunta, o modelo do e-mail, a origem do público (o cartão escolhido e, no CSV, o nome do arquivo) e até 3 endereços de amostra, com "e mais N".
+- Painel do Master, Comercial e e-mails, botão "Simular novo cadastro": passa a abrir uma janela que pede o e-mail de destino (já vem o do Master, e dá para trocar) e envia de verdade os dois e-mails que uma conta nova recebe: a confirmação do e-mail e as boas-vindas, com os mesmos modelos e "[TESTE]" no começo do assunto. As boas-vindas só saem se a automação estiver ligada, como num cadastro de verdade.
+- Nenhuma conta, escritório ou indicação é criada, e os envios ficam fora dos números das automações. Os dois aparecem em "Últimos disparos". Limite de 30 simulações por hora.
+- Push Processual, aba Processos da OAB: o cartão "Sem pasta" passa a contar todos os processos sem pasta (acompanhados mais os números que a OAB trouxe em publicações e ainda não são acompanhados). A lista aberta pelo cartão e a exportação com esse filtro trazem o mesmo conjunto.
+- Push Processual: a aba "Processos da OAB" passa a se chamar "Processos dos Tribunais". As subabas ficam na ordem Acervo por jurisdição, Processos acompanhados e Processos relacionados, e a tela abre pelo Acervo. Os cartões de cima levam para Processos acompanhados.
+- Editar Permissões, aba Batidas de Ponto: a página fica mais larga e as células mais justas, para a folha caber inteira.
+- Meu Perfil, cartão Convênio: o botão "Aplicar código" fica alinhado ao campo, com a mesma altura.
+- Central de envios do Master: o rodapé dos e-mails de campanha passa a dizer por que a pessoa recebeu conforme a origem dela: tem conta no BlueJus, confirmou o endereço na Base de contatos ou nos alertas de vagas, está numa lista de contatos profissionais importada pelo BlueJus ou foi incluída pela equipe. A prévia, o e-mail de teste e o "Encaminhar" do Relatório mostram a mesma frase. O link "Não quero mais receber", a Política de Privacidade e o descadastro em um clique continuam iguais.
+
+### Corrigido
+
+- Central de envios do Master: ao trocar o CSV, a contagem, o filtro "Todos (n)" e o cartão passam a refletir só o arquivo novo; CSV salvo pelo Excel (Windows-1252) é lido com os acentos certos.
+- Os contadores da Central se atualizam após confirmar uma campanha, e a lista de campanhas se atualiza sozinha (a cada 15 s) enquanto houver envio na fila ou em andamento, e ao fechar o detalhe.
+- O nome no e-mail sai com a primeira letra maiúscula e o resto minúsculo ("FARLEI" vira "Farlei"); sem nome, "Colega" abre a frase com maiúscula.
+- Indicar o BlueJus: a recusa (ex.: pessoa que já faz parte da conta) aparece como alerta e mantém Nome e E-mail preenchidos.
+- Master, Indicações: a chave "Convites liberados" fica ligada quando os convites estão liberados e ganha um texto de ajuda; "Simular novo cadastro" avisa que nenhum e-mail é enviado; o teto de envios de teste sobe para 30 por hora.
+- O convite deixou de dizer "é grátis para começar" (e-mail e WhatsApp).
+- Mensagem do DataJud para a resposta HTTP 429 (LimiteExcedido) agora informa que o serviço do CNJ está sobrecarregado, em vez de sugerir excesso de consultas do usuário.
+- A reconciliação noturna da cópia de segurança (`armazenamento:reconciliar-espelho`) agora repete até 2 vezes a conferência de um arquivo que deu erro (pausa de 2 s e 5 s) antes de contá-lo como `erro_de_consulta`. Só o erro que persiste nas 3 tentativas falha a rodada e dispara o aviso ao Master. Arquivo ausente e chave inválida não repetem.
+
 ## [3.11.0] - 2026-11-26
 
 ### Adicionado
@@ -2619,7 +2662,8 @@ justificativa está em `docs/versionamento.md`.
 Primeira versão marcada no repositório (tag `v1.0.0`, commit `4940cc87`). Não há registro
 detalhado do que ela continha.
 
-[Não lançado]: https://github.com/sfbdata/Prime/compare/v3.11.0...HEAD
+[Não lançado]: https://github.com/sfbdata/Prime/compare/v3.12.0...HEAD
+[3.12.0]: https://github.com/sfbdata/Prime/compare/v3.11.0...v3.12.0
 [3.11.0]: https://github.com/sfbdata/Prime/compare/v3.10.0...v3.11.0
 [3.10.0]: https://github.com/sfbdata/Prime/compare/v3.9.1...v3.10.0
 [3.9.1]: https://github.com/sfbdata/Prime/compare/v3.9.0...v3.9.1
