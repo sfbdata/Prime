@@ -107,6 +107,7 @@ final class AcessoDiretoAoDiscoArquiteturaTest extends TestCase
         'src/Djen/Command/SincronizarDjenCommand.php'              => 'lock file do DJEN',
         'src/Sync/Command/BackfillPastasCommand.php'               => 'lock/arquivo do operador',
         'src/Sync/Command/ReconciliarCommand.php'                  => 'lock file do sync',
+        'src/Pasta/Command/ApagarDuplicadosCommand.php'            => 'grava o CSV de detalhe pedido em --saida (só ids e tamanhos)',
         'src/Pasta/Command/RelatorioPastasParadasCommand.php'      => 'lock file do relatório',
         'src/Pasta/Command/RelatorioSemProcessoCommand.php'        => 'lock file do relatório',
         'src/Pasta/Command/ResumoSemanalAoClienteCommand.php'      => 'lock file do resumo semanal',
