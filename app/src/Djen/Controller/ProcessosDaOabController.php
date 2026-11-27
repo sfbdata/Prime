@@ -89,7 +89,8 @@ final class ProcessosDaOabController extends AbstractController
         $relatorio = $this->processosDaOab->relatorio($tenant, $this->idsOcultos());
         $filtroDoAcervo = $this->filtroDoAcervo($request);
         $acervo = $this->acervoPorJurisdicao->executar($tenant, $hoje, $filtroDoAcervo['grupo'], $filtroDoAcervo['orgao'], $filtroDoAcervo['q'], $this->idsOcultos());
-        $conjunto = $sub === 'relatorio' ? $relatorio : $acompanhados;
+        $semPasta = $this->filtro->semPastaDeTodos($acompanhados, $relatorio);
+        $conjunto = $this->conjuntoDaLista($sub, $criterios['pasta'], $acompanhados, $relatorio, $semPasta);
         $filtradas = $sub === 'acervo' ? $acervo->linhas : $this->filtro->filtrar($conjunto, $criterios, $hoje);
 
         $pagina = max(1, (int) $request->query->get('pagina', 1));
@@ -104,7 +105,8 @@ final class ProcessosDaOabController extends AbstractController
             'acervo_grupo' => $filtroDoAcervo['grupo'],
             'acervo_orgao' => $filtroDoAcervo['orgao'],
             'acervo_q' => $filtroDoAcervo['q'],
-            'indicadores' => $this->filtro->indicadores($acompanhados, $hoje),
+            'indicadores' => ['semPasta' => \count($semPasta)] + $this->filtro->indicadores($acompanhados, $hoje),
+            'numeros_do_relatorio' => array_map(static fn ($l): string => $l->numero, $relatorio),
             'linhas' => \array_slice($filtradas, ($pagina - 1) * self::POR_PAGINA, self::POR_PAGINA),
             'total' => \count($filtradas),
             'pagina' => $pagina,
@@ -140,7 +142,12 @@ final class ProcessosDaOabController extends AbstractController
         }
 
         $hoje = new \DateTimeImmutable('today');
-        $linhas = $this->filtro->filtrar($this->acompanhados($tenant), $this->criterios($request), $hoje);
+        $criterios = $this->criterios($request);
+        $acompanhados = $this->acompanhados($tenant);
+        $conjunto = $criterios['pasta'] === 's'
+            ? $this->filtro->semPastaDeTodos($acompanhados, $this->processosDaOab->relatorio($tenant, $this->idsOcultos()))
+            : $acompanhados;
+        $linhas = $this->filtro->filtrar($conjunto, $criterios, $hoje);
 
         $resposta = new StreamedResponse(static function () use ($linhas, $hoje): void {
             $saida = fopen('php://output', 'wb');
@@ -402,6 +409,22 @@ final class ProcessosDaOabController extends AbstractController
         }
 
         return $this->voltar('success', 'Anotações salvas.');
+    }
+
+    /**
+     * @param list<\App\Djen\DTO\LinhaDoProcessoDaOab> $acompanhados
+     * @param list<\App\Djen\DTO\LinhaDoProcessoDaOab> $relatorio
+     * @param list<\App\Djen\DTO\LinhaDoProcessoDaOab> $semPasta     acompanhados e Relatório sem pasta
+     *
+     * @return list<\App\Djen\DTO\LinhaDoProcessoDaOab>
+     */
+    private function conjuntoDaLista(string $sub, string $pasta, array $acompanhados, array $relatorio, array $semPasta): array
+    {
+        return match (true) {
+            $sub === 'relatorio' => $relatorio,
+            $pasta === 's' => $semPasta,
+            default => $acompanhados,
+        };
     }
 
     /** @return list<\App\Djen\DTO\LinhaDoProcessoDaOab> */

@@ -48,6 +48,17 @@ final class FiltroDeProcessosDaOabTest extends TestCase
         self::assertSame(['processos' => 4, 'movidos7' => 2, 'parados30' => 1, 'nuncaCapturados' => 1, 'semPasta' => 2], $r);
     }
 
+    #[Test]
+    public function semPastaDeTodosSomaAcompanhadosERelatorioSemRepetirNumero(): void
+    {
+        $acompanhados = [$this->linha('07022222220268070001', null, null), $this->linha('07022222220268070002', null, 5)];
+        $relatorio = [$this->linha('07022222220268070003', null, null), $this->linha('07022222220268070001', null, null), $this->linha('07022222220268070004', null, 7)];
+
+        $r = (new FiltroDeProcessosDaOab())->semPastaDeTodos($acompanhados, $relatorio);
+
+        self::assertSame(['07022222220268070001', '07022222220268070003'], array_map(static fn (LinhaDoProcessoDaOab $l): string => $l->numero, $r));
+    }
+
     /**
      * @param list<string> $esperados sufixos dos números
      * @param array<string, string> $criterios
