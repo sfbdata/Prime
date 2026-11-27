@@ -442,8 +442,10 @@ class PastaDocumento implements Auditavel, TenantAware, Descartavel
      *
      * Recusa a segunda marcação: sobrescrever apagaria o autor e a data da exclusão de verdade
      * (e reiniciaria a contagem dos 30 dias da purga).
+     *
+     * `$por` nulo = o SISTEMA mandou para a lixeira (a limpeza de duplicados, sem usuário logado).
      */
-    public function marcarExcluido(User $por, \DateTimeImmutable $em): self
+    public function marcarExcluido(?User $por, \DateTimeImmutable $em): self
     {
         if ($this->estaNaLixeira()) {
             throw new \LogicException('Este documento já está na lixeira.');
