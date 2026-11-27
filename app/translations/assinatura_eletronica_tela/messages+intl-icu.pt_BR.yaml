@@ -83,7 +83,7 @@ assinatura_eletronica_tela:
             titulo_def: 'Excluir definitivamente'
             texto_lixeira: '{n} documento(s) irão para a Lixeira. Envios em andamento serão cancelados e os links deixarão de funcionar. Documentos enviados e suas evidências ficam preservados e podem ser restaurados.'
             texto_def: 'O rascunho será apagado e não poderá ser recuperado.'
-            texto_def_enviados: 'Há documentos com assinatura na seleção. Ao excluir, as evidências da assinatura (signatários, registros e versões do PDF) saem de vez. A cópia salva na pasta continua. Tem certeza que quer continuar?'
+            texto_def_enviados: 'Há documentos já enviados para assinatura na seleção. Ao excluir, as evidências da assinatura (signatários, registros e versões do PDF) saem de vez. A cópia salva na pasta continua. Tem certeza que quer continuar?'
             voltar: 'Voltar'
             botao: 'Excluir'
             botao_def: 'Excluir definitivamente'

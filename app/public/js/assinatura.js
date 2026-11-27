@@ -1294,7 +1294,7 @@
         const def = !!s.exc.def;
         return '<div class="bjaModal"><div class="bjaCard bjaOculto bjaModalCx" role="dialog" aria-modal="true" aria-label="' + esc(T('exc.rotulo')) + '">'
             + '<div class="bjaHd is-perigo"><i class="bi bi-trash3"></i>' + esc(def ? T('exc.titulo_def') : T('exc.titulo_lixeira')) + '</div>'
-            + '<div class="bjaModalTx">' + esc(def ? T(enviadosDe(s.exc.ids) > 0 ? 'exc.texto_def_enviados' : 'exc.texto_def') : T('exc.texto_lixeira', { n: s.exc.ids.length })) + '</div>'
+            + '<div class="bjaModalTx">' + esc(def ? T(s.exc.enviados || enviadosDe(s.exc.ids) > 0 ? 'exc.texto_def_enviados' : 'exc.texto_def') : T('exc.texto_lixeira', { n: s.exc.ids.length })) + '</div>'
             + '<div class="bjaModalPe"><button type="button" class="bjaB bjaN" data-bja-acao="exc-nao">' + esc(T('exc.voltar')) + '</button>'
             + '<button type="button" class="bjaB bjaR" data-bja-acao="exc-sim">' + esc(def ? T('exc.botao_def') : T('exc.botao')) + '</button></div></div></div>';
     }
@@ -1343,15 +1343,18 @@
         await carregar();
     }
 
-    async function apagar(ids) {
+    async function apagar(ids, forcado) {
         /* Quem chega aqui já viu a confirmação (com o aviso das evidências, se há enviado): o servidor recebe o aceite. */
-        try { await postJson(url.excluir, { ids: idsReais(ids), confirmar_enviados: enviadosDe(ids) > 0 }); } catch (e) {
-            if (e && e.status === 409 && e.dados && e.dados.precisa_confirmar) { s.exc = { ids: ids, def: true }; desenharCamadas(); return; }
+        // `forcado`: o servidor já disse (409) que há enviado, mesmo que a lista local ainda mostre rascunho; sem isso a
+        // confirmação voltaria para sempre.
+        const comEnviados = forcado || enviadosDe(ids) > 0;
+        try { await postJson(url.excluir, { ids: idsReais(ids), confirmar_enviados: comEnviados }); } catch (e) {
+            if (e && e.status === 409 && e.dados && e.dados.precisa_confirmar) { s.exc = { ids: ids, def: true, enviados: e.dados.enviados || 1 }; desenharCamadas(); return; }
             falha(e); return;
         }
         s.sel = {}; s.exc = null; s.ctx = null;
         desenharCamadas();
-        avisar(T(enviadosDe(ids) > 0 ? 'toast.excluido_def_enviados' : 'toast.excluido_def'));
+        avisar(T(comEnviados ? 'toast.excluido_def_enviados' : 'toast.excluido_def'));
         await carregar();
     }
 
@@ -1446,7 +1449,7 @@
             case 'ctx-excluir': pedirExclusao(idsDoCtx(), false); break;
             case 'ctx-excluir-def': pedirExclusao(idsDoCtx(), true); break;
             case 'exc-nao': s.exc = null; desenharCamadas(); break;
-            case 'exc-sim': if (s.exc.mod) { excluirModelo(s.exc.mod.id); } else if (s.exc.def) { apagar(s.exc.ids); } else { moverParaLixeira(s.exc.ids); } break;
+            case 'exc-sim': if (s.exc.mod) { excluirModelo(s.exc.mod.id); } else if (s.exc.def) { apagar(s.exc.ids, !!s.exc.enviados); } else { moverParaLixeira(s.exc.ids); } break;
             case 'restaurar-lote': restaurar(selDe(vis())); break;
             case 'excluir-def-lote': pedirExclusao(selDe(vis()), true); break;
             case 'excluir-lote': pedirExclusao(selDe(vis()), false); break;
