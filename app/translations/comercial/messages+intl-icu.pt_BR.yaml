@@ -46,6 +46,9 @@ comercial:
         nome_previa_dica: "substitui '{nome}' só aqui"
         nome_previa_exemplo: Dra. Ana
         titulo_email: TÍTULO
+        sem_nome: SEM NOME, USAR
+        sem_nome_dica: "entra no '{nome}' de quem não tem nome"
+        sem_nome_exemplo: colega
         nome_modelo: NOME DO MODELO
         texto: TEXTO
         texto_dica: "use '{nome}' para o primeiro nome"
@@ -269,6 +272,11 @@ comercial:
         csv_recusadas_cabecalho: 'linha;conteudo;motivo'
         csv_recusadas_arquivo: 'linhas-recusadas-{nome}'
         confirmar_modelo: 'Modelo: {nome}'
+        base_legal_rotulo: Base legal do envio (LGPD)
+        base_legal_vazio: Escolha a base legal
+        base_legal_consentimento: 'Consentimento: a pessoa autorizou receber'
+        base_legal_execucao_de_contrato: 'Execução de contrato: a pessoa tem conta no BlueJus'
+        base_legal_legitimo_interesse: 'Legítimo interesse: contato profissional, com descadastro em um clique'
         confirmar_publico: 'Público: {origem}'
         confirmar_amostra: 'Primeiros endereços: {lista}'
         confirmar_amostra_mais: 'e mais {n}'

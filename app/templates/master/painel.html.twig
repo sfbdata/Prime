@@ -245,6 +245,12 @@
                 <label for="mpConfPalavra" data-mp-conf-rotulo></label>
                 <input id="mpConfPalavra" type="text" autocomplete="off" spellcheck="false" data-mp-conf-palavra>
             </div>
+            {# Só onde a ação pede uma escolha obrigatória (a base legal do envio da campanha, pedido do Farlei M1): libera o
+               botão quando houver uma opção escolhida; o servidor confere de novo. #}
+            <div class="mp-conf-campo" data-mp-conf-escolha hidden>
+                <label for="mpConfEscolha" data-mp-conf-escolha-rotulo></label>
+                <select id="mpConfEscolha" name="mpConfEscolha" data-mp-conf-escolha-select></select>
+            </div>
             <div class="mp-conf-rodape">
                 <button type="button" class="mp-conf-cancelar" data-mp-conf-cancelar>{{ 'master.painel.cancelar'|trans }}</button>
                 <button type="button" class="mp-conf-ok" data-mp-conf-ok></button>
