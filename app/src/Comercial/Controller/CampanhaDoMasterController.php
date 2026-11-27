@@ -4,7 +4,9 @@ declare(strict_types=1);
 
 namespace App\Comercial\Controller;
 
+use App\Comercial\Campanha\ComposicaoDaCampanha;
 use App\Comercial\Campanha\PreparadorDeImagemDaCampanha;
+use App\Comercial\Campanha\PublicosDaCampanha;
 use App\Comercial\DTO\DestinatarioDaCampanha;
 use App\Comercial\DTO\DestinosDoTeste;
 use App\Comercial\DTO\MensagemDaCampanha;
@@ -98,16 +100,18 @@ final class CampanhaDoMasterController extends AbstractController
     /**
      * A prévia em JSON `{html}`: a tela põe o HTML no `srcdoc` de um iframe `sandbox=""` (sem scripts nem a mesma
      * origem). A resposta leva também `Content-Security-Policy: sandbox`, para o caso de alguém abri-la direto.
+     * O `exemplo` volta da contagem com o público e a lista dele (C1): escolhem a frase de origem do rodapé.
      */
     #[Route('/master/comercial/previa-campanha', name: 'master_comercial_previa_campanha', methods: ['POST'])]
     public function previa(Request $request, PreviaDaCampanhaUseCase $previa): JsonResponse
     {
-        $resposta = $this->protegido($request, fn (array $corpo): JsonResponse => new JsonResponse(['html' => $previa->executar(MensagemDaCampanha::deArray($corpo), self::exemplo($corpo['exemplo'] ?? null), \is_string($corpo['nomeDaPrevia'] ?? null) ? $corpo['nomeDaPrevia'] : '')]));
+        $resposta = $this->protegido($request, fn (array $corpo): JsonResponse => new JsonResponse(['html' => $previa->executar(MensagemDaCampanha::deArray($corpo), self::exemplo($corpo['exemplo'] ?? null), \is_string($corpo['nomeDaPrevia'] ?? null) ? $corpo['nomeDaPrevia'] : '', self::publico(\is_array($corpo['exemplo'] ?? null) ? $corpo['exemplo']['publico'] ?? null : null))]));
         $resposta->headers->set('Content-Security-Policy', 'sandbox');
 
         return $resposta;
     }
 
+    /** O `publico` escolhido na tela (C1) escolhe a frase de origem do rodapé do teste. */
     #[Route('/master/comercial/teste', name: 'master_comercial_teste', methods: ['POST'])]
     public function teste(Request $request, EnviarTesteDaCampanhaUseCase $teste, ValidatorInterface $validador): JsonResponse
     {
@@ -115,7 +119,7 @@ final class CampanhaDoMasterController extends AbstractController
             $destinos = DestinosDoTeste::deEntrada($corpo['para'] ?? null, $validador);
             // `secao: ind` vem da seção Indicações (pedido do Farlei M1, D5): o teste fica no Relatório de lá. Não é `modo`,
             // que no corpo do teste já é o modo do modelo (simples, blocos, html).
-            $saida = $teste->executar(MensagemDaCampanha::deArray($corpo), $this->master(), $destinos->enderecos, CentralDaCampanha::daSecao($corpo['secao'] ?? null));
+            $saida = $teste->executar(MensagemDaCampanha::deArray($corpo), $this->master(), $destinos->enderecos, self::publico($corpo['publico'] ?? null), CentralDaCampanha::daSecao($corpo['secao'] ?? null));
 
             return new JsonResponse(['mensagem' => $saida->mensagem(), 'enviados' => $saida->enviados, 'aviso' => $saida->aviso()]);
         });
@@ -201,9 +205,17 @@ final class CampanhaDoMasterController extends AbstractController
         if (!\is_array($valor) || !\is_string($valor['email'] ?? null)) {
             return null;
         }
-        $exemplo = new DestinatarioDaCampanha($valor['email'], \is_string($valor['nome'] ?? null) ? $valor['nome'] : '');
+        // A lista só entre as duas que a campanha conhece (C1): qualquer outra vale como a padrão.
+        $lista = ($valor['lista'] ?? null) === PublicosDaCampanha::LISTA_DE_VAGAS ? PublicosDaCampanha::LISTA_DE_VAGAS : ComposicaoDaCampanha::LISTA;
+        $exemplo = new DestinatarioDaCampanha($valor['email'], \is_string($valor['nome'] ?? null) ? $valor['nome'] : '', $lista);
 
         return $exemplo->valido() ? $exemplo : null;
+    }
+
+    /** Uma das chaves de público da grade (C1); qualquer outra coisa = nenhum público (a frase de lista de antes). */
+    private static function publico(mixed $valor): string
+    {
+        return \is_string($valor) && \array_key_exists($valor, PublicosDaCampanha::ROTULOS) ? $valor : '';
     }
 
     private static function texto(mixed $valor): string

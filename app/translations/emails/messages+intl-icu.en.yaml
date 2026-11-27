@@ -144,6 +144,15 @@ emails:
             razao_social: BlueJus Gestão e Tecnologia LTDA · CNPJ 66.803.163/0001-10 · Brasília/DF
             motivo_lista: You received this email because you signed up for BlueJus or authorized receiving news.
             motivo_conta: You received this email because of your BlueJus account.
+            # C1 (LGPD): the campaign footer sentence by the recipient's origin (MotivoDoEnvioDaCampanha).
+            motivo_campanha:
+                cadastrados: You received this email because you have a BlueJus account.
+                base_de_contatos: You received this email because you confirmed your address to receive invitations, offers and news from BlueJus.
+                alertas_de_vagas: You received this email because you confirmed your address to receive BlueJus job alerts.
+                lista_informada: You received this email because you have a BlueJus account or confirmed your address to receive news from BlueJus.
+                contato_importado: You received this email because your work address is on a list of professional contacts imported by BlueJus.
+                contato_incluido: You received this email because the BlueJus team added your work address to its base of professional contacts.
+                contatos_salvos: You received this email because your work address is in the BlueJus base of professional contacts.
             descadastro_lista: I do not want to receive these anymore
             descadastro_escritorio: 'I do not want to receive emails from {escritorio} anymore'
             descadastro_plataforma: I do not want to receive BlueJus news

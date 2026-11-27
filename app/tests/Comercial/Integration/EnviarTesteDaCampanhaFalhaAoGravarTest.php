@@ -46,6 +46,7 @@ final class EnviarTesteDaCampanhaFalhaAoGravarTest extends KernelTestCase
             $campanhas,
             $this->createStub(DestinoDaCampanhaRepository::class),
             static::getContainer()->get(\App\Comercial\Campanha\ImagensDaCampanha::class),
+            static::getContainer()->get(\App\Comercial\Campanha\MotivoDoEnvioDaCampanha::class),
         );
 
         $this->expectException(CampanhaRecusada::class);

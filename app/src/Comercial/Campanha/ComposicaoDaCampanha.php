@@ -53,9 +53,10 @@ final class ComposicaoDaCampanha
      * não houver nome" do modelo (pedido do Farlei M1, A6): o envio vai para a fila sem esse texto, e o montador, que
      * roda no worker, só conhece o nome. A campanha pede o rastreio (só vale com as duas chaves da 1a) e o reply-to da
      * {@see PoliticaDeDestinatarios}; o teste, não. `$lista` é a lista pela qual o destinatário entrou (null =
-     * `comercial_campanhas`).
+     * `comercial_campanhas`). `$motivoDoEnvio` é a frase do rodapé conforme a origem do destinatário
+     * ({@see MotivoDoEnvioDaCampanha}, C1); null = a frase de lista do layout.
      */
-    public function mensagemPara(MensagemDaCampanha $m, string $para, ?string $nome, string $origem, bool $rastrear = false, ?string $replyTo = null, ?string $lista = null): MensagemDeEmail
+    public function mensagemPara(MensagemDaCampanha $m, string $para, ?string $nome, string $origem, bool $rastrear = false, ?string $replyTo = null, ?string $lista = null, ?string $motivoDoEnvio = null): MensagemDeEmail
     {
         $primeiroNome = MontadorDeEmail::primeiroNome($nome, $m->semNome);
         try {
@@ -72,6 +73,7 @@ final class ComposicaoDaCampanha
                 replyTo: $replyTo,
                 rastrear: $rastrear,
                 layout: self::layout($m),
+                motivoDoEnvio: $motivoDoEnvio,
             );
         } catch (\InvalidArgumentException) {
             throw new CampanhaRecusada('Informe o assunto e o conteúdo do e-mail.');
@@ -82,8 +84,11 @@ final class ComposicaoDaCampanha
      * O HTML da prévia, do "Baixar HTML" e do que o dc copia no "Enviar teste" (L.537, L.558). `exemplo` é o primeiro
      * destinatário do público escolhido (dc L.537: o primeiro nome dele, ou "Dra. Ana" sem nome; o e-mail dele).
      */
-    /** `$nomeDaPrevia` (dc 21.10 L270, "NOME NA PRÉVIA, substitui {nome} só aqui") vale como foi digitado, só na prévia. */
-    public function previa(MensagemDaCampanha $m, ?DestinatarioDaCampanha $exemplo = null, string $nomeDaPrevia = ''): string
+    /**
+     * `$nomeDaPrevia` (dc 21.10 L270, "NOME NA PRÉVIA, substitui {nome} só aqui") vale como foi digitado, só na prévia.
+     * `$motivoDoEnvio`: a frase do rodapé da origem do público (C1), a mesma que o envio usaria; null = a de lista.
+     */
+    public function previa(MensagemDaCampanha $m, ?DestinatarioDaCampanha $exemplo = null, string $nomeDaPrevia = '', ?string $motivoDoEnvio = null): string
     {
         [$nomeDeExemplo, $para] = self::exemplo($exemplo);
         $digitado = mb_substr(trim($nomeDaPrevia), 0, 60);
@@ -101,6 +106,7 @@ final class ComposicaoDaCampanha
             selo: $m->selo,
             titulo: str_replace('{nome}', $nomeDeExemplo, $m->titulo),
             layout: self::layout($m),
+            motivoDoEnvio: $motivoDoEnvio,
         );
 
         return (string) $this->montador->montar($email, 'previa')->getHtmlBody();

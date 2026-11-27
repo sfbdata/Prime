@@ -283,6 +283,59 @@ final class CampanhaDoMasterControllerTest extends JusPrimeWebTestCase
         );
     }
 
+    #[TestDox('C1: a prévia e o teste levam no rodapé a frase da origem do público; sem público (ou com um inventado), a frase de lista de antes')]
+    public function testRodapeDaOrigemNaPreviaENoTeste(): void
+    {
+        $client = $this->clienteMaster();
+        $antiga = 'Você recebeu este e-mail porque se cadastrou no BlueJus ou autorizou o envio de novidades.';
+        $previa = function (array $exemplo) use ($client): string {
+            $this->postar($client, '/master/comercial/previa-campanha', $this->convite() + ['exemplo' => $exemplo]);
+            self::assertResponseIsSuccessful();
+
+            return (string) $this->json($client)['html'];
+        };
+        $contato = 'contato' . uniqid() . '@exemplo.com';
+        $this->conexao()->executeStatement(
+            "INSERT INTO comercial_contato (email, nome, origem, criado_em, atualizado_em) VALUES (?, 'Contato', 'importacao', NOW(), NOW())",
+            [$contato],
+        );
+
+        $html = $previa(['email' => 'ana@exemplo.com', 'nome' => 'Ana', 'publico' => 'prim', 'lista' => 'comercial_campanhas']);
+        self::assertStringContainsString('Você recebeu este e-mail porque tem conta no BlueJus.', $html);
+        self::assertStringNotContainsString($antiga, $html);
+        self::assertStringContainsString(
+            'Você recebeu este e-mail porque seu endereço profissional está numa lista de contatos profissionais importada pelo BlueJus.',
+            $previa(['email' => $contato, 'nome' => '', 'publico' => 'contatos', 'lista' => 'comercial_campanhas']),
+            'nos Contatos salvos, a origem do contato do exemplo',
+        );
+        $incluido = 'incluido' . uniqid() . '@exemplo.com';
+        $this->conexao()->executeStatement(
+            "INSERT INTO comercial_contato (email, nome, origem, criado_em, atualizado_em) VALUES (?, 'Contato', 'manual', NOW(), NOW())",
+            [$incluido],
+        );
+        self::assertStringContainsString(
+            'Você recebeu este e-mail porque seu endereço profissional foi incluído pela equipe do BlueJus na base de contatos profissionais.',
+            $previa(['email' => $incluido, 'nome' => '', 'publico' => 'contatos', 'lista' => 'comercial_campanhas']),
+            'o contato incluído à mão pela equipe',
+        );
+        self::assertStringContainsString(
+            'Você recebeu este e-mail porque confirmou seu endereço para receber os alertas de vagas do BlueJus.',
+            $previa(['email' => 'vaga@exemplo.com', 'nome' => '', 'publico' => 'leads', 'lista' => 'vagas_alerta']),
+        );
+        self::assertStringContainsString($antiga, $previa(['email' => 'ana@exemplo.com', 'nome' => '', 'publico' => 'inventado', 'lista' => 'outra']));
+        self::assertStringContainsString($antiga, $previa(['email' => 'ana@exemplo.com', 'nome' => '']), 'sem público, como antes');
+
+        $this->postar($client, '/master/comercial/teste', $this->convite() + ['publico' => 'csv']);
+        self::assertResponseIsSuccessful();
+        $this->postar($client, '/master/comercial/teste', $this->convite());
+        self::assertResponseIsSuccessful();
+        self::assertSame(
+            ['Você recebeu este e-mail porque tem conta no BlueJus ou confirmou seu endereço para receber novidades do BlueJus.', null],
+            $this->conexao()->fetchFirstColumn('SELECT c.motivo_do_envio FROM comercial_envio e JOIN comercial_envio_conteudo c ON c.envio_id = e.id ORDER BY e.id'),
+            'o teste com o público leva a frase dele; sem público, a do layout',
+        );
+    }
+
     #[TestDox('Enviar teste (F3f): [TESTE] no assunto e o teste gravado como campanha "teste", com o destino ligado ao envio, fora das ativas e no KPI')]
     public function testTesteGravado(): void
     {

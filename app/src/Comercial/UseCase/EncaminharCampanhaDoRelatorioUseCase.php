@@ -39,7 +39,8 @@ final class EncaminharCampanhaDoRelatorioUseCase
             throw new CampanhaRecusada('Esta campanha não pode mais ser montada para o encaminhamento.');
         }
 
-        // O teste encaminhado fica na mesma seção da campanha (a antiga sem Central, na Comercial).
-        return $this->teste->executar($mensagem, $master, $para, CentralDaCampanha::tryFrom((string) $campanha['central']) ?? CentralDaCampanha::Comercial);
+        // C1: o rodapé com a frase da origem do público da campanha, como ela saiu. O teste encaminhado fica na mesma seção
+        // da campanha (a antiga sem Central, na Comercial).
+        return $this->teste->executar($mensagem, $master, $para, $campanha['publico'], CentralDaCampanha::tryFrom((string) $campanha['central']) ?? CentralDaCampanha::Comercial);
     }
 }
