@@ -331,4 +331,21 @@ final class ReconciliadorDoEspelhoTest extends KernelTestCase
         self::assertSame(1, $espelho->consultas);
         self::assertSame([], $pausa->pausas);
     }
+
+    #[TestDox('espelho fora do ar: depois de 3 erros seguidos, as próximas referências não repetem nem esperam')]
+    public function testErrosSeguidosParamDeRepetir(): void
+    {
+        $refs = [];
+        foreach (['f1', 'f2', 'f3', 'f4', 'f5'] as $nome) {
+            $refs[] = $this->comLocal($nome . '.pdf', 'x', remoto: ['x', hash('sha256', 'x')]);
+        }
+        $pausa   = new PausaSemEspera();
+        $espelho = $this->espelhoQueFalhaNasPrimeiras(999, new \RuntimeException('R2 fora'));
+
+        $relatorio = $this->reconciliador($refs, $pausa)->reconciliar($espelho);
+
+        self::assertSame(5, $relatorio->quantos(ClasseDeReconciliacao::ERRO_DE_CONSULTA));
+        self::assertSame(3 * 3 + 2, $espelho->consultas, 'as 3 primeiras repetem; a 4ª e a 5ª consultam uma vez só');
+        self::assertSame([2, 5, 2, 5, 2, 5], $pausa->pausas);
+    }
 }

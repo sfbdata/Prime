@@ -42,6 +42,8 @@ use App\Shared\EspelhoRemoto\PoliticaDeEspelhamento;
  * Pane passageira (espelho, disco, banco) repete a mesma referência até 2 vezes a mais, com pausa de 2 s e 5 s
  * ({@see PAUSAS_ENTRE_TENTATIVAS}). Só o erro que persiste nas 3 tentativas vira `erro_de_consulta`, que
  * continua falhando a rodada (D10: pane ≠ ausência). Arquivo ausente e chave inválida não repetem.
+ * Depois de {@see ERROS_SEGUIDOS_SEM_REPETIR} erros seguidos (o espelho fora do ar, não um soluço), as próximas
+ * referências não repetem até a primeira consulta que der certo: sem isso, 30 mil erros custariam 7 s cada.
  */
 final class ReconciliadorDoEspelho
 {
@@ -56,6 +58,11 @@ final class ReconciliadorDoEspelho
 
     /** Pausas (em segundos) antes de cada nova tentativa de uma consulta que deu erro: 2 tentativas a mais. */
     public const PAUSAS_ENTRE_TENTATIVAS = [2, 5];
+
+    /** Erros de consulta seguidos a partir dos quais a rodada deixa de repetir (zera na primeira consulta certa). */
+    public const ERROS_SEGUIDOS_SEM_REPETIR = 3;
+
+    private int $errosSeguidos = 0;
 
     /**
      * Com o arquivo de volta ao disco e a liberação aberta, estas classes valem mais que
@@ -93,6 +100,7 @@ final class ReconciliadorDoEspelho
         if ($fatiaDoSha !== null && ($fatiaDoSha < 0 || $fatiaDoSha >= self::FATIAS_DO_SHA)) {
             throw new \InvalidArgumentException(sprintf('A fatia do SHA vai de 0 a %d.', self::FATIAS_DO_SHA - 1));
         }
+        $this->errosSeguidos = 0;
 
         $relatorio = new RelatorioDeReconciliacao();
         $vistos    = 0;
@@ -132,7 +140,10 @@ final class ReconciliadorDoEspelho
 
         for ($tentativa = 0; ; $tentativa++) {
             try {
-                return $this->comparar($espelho, $chave, $compararSha);
+                $classe = $this->comparar($espelho, $chave, $compararSha);
+                $this->errosSeguidos = 0;
+
+                return $classe;
             } catch (ArquivoNaoEncontrado) {
                 return ClasseDeReconciliacao::LOCAL_AUSENTE;
             } catch (ChaveDeArquivoInvalida) {
@@ -141,7 +152,9 @@ final class ReconciliadorDoEspelho
                 // Pane de qualquer lado (espelho, disco, banco da outbox): tenta de novo com pausa crescente;
                 // se persistir, registra e segue (o relatório parcial vale mais que a rodada abortada).
                 // Pane ≠ ausência (D10).
-                if (!isset(self::PAUSAS_ENTRE_TENTATIVAS[$tentativa])) {
+                if ($this->errosSeguidos >= self::ERROS_SEGUIDOS_SEM_REPETIR || !isset(self::PAUSAS_ENTRE_TENTATIVAS[$tentativa])) {
+                    $this->errosSeguidos++;
+
                     return ClasseDeReconciliacao::ERRO_DE_CONSULTA;
                 }
                 $this->pausa->aguardar(self::PAUSAS_ENTRE_TENTATIVAS[$tentativa]);
