@@ -171,7 +171,8 @@ final class MontadorDeEmail
 
     /**
      * Primeira letra maiúscula e o resto minúsculo, por palavra ("FARLEI" vira "Farlei"). Com mais de uma palavra, as
-     * partículas (de, da, do, das, dos, e) ficam minúsculas, menos se abrirem o nome.
+     * partículas (de, da, do, das, dos, e) ficam minúsculas, menos se abrirem o nome. Palavra que já abre com maiúscula e
+     * mistura a caixa foi escrita com cuidado e fica como está ("McDonald", "D'Ávila"); "mArIa" é normalizada.
      */
     public static function normalizarNome(string $nome): string
     {
@@ -179,6 +180,12 @@ final class MontadorDeEmail
         $saida = [];
         foreach ($palavras as $i => $palavra) {
             $minuscula = mb_strtolower($palavra);
+            $primeira = mb_substr($palavra, 0, 1);
+            if ($palavra !== mb_strtoupper($palavra) && $primeira === mb_strtoupper($primeira) && $primeira !== mb_strtolower($primeira)) {
+                $saida[] = $palavra;
+
+                continue;
+            }
             $saida[] = $i > 0 && \in_array($minuscula, ['de', 'da', 'do', 'das', 'dos', 'e'], true)
                 ? $minuscula
                 : mb_convert_case($minuscula, MB_CASE_TITLE);

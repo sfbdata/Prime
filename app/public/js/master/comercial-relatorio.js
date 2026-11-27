@@ -175,9 +175,12 @@
         temporizador = null;
         if (!raiz.isConnected) return;
         const q = new URLSearchParams({ aba: estado.aba, q: estado.q, p: String(estado.p) });
-        pedir(raiz.dataset.urlLista + '?' + q.toString())
-          .then(desenhar)
-          .catch(() => agendarAtualizacao([{ estado: 'na_fila' }]));
+        const pedido = q.toString();
+        // Resposta que chega depois de trocar de aba, busca ou página é de outra lista: descarta.
+        const aindaVale = () => new URLSearchParams({ aba: estado.aba, q: estado.q, p: String(estado.p) }).toString() === pedido;
+        pedir(raiz.dataset.urlLista + '?' + pedido)
+          .then(d => { if (aindaVale()) desenhar(d); })
+          .catch(() => { if (aindaVale()) agendarAtualizacao([{ estado: 'na_fila' }]); });
       }, 15000);
     }
 

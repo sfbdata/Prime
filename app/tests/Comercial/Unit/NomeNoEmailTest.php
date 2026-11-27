@@ -24,6 +24,8 @@ final class NomeNoEmailTest extends TestCase
         yield 'tudo minúsculo' => ['ana', 'Ana'];
         yield 'misturado' => ['mArIa', 'Maria'];
         yield 'acento' => ['JOSÉ', 'José'];
+        yield 'caixa mista escrita com cuidado' => ['McDonald', 'McDonald'];
+        yield 'apóstrofo escrito com cuidado' => ["D'Ávila", "D'Ávila"];
         yield 'partícula no meio' => ['MARIA DA SILVA E SOUZA DOS SANTOS', 'Maria da Silva e Souza dos Santos'];
         yield 'partícula que abre o nome' => ['DE PAULA', 'De Paula'];
         yield 'uma palavra só' => ['DA', 'Da'];
