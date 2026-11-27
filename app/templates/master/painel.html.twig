@@ -240,7 +240,8 @@
         <div class="mp-conf" role="dialog" aria-modal="true" aria-labelledby="mpConfTitulo">
             <div class="mp-conf-cab" data-mp-conf-cab><i class="bi" data-mp-conf-icone></i><span id="mpConfTitulo" data-mp-conf-titulo></span></div>
             <div class="mp-conf-texto" data-mp-conf-texto></div>
-            {# Só na exclusão de conta (C4): libera o botão quando a palavra bater; o servidor confere de novo. #}
+            {# Na exclusão de conta (C4): libera o botão quando a palavra bater; o servidor confere de novo. No "Simular novo
+               cadastro" (B3), o mesmo campo pede o e-mail de destino, já preenchido com o do Master. #}
             <div class="mp-conf-campo" data-mp-conf-campo hidden>
                 <label for="mpConfPalavra" data-mp-conf-rotulo></label>
                 <input id="mpConfPalavra" type="text" autocomplete="off" spellcheck="false" data-mp-conf-palavra>

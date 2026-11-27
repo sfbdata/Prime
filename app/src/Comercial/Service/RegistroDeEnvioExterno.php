@@ -9,8 +9,8 @@ use App\Comercial\Envio\TipoDeEnvio;
 use Doctrine\DBAL\Connection;
 
 /**
- * Registra em `comercial_envio` um e-mail que saiu fora do Carteiro (o `cad`, que o CadastroMailer manda, P5) ou uma
- * simulação do "Simular novo cadastro" (que não envia nada). Só para "Últimos disparos"; sem conteúdo. E os e-mails
+ * Registra em `comercial_envio` um e-mail que saiu fora do Carteiro (o `cad`, que o CadastroMailer manda, P5, e a
+ * confirmação de teste do "Simular novo cadastro"). Só para "Últimos disparos"; sem conteúdo. E os e-mails
  * síncronos, só para a cota ({@see self::registrarSemDados()}).
  */
 final class RegistroDeEnvioExterno
@@ -37,6 +37,15 @@ final class RegistroDeEnvioExterno
             'aberturas' => 0,
             'cliques' => 0,
         ]);
+    }
+
+    /** Quantas linhas da origem foram criadas desde `$desde` (o teto do "Simular novo cadastro"). */
+    public function contarDesde(string $origem, \DateTimeImmutable $desde): int
+    {
+        return (int) $this->conexao->fetchOne(
+            'SELECT COUNT(*) FROM comercial_envio WHERE origem = :origem AND criado_em >= :desde',
+            ['origem' => $origem, 'desde' => $desde->format('Y-m-d H:i:s')],
+        );
     }
 
     /**

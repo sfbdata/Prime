@@ -33,6 +33,8 @@ final class CotaDeEnvio
         'automacao:cad', 'automacao:lemb', 'automacao:val', 'automacao:conv',
         'automacao:e90', 'automacao:e100', 'automacao:ped',
         'teste_campanha',
+        // "Simular novo cadastro" (B3, 27/11/2026): os dois e-mails de teste do Master, com teto próprio de 30 por hora.
+        'simulacao:cad', 'simulacao:val',
         // Resumo diário do Meu Perfil (decisão do coordenador, 21/10/2026): não disputa o teto com as campanhas.
         'resumo_diario',
         // O aviso ao Master de que passou da hora de trocar de serviço (Service\AvisoDeTrocaDoServicoDeEmail::ORIGEM):

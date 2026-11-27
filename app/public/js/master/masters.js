@@ -26,6 +26,8 @@
   const escolha = conf ? qs('[data-mp-conf-escolha]', conf) : null;
   const selecao = conf ? qs('[data-mp-conf-escolha-select]', conf) : null;
   let escolhaExigida = false;
+  // Campo livre (op.entrada = { rotulo, valor, tipo }): o mesmo campo da palavra, já preenchido; o botão libera com texto.
+  let entradaLivre = false;
 
   // Pergunta em andamento por perguntar(): fechar sem confirmar (Cancelar, Esc, clique fora) resolve com false.
   let respostaPendente = null;
@@ -49,10 +51,12 @@
     if (fechar.dataset.padrao === undefined) fechar.dataset.padrao = fechar.textContent;
     fechar.textContent = op.cancelar || fechar.dataset.padrao;
     palavraExigida = op.palavra || null;
+    entradaLivre = !palavraExigida && !!op.entrada && !!campo && !!entrada;
     if (campo && entrada) {
-      campo.hidden = !palavraExigida;
-      entrada.value = '';
-      qs('[data-mp-conf-rotulo]', conf).textContent = palavraExigida ? T('master.js.masters.digite', { palavra: palavraExigida }) : '';
+      campo.hidden = !palavraExigida && !entradaLivre;
+      entrada.type = entradaLivre && op.entrada.tipo === 'email' ? 'email' : 'text';
+      entrada.value = entradaLivre ? String(op.entrada.valor || '') : '';
+      qs('[data-mp-conf-rotulo]', conf).textContent = palavraExigida ? T('master.js.masters.digite', { palavra: palavraExigida }) : entradaLivre ? String(op.entrada.rotulo || '') : '';
     }
     escolhaExigida = !!(op.escolha && escolha && selecao);
     if (escolha && selecao) {
@@ -66,11 +70,11 @@
     }
     // A ação do painel não recarrega a página: destrava para a próxima confirmação. Com palavra, só destrava quando bater;
     // com escolha, só quando houver uma opção escolhida.
-    ok.disabled = !!palavraExigida || escolhaExigida;
+    ok.disabled = !!palavraExigida || escolhaExigida || (entradaLivre && entrada.value.trim() === '');
     conf.style.setProperty('--cor', op.cor);
     aoConfirmar = op.aoConfirmar;
     conf.hidden = false;
-    (palavraExigida && entrada ? entrada : (escolhaExigida ? selecao : ok)).focus();
+    ((palavraExigida || entradaLivre) && entrada ? entrada : (escolhaExigida ? selecao : ok)).focus();
   };
 
   if (conf) {
@@ -82,20 +86,24 @@
       const digitado = entrada ? entrada.value.trim() : '';
       if (palavraExigida && digitado !== palavraExigida) return;
       if (escolhaExigida && !selecao.value) return;
+      if (entradaLivre && digitado === '') return;
       aoConfirmar = null; e.currentTarget.disabled = true; acao(escolhaExigida ? selecao.value : digitado);
     });
-    if (entrada) entrada.addEventListener('input', () => { if (palavraExigida) qs('[data-mp-conf-ok]', conf).disabled = entrada.value.trim() !== palavraExigida; });
+    if (entrada) entrada.addEventListener('input', () => {
+      if (palavraExigida) qs('[data-mp-conf-ok]', conf).disabled = entrada.value.trim() !== palavraExigida;
+      else if (entradaLivre) qs('[data-mp-conf-ok]', conf).disabled = entrada.value.trim() === '';
+    });
     if (selecao) selecao.addEventListener('change', () => { if (escolhaExigida) qs('[data-mp-conf-ok]', conf).disabled = !selecao.value; });
     document.addEventListener('keydown', e => { if (e.key === 'Escape' && !conf.hidden) fecharConf(); });
   }
 
   // Confirmação compartilhada com o painel.js (menu da conta: suspender, reativar e excluir com a palavra EXCLUIR).
-  // Versão com Promise (campanhas de e-mail): resolve true só se confirmar (com `escolha`, o valor escolhido); Cancelar, Esc
-  // e clique fora resolvem false.
+  // Versão com Promise (campanhas de e-mail): resolve true só se confirmar (com `escolha`, o valor escolhido; com `entrada`,
+  // o texto digitado); Cancelar, Esc e clique fora resolvem false.
   const perguntar = op => new Promise(resolver => {
     if (!conf) { resolver(false); return; }
     abrirConf(Object.assign({ icone: 'bi-question-circle', cor: COR_ROXO }, op, {
-      aoConfirmar: valor => { respostaPendente = null; fecharConf(); resolver(op.escolha ? valor : true); },
+      aoConfirmar: valor => { respostaPendente = null; fecharConf(); resolver(op.escolha || op.entrada ? valor : true); },
     }));
     respostaPendente = resolver;
   });

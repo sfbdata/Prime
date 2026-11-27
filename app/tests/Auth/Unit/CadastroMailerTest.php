@@ -69,6 +69,38 @@ final class CadastroMailerTest extends TestCase
         self::assertSame('cadastro@bluejus.test', $emailCapturado->getTo()[0]->getAddress());
     }
 
+    #[TestDox('Confirmação de teste (B3): mesmo modelo da conta nova, assunto com o prefixo, botão para a tela de entrar, cabeçalho fora da cota e nenhum evento')]
+    public function testConfirmacaoDeTeste(): void
+    {
+        $mailer = $this->createMock(MailerInterface::class);
+        $twig = $this->createMock(Environment::class);
+        $twig->expects($this->once())->method('render')
+            ->with('auth/cadastro/email_confirmacao.html.twig', ['nome' => 'Ana Lima', 'link' => 'https://bluejus.test/login'])
+            ->willReturn('<html>confirmação</html>');
+        $urlGenerator = $this->createMock(UrlGeneratorInterface::class);
+        $urlGenerator->expects($this->once())->method('generate')->with('app_login')->willReturn('https://bluejus.test/login');
+        $emailCapturado = null;
+        $mailer->expects($this->once())->method('send')
+            ->willReturnCallback(static function (Email $email) use (&$emailCapturado): void {
+                $emailCapturado = $email;
+            });
+        $eventos = new EventDispatcher();
+        $disparados = 0;
+        $eventos->addListener(ConfirmacaoDeCadastroEnviada::class, static function () use (&$disparados): void {
+            ++$disparados;
+        });
+        $service = new CadastroMailer($mailer, $twig, $urlGenerator, new IdentidadeDeEmail('BlueJus <nao-responda@bluejus.test>', 'infra@bluejus.test'), $eventos);
+
+        $assunto = $service->enviarConfirmacaoDeTeste('ana@bluejus.test', 'Ana Lima', '[TESTE] ');
+
+        self::assertInstanceOf(Email::class, $emailCapturado);
+        self::assertSame($emailCapturado->getSubject(), $assunto);
+        self::assertStringContainsString('[TESTE] Confirme seu e-mail no BlueJus', $assunto);
+        self::assertSame('ana@bluejus.test', $emailCapturado->getTo()[0]->getAddress());
+        self::assertTrue($emailCapturado->getHeaders()->has(\App\Comercial\EventListener\RegistroDeEmailSincronoListener::CABECALHO));
+        self::assertSame(0, $disparados, 'a simulação não conta como cadastro');
+    }
+
     #[TestDox('Falha no envio: nenhum evento para o Comercial (o e-mail não saiu)')]
     public function testFalhaNoEnvioNaoDespachaEvento(): void
     {

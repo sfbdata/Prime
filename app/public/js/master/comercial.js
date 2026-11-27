@@ -3,7 +3,8 @@
    spec docs/specs/comercial-e-emails.md §3.5).
    - Carrega o estado na primeira vez que a seção "com" abre (evento `mp:secao` do painel) ou já aberta pelo hash.
    - Ligar ou desligar e o atraso: POST JSON com X-CSRF-Token; a resposta traz o estado novo e a linha se redesenha.
-   - "Simular novo cadastro": POST; nada é enviado (só aparece em "Últimos disparos", como no dc).
+   - "Simular novo cadastro" (B3, 27/11/2026): a janela do painel (BJMasterConf) pede o e-mail, com o do Master já
+     preenchido; o POST envia de verdade a confirmação e as boas-vindas de teste, que aparecem em "Últimos disparos".
    - O botão do modelo abre a prévia só de leitura do e-mail (o editor é da fatia 2).
    Nenhuma regra mora só aqui: o servidor recusa chave desconhecida, atraso fora da lista e desligar o obrigatório. */
 (() => {
@@ -14,6 +15,7 @@
   const URL_LISTAR = raiz.dataset.urlAutomacoes;
   const URL_ALTERAR = raiz.dataset.urlAlterar;
   const URL_SIMULAR = raiz.dataset.urlSimular;
+  const EMAIL_DO_MASTER = raiz.dataset.emailMaster || '';
   const URL_PREVIA = raiz.dataset.urlPrevia;
   const TOKEN = raiz.dataset.token || '';
   const elAutos = raiz.querySelector('[data-mc-autos]');
@@ -110,6 +112,20 @@
     avisar(BJ_T.t('comercial.js.auto_editando', { titulo: a.titulo }));
   }
 
+  /* B3: o e-mail de destino na janela do painel (o do Master já preenchido, editável); Cancelar e Esc não enviam. O
+     servidor valida o endereço e o teto de 30 por hora; a recusa vai à linha de retorno. */
+  function simular() {
+    if (!window.BJMasterConf) return;
+    window.BJMasterConf.perguntar({
+      titulo: BJ_T.t('comercial.js.simular_titulo'), icone: 'bi-play-circle', texto: BJ_T.t('comercial.js.simular_texto'),
+      botao: BJ_T.t('comercial.js.simular_botao'), entrada: { rotulo: BJ_T.t('comercial.js.simular_rotulo'), valor: EMAIL_DO_MASTER, tipo: 'email' },
+    }).then(email => {
+      if (!email) return;
+      avisar(BJ_T.t('comercial.js.simular_enviando'));
+      postar(URL_SIMULAR, { email }).then(r => { avisar(r.mensagem, 'ok'); return carregar(); }).catch(err => avisar(err.message, 'erro'));
+    });
+  }
+
   raiz.addEventListener('click', e => {
     const linhaEl = e.target.closest('[data-mc-chave]');
     const chave = linhaEl ? linhaEl.dataset.mcChave : null;
@@ -119,9 +135,7 @@
     if (atraso && atual) { alterar(chave, { atraso: atraso.dataset.mcAtraso }); return; }
     if (e.target.closest('[data-mc-modelo]') && chave) { abrirPrevia(chave); return; }
     if (e.target.closest('[data-mc-previa-fechar]')) { elPrevia.hidden = true; return; }
-    if (e.target.closest('[data-mc-simular]')) {
-      postar(URL_SIMULAR).then(r => { avisar(r.mensagem, 'ok'); return carregar(); }).catch(err => avisar(err.message, 'erro'));
-    }
+    if (e.target.closest('[data-mc-simular]')) simular();
   });
 
   const painel = document.getElementById('master-painel');

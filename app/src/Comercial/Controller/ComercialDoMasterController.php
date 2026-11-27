@@ -175,14 +175,27 @@ final class ComercialDoMasterController extends AbstractController
         return $this->json($linha->paraArray());
     }
 
+    /**
+     * "Simular novo cadastro" (B3 do teste do Farlei, 27/11/2026): `{email}` com o endereço que recebe a confirmação e as
+     * boas-vindas de teste. Recusa em 422 com `{erro}` (endereço inválido, teto de 30 por hora, falha no envio).
+     */
     #[Route('/master/comercial/simular-cadastro', name: 'master_comercial_simular', methods: ['POST'])]
     public function simular(Request $request, SimularNovoCadastroUseCase $simular): JsonResponse
     {
         if (!$this->isCsrfTokenValid(self::TOKEN, (string) $request->headers->get('X-CSRF-Token', ''))) {
             return $this->json(['erro' => 'Token CSRF inválido. Recarregue a página.'], Response::HTTP_FORBIDDEN);
         }
-
-        return $this->json(['mensagem' => $simular->executar()]);
+        $corpo = json_decode($request->getContent(), true);
+        $email = is_array($corpo) && is_string($corpo['email'] ?? null) ? mb_substr($corpo['email'], 0, 180) : '';
+        $usuario = $this->getUser();
+        if (!$usuario instanceof User) {
+            return $this->json(['erro' => 'Sessão inválida.'], Response::HTTP_FORBIDDEN);
+        }
+        try {
+            return $this->json(['mensagem' => $simular->executar($usuario, $email)]);
+        } catch (AutomacaoRecusada $e) {
+            return $this->json(['erro' => $e->getMessage()], Response::HTTP_UNPROCESSABLE_ENTITY);
+        }
     }
 
     /**

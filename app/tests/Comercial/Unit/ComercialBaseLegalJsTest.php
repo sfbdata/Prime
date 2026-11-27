@@ -48,10 +48,12 @@ final class ComercialBaseLegalJsTest extends TestCase
 
         self::assertStringContainsString('<div class="mp-conf-campo" data-mp-conf-escolha hidden>', $twig);
         self::assertStringContainsString('<select id="mpConfEscolha" name="mpConfEscolha" data-mp-conf-escolha-select></select>', $twig);
-        self::assertStringContainsString('ok.disabled = !!palavraExigida || escolhaExigida;', $js);
+        self::assertStringContainsString("ok.disabled = !!palavraExigida || escolhaExigida || (entradaLivre && entrada.value.trim() === '');", $js);
         self::assertStringContainsString('if (escolhaExigida && !selecao.value) return;', $js);
-        self::assertStringContainsString('resolver(op.escolha ? valor : true);', $js);
+        self::assertStringContainsString('resolver(op.escolha || op.entrada ? valor : true);', $js);
         self::assertStringNotContainsString('innerHTML', $js);
+        // B3: com `entrada`, o mesmo campo da palavra vem preenchido e o botão libera com texto.
+        self::assertStringContainsString('if (entradaLivre && digitado === \'\') return;', $js);
     }
 
     #[TestDox('As chaves da base legal existem nos dois idiomas, uma por valor do servidor, sem travessão')]
