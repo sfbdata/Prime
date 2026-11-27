@@ -384,7 +384,7 @@ final class AssinaturaEletronicaControllerTest extends JusPrimeWebTestCase
         self::assertSame('Restaurado da Lixeira', $detalhe['eventos'][0]['texto']);
     }
 
-    #[TestDox('excluir de vez: só rascunho na Lixeira, tudo ou nada; o enviado fica e o texto é o do desenho')]
+    #[TestDox('excluir de vez: só na Lixeira, tudo ou nada; com enviado pede a confirmação (409) e só apaga com ela')]
     public function testExcluirSoRascunho(): void
     {
         $this->entrar(true);
@@ -399,9 +399,13 @@ final class AssinaturaEletronicaControllerTest extends JusPrimeWebTestCase
 
         $this->postarJson('/assinatura/documentos/lixeira', ['ids' => [$rascunho, $concluido]]);
         $this->postarJson('/assinatura/documentos/excluir', ['ids' => [$rascunho, $concluido]]);
-        self::assertResponseStatusCodeSame(422);
-        self::assertSame(['erro' => 'Documentos enviados permanecem na Lixeira para preservar as evidências.'], $this->json());
+        self::assertResponseStatusCodeSame(409);
+        self::assertTrue($this->json()['precisa_confirmar']);
+        self::assertSame(1, $this->json()['enviados']);
         self::assertCount(2, $this->listar()['documentos'], 'nada saiu');
+
+        $this->postarJson('/assinatura/documentos/excluir', ['ids' => [$rascunho, $concluido], 'confirmar_enviados' => 'sim']);
+        self::assertResponseStatusCodeSame(409, 'só o booleano true vale como confirmação');
 
         $this->postarJson('/assinatura/documentos/excluir', ['ids' => [$rascunho]]);
         self::assertResponseIsSuccessful();
@@ -413,6 +417,14 @@ final class AssinaturaEletronicaControllerTest extends JusPrimeWebTestCase
             self::assertFalse($this->disco->memoria->existe($chave), 'o PDF e a logo saem depois do COMMIT');
         }
         self::assertSame(0, (int) $this->conexao()->fetchOne('SELECT count(*) FROM assinatura_eletronica_evento WHERE documento_id = ?', [$rascunho]));
+
+        $this->postarJson('/assinatura/documentos/excluir', ['ids' => [$concluido], 'confirmar_enviados' => true]);
+        self::assertResponseIsSuccessful();
+        self::assertSame(['ok' => true], $this->json());
+        self::assertSame([], $this->listar()['documentos'], 'o enviado saiu com a confirmação');
+        self::assertSame(0, (int) $this->conexao()->fetchOne('SELECT count(*) FROM assinatura_eletronica_evento WHERE documento_id = ?', [$concluido]));
+        $this->client->request('GET', '/assinatura/documentos/' . $concluido);
+        self::assertResponseStatusCodeSame(404);
     }
 
     #[TestDox('cor da linha por documento; cor desconhecida ou ausente é recusada')]

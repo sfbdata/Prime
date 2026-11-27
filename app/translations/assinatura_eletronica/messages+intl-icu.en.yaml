@@ -33,7 +33,7 @@ assinatura_eletronica:
         sem_permissao: You do not have access to Document E-signature.
         nao_encontrado: Document not found.
         so_rascunho: Only drafts can be changed.
-        excluir_enviado: Sent documents stay in the Trash to preserve the evidence.
+        excluir_enviado_pede_confirmacao: There are signed documents in the selection. Confirm the deletion to erase the signature evidence.
         excluir_fora_da_lixeira: Only documents in the Trash can be permanently deleted.
         dados_invalidos: The document data could not be read. Reload the page and try again.
         selecao_invalida: Select at least one document.

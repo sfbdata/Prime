@@ -9,12 +9,13 @@ use App\AssinaturaEletronica\DTO\EntradaDoRascunho;
 use App\AssinaturaEletronica\DTO\SelecaoDeDocumentos;
 use App\AssinaturaEletronica\Exception\AcaoRecusada;
 use App\AssinaturaEletronica\Exception\DocumentoNaoEncontrado;
+use App\AssinaturaEletronica\Exception\ExclusaoPedeConfirmacao;
 use App\AssinaturaEletronica\Service\AcessoAAssinatura;
 use App\AssinaturaEletronica\UseCase\CancelarEnvioUseCase;
 use App\AssinaturaEletronica\UseCase\DuplicarDocumentoUseCase;
 use App\AssinaturaEletronica\UseCase\EnviarDocumentoUseCase;
 use App\AssinaturaEletronica\UseCase\EnviarLembreteUseCase;
-use App\AssinaturaEletronica\UseCase\ExcluirRascunhosUseCase;
+use App\AssinaturaEletronica\UseCase\ExcluirDaLixeiraUseCase;
 use App\AssinaturaEletronica\UseCase\ListarDocumentosUseCase;
 use App\AssinaturaEletronica\UseCase\MoverParaLixeiraUseCase;
 use App\AssinaturaEletronica\UseCase\ObterDocumentoUseCase;
@@ -106,10 +107,11 @@ final class DocumentosDaAssinaturaController extends AbstractController
     }
 
     #[Route('/assinatura/documentos/excluir', name: 'assinatura_eletronica_excluir', methods: ['POST'])]
-    public function excluir(Request $request, ExcluirRascunhosUseCase $excluir): JsonResponse
+    public function excluir(Request $request, ExcluirDaLixeiraUseCase $excluir): JsonResponse
     {
         return $this->comAcesso($request, static function (User $eu, Tenant $tenant) use ($request, $excluir): array {
-            $excluir->executar($tenant, SelecaoDeDocumentos::deJson($request->toArray())->ids);
+            $selecao = SelecaoDeDocumentos::deJson($request->toArray());
+            $excluir->executar($tenant, $selecao->ids, $selecao->confirmarEnviados);
 
             return ['ok' => true];
         });
@@ -170,6 +172,12 @@ final class DocumentosDaAssinaturaController extends AbstractController
             return $this->json($acao(...$quem), $status);
         } catch (DocumentoNaoEncontrado) {
             return $this->erro('assinatura_eletronica.erro.nao_encontrado', [], Response::HTTP_NOT_FOUND);
+        } catch (ExclusaoPedeConfirmacao $e) {
+            return $this->json([
+                'erro' => $this->tradutor->trans(ExclusaoPedeConfirmacao::CHAVE),
+                'precisa_confirmar' => true,
+                'enviados' => $e->enviados,
+            ], Response::HTTP_CONFLICT);
         } catch (AcaoRecusada $e) {
             return $this->erro($e->getMessage(), $e->parametros, Response::HTTP_UNPROCESSABLE_ENTITY);
         } catch (JsonException) {

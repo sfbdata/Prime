@@ -12,13 +12,14 @@ use App\AssinaturaEletronica\Enum\SituacaoDoDocumento;
 use App\AssinaturaEletronica\Enum\TipoDeEvento;
 use App\AssinaturaEletronica\Enum\TipoDeLogo;
 use App\AssinaturaEletronica\Exception\AcaoRecusada;
+use App\AssinaturaEletronica\Exception\ExclusaoPedeConfirmacao;
 use App\AssinaturaEletronica\Exception\DocumentoNaoEncontrado;
 use App\AssinaturaEletronica\Repository\DocumentoParaAssinarRepository;
 use App\AssinaturaEletronica\Repository\EventoDaTrilhaRepository;
 use App\AssinaturaEletronica\Repository\VersaoDoPdfRepository;
 use App\AssinaturaEletronica\Service\DocumentosDaSelecao;
 use App\AssinaturaEletronica\Service\TrilhaDoDocumento;
-use App\AssinaturaEletronica\UseCase\ExcluirRascunhosUseCase;
+use App\AssinaturaEletronica\UseCase\ExcluirDaLixeiraUseCase;
 use App\AssinaturaEletronica\UseCase\MoverParaLixeiraUseCase;
 use App\AssinaturaEletronica\UseCase\PintarDocumentosUseCase;
 use App\AssinaturaEletronica\UseCase\RestaurarDaLixeiraUseCase;
@@ -38,7 +39,7 @@ use Symfony\Component\Clock\MockClock;
 
 #[CoversClass(MoverParaLixeiraUseCase::class)]
 #[CoversClass(RestaurarDaLixeiraUseCase::class)]
-#[CoversClass(ExcluirRascunhosUseCase::class)]
+#[CoversClass(ExcluirDaLixeiraUseCase::class)]
 #[CoversClass(PintarDocumentosUseCase::class)]
 #[CoversClass(DocumentosDaSelecao::class)]
 final class UseCasesDaListaTest extends TestCase
@@ -179,8 +180,8 @@ final class UseCasesDaListaTest extends TestCase
         self::assertSame([[1, TipoDeEvento::Restaurado]], $this->eventosGravados());
     }
 
-    #[TestDox('excluir de vez: tudo ou nada; um enviado no lote recusa com o texto do desenho e nada sai')]
-    public function testExcluirTudoOuNada(): void
+    #[TestDox('excluir de vez: com enviado no lote e sem a confirmação, nada sai e a recusa traz a quantidade de enviados')]
+    public function testExcluirEnviadoSemConfirmacao(): void
     {
         $rascunho = $this->documento(1);
         $rascunho->moverParaLixeira(null, new \DateTimeImmutable());
@@ -188,14 +189,60 @@ final class UseCasesDaListaTest extends TestCase
         $enviado->moverParaLixeira(null, new \DateTimeImmutable());
         $this->selecionar([1, 2], [$rascunho, $enviado]);
         $this->documentos->expects(self::never())->method('remover');
-        $disco = new ArmazenamentoEmMemoria();
 
         try {
-            $this->excluir($disco)->executar($this->tenant, [1, 2]);
-            self::fail('deveria recusar');
-        } catch (AcaoRecusada $e) {
-            self::assertSame('assinatura_eletronica.erro.excluir_enviado', $e->getMessage());
+            $this->excluir(new ArmazenamentoEmMemoria())->executar($this->tenant, [1, 2]);
+            self::fail('deveria pedir a confirmação');
+        } catch (ExclusaoPedeConfirmacao $e) {
+            self::assertSame(1, $e->enviados);
         }
+    }
+
+    #[TestDox('excluir de vez: com a confirmação, rascunho e enviado saem e os arquivos de evidência saem do disco depois do banco')]
+    public function testExcluirEnviadoComConfirmacao(): void
+    {
+        $disco = new ArmazenamentoEmMemoria();
+        $escopo = EscopoDeArquivo::deTenant(9);
+        $pdf = new ChaveDeArquivo($escopo, CategoriaDeArquivo::ASSINATURA_DOCUMENTO, 'a2.pdf');
+        $final = new ChaveDeArquivo($escopo, CategoriaDeArquivo::ASSINATURA_DOCUMENTO, 'f2.pdf');
+        $versao = new ChaveDeArquivo($escopo, CategoriaDeArquivo::ASSINATURA_DOCUMENTO, 'v2.pdf');
+        $dapasta = new ChaveDeArquivo($escopo, CategoriaDeArquivo::ASSINATURA_DOCUMENTO, 'copia-da-pasta.pdf');
+        foreach ([$pdf, $final, $versao, $dapasta] as $chave) {
+            $disco->semear($chave);
+        }
+        $rascunho = $this->documento(1);
+        $rascunho->moverParaLixeira(null, new \DateTimeImmutable());
+        $enviado = $this->documento(2);
+        $enviado->definirArquivo('a2.pdf', 'contrato.pdf', 2);
+        (new \ReflectionProperty(DocumentoParaAssinar::class, 'arquivoFinalChave'))->setValue($enviado, 'f2.pdf');
+        $this->versoesPorDocumento[2] = [VersaoDoPdf::original($enviado, 1, 'v2.pdf', 'contrato.pdf', str_repeat('a', 64), 10, ['v' => 1], new \DateTimeImmutable())];
+        (new \ReflectionProperty(DocumentoParaAssinar::class, 'situacao'))->setValue($enviado, SituacaoDoDocumento::Concluido);
+        $enviado->moverParaLixeira(null, new \DateTimeImmutable());
+        $this->selecionar([1, 2], [$rascunho, $enviado]);
+        $removidos = [];
+        $this->documentos->method('remover')->willReturnCallback(static function (DocumentoParaAssinar $d) use (&$removidos, $disco, $final): void {
+            $removidos[] = $d->getId();
+            self::assertTrue($disco->existe($final), 'o arquivo só sai depois do banco');
+        });
+
+        $this->excluir($disco)->executar($this->tenant, [1, 2], true);
+
+        self::assertSame([1, 2], $removidos);
+        self::assertFalse($disco->existe($pdf));
+        self::assertFalse($disco->existe($final));
+        self::assertFalse($disco->existe($versao));
+        self::assertTrue($disco->existe($dapasta), 'a cópia da pasta nunca é tocada');
+    }
+
+    #[TestDox('excluir de vez: só rascunho segue sem confirmação')]
+    public function testExcluirSoRascunhoSemConfirmacao(): void
+    {
+        $rascunho = $this->documento(1);
+        $rascunho->moverParaLixeira(null, new \DateTimeImmutable());
+        $this->selecionar([1], [$rascunho]);
+        $this->documentos->expects(self::once())->method('remover')->with($rascunho);
+
+        $this->excluir(new ArmazenamentoEmMemoria())->executar($this->tenant, [1]);
     }
 
     #[TestDox('excluir de vez: rascunho fora da Lixeira também é recusado')]
@@ -208,7 +255,7 @@ final class UseCasesDaListaTest extends TestCase
         $this->excluir(new ArmazenamentoEmMemoria())->executar($this->tenant, [1]);
     }
 
-    #[TestDox('excluir de vez: a conferência é feita com a linha travada e relida; o que foi enviado depois da leitura não sai')]
+    #[TestDox('excluir de vez: a conferência é feita com a linha travada e relida; o que foi enviado depois da leitura pede a confirmação')]
     public function testExcluirDecideComALinhaRelida(): void
     {
         $rascunho = $this->documento(1);
@@ -219,7 +266,7 @@ final class UseCasesDaListaTest extends TestCase
         }]);
         $this->documentos->expects(self::never())->method('remover');
 
-        $this->expectExceptionObject(new AcaoRecusada('assinatura_eletronica.erro.excluir_enviado'));
+        $this->expectException(ExclusaoPedeConfirmacao::class);
         $this->excluir(new ArmazenamentoEmMemoria())->executar($this->tenant, [1]);
     }
 
@@ -309,12 +356,12 @@ final class UseCasesDaListaTest extends TestCase
         return new MoverParaLixeiraUseCase(new DocumentosDaSelecao($this->documentos), $this->documentos, $this->trilha(), new MockClock('2026-11-09 10:00:00'));
     }
 
-    private function excluir(ArmazenamentoEmMemoria $disco): ExcluirRascunhosUseCase
+    private function excluir(ArmazenamentoEmMemoria $disco): ExcluirDaLixeiraUseCase
     {
         $versoes = $this->createStub(VersaoDoPdfRepository::class);
         $versoes->method('doDocumento')->willReturnCallback(fn (DocumentoParaAssinar $d): array => $this->versoesPorDocumento[(int) $d->getId()] ?? []);
 
-        return new ExcluirRascunhosUseCase(new DocumentosDaSelecao($this->documentos), $this->documentos, new RemocaoAposTransacao($disco, new NullLogger()), $versoes);
+        return new ExcluirDaLixeiraUseCase(new DocumentosDaSelecao($this->documentos), $this->documentos, new RemocaoAposTransacao($disco, new NullLogger()), $versoes);
     }
 
     private function trilha(): TrilhaDoDocumento

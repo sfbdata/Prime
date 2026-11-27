@@ -8,7 +8,7 @@ use App\AssinaturaEletronica\Enum\CorDaLinha;
 use App\AssinaturaEletronica\Exception\AcaoRecusada;
 
 /**
- * Os documentos marcados na lista para uma ação em lote (Lixeira, restaurar, excluir, cor): `{ids}` e, na cor, `cor`.
+ * Os documentos marcados na lista para uma ação em lote (Lixeira, restaurar, excluir, cor): `{ids}` e, na cor, `cor`; no excluir, `confirmar_enviados`.
  */
 final readonly class SelecaoDeDocumentos
 {
@@ -20,6 +20,7 @@ final readonly class SelecaoDeDocumentos
     private function __construct(
         public array $ids,
         public ?CorDaLinha $cor,
+        public bool $confirmarEnviados = false,
     ) {
     }
 
@@ -37,7 +38,7 @@ final readonly class SelecaoDeDocumentos
             }
         }
 
-        return new self(array_values(array_unique($ids)), self::cor($json));
+        return new self(array_values(array_unique($ids)), self::cor($json), ($json['confirmar_enviados'] ?? false) === true);
     }
 
     /**

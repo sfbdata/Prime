@@ -1270,7 +1270,7 @@
         L.push(['bi-ui-checks', T('ctx.selecionar_tudo'), 'ctx-sel-tudo']);
         if (d0.naLixeira) {
             if (url.restaurar) { L.push(['bi-arrow-counterclockwise', T('ctx.restaurar'), 'ctx-restaurar']); }
-            if (url.excluir && ids.every(i => (doc(i) || {}).situacao === 'rascunho')) { L.push(['bi-trash3', T('ctx.excluir_def'), 'ctx-excluir-def', 1]); }
+            if (url.excluir) { L.push(['bi-trash3', T('ctx.excluir_def'), 'ctx-excluir-def', 1]); }
         } else if (url.lixeira) {
             L.push(['bi-trash3', T('ctx.excluir'), 'ctx-excluir', 1]);
         }
@@ -1293,7 +1293,7 @@
         const def = !!s.exc.def;
         return '<div class="bjaModal"><div class="bjaCard bjaOculto bjaModalCx" role="dialog" aria-modal="true" aria-label="' + esc(T('exc.rotulo')) + '">'
             + '<div class="bjaHd is-perigo"><i class="bi bi-trash3"></i>' + esc(def ? T('exc.titulo_def') : T('exc.titulo_lixeira')) + '</div>'
-            + '<div class="bjaModalTx">' + esc(def ? T('exc.texto_def') : T('exc.texto_lixeira', { n: s.exc.ids.length })) + '</div>'
+            + '<div class="bjaModalTx">' + esc(def ? T(enviadosDe(s.exc.ids) > 0 ? 'exc.texto_def_enviados' : 'exc.texto_def') : T('exc.texto_lixeira', { n: s.exc.ids.length })) + '</div>'
             + '<div class="bjaModalPe"><button type="button" class="bjaB bjaN" data-bja-acao="exc-nao">' + esc(T('exc.voltar')) + '</button>'
             + '<button type="button" class="bjaB bjaR" data-bja-acao="exc-sim">' + esc(def ? T('exc.botao_def') : T('exc.botao')) + '</button></div></div></div>';
     }
@@ -1313,6 +1313,9 @@
         const b = el.modal.querySelector('[data-bja-acao="canc-nao"]');
         if (b) { b.focus(); }
     }
+
+    /* Quantos dos marcados já foram enviados (não são rascunho): o aviso das evidências só aparece com algum. */
+    const enviadosDe = ids => ids.filter(k => (doc(k) || {}).situacao !== 'rascunho').length;
 
     function pedirExclusao(ids, def) {
         s.ctx = null;
@@ -1340,11 +1343,14 @@
     }
 
     async function apagar(ids) {
-        if (ids.some(k => (doc(k) || {}).situacao !== 'rascunho')) { avisar(T('toast.enviados_ficam'), 'erro'); return; }
-        try { await postJson(url.excluir, { ids: idsReais(ids) }); } catch (e) { falha(e); return; }
+        /* Quem chega aqui já viu a confirmação (com o aviso das evidências, se há enviado): o servidor recebe o aceite. */
+        try { await postJson(url.excluir, { ids: idsReais(ids), confirmar_enviados: enviadosDe(ids) > 0 }); } catch (e) {
+            if (e && e.status === 409 && e.dados && e.dados.precisa_confirmar) { s.exc = { ids: ids, def: true }; desenharCamadas(); return; }
+            falha(e); return;
+        }
         s.sel = {}; s.exc = null; s.ctx = null;
         desenharCamadas();
-        avisar(T('toast.excluido_def'));
+        avisar(T(enviadosDe(ids) > 0 ? 'toast.excluido_def_enviados' : 'toast.excluido_def'));
         await carregar();
     }
 

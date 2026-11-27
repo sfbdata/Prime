@@ -28,7 +28,7 @@ use Doctrine\ORM\Mapping as ORM;
  * Os blocos chegam montados pelo navegador e já validados ({@see \App\AssinaturaEletronica\Service\ValidadorDeBlocos}).
  *
  * Lixeira (desenho): mover cancela o envio que aguardava assinatura só dentro do prazo (o vencido continua Expirado);
- * restaurar não o reativa. Só rascunho na Lixeira sai de vez (os enviados ficam para preservar as evidências).
+ * restaurar não o reativa. Todo documento na Lixeira sai de vez, inclusive o enviado ou assinado, mas só com a confirmação do usuário (as evidências saem junto).
  *
  * Etapa 2 (contrato da etapa 2, seção 4.1): enviar congela o conteúdo (Rascunho vira Aguardando, com o hash do conteúdo
  * canônico e o prazo contado da hora do envio); cada signatário assina na vez dele (com "em ordem", depois de todos os
@@ -590,10 +590,10 @@ class DocumentoParaAssinar implements TenantAware, Descartavel, Auditavel
         $this->cor = $cor;
     }
 
-    /** Só rascunho na Lixeira sai de vez: o que foi enviado guarda as evidências. */
+    /** Só o que está na Lixeira sai de vez; o enviado pede a confirmação das evidências antes (ver o UseCase). */
     public function podeSairDeVez(): bool
     {
-        return $this->situacao === SituacaoDoDocumento::Rascunho && $this->estaNaLixeira();
+        return $this->estaNaLixeira();
     }
 
     public function ehRascunho(): bool
