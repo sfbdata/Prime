@@ -36,6 +36,7 @@ comercial:
             indiv: Individual
             indiv_desc: Digite um ou mais e-mails
         csv_selecionar: Selecionar arquivo .csv
+        csv_baixar_recusadas: Baixar linhas recusadas (CSV)
         individual: E-mails separados por vírgula
         passo_msg: · MENSAGEM
         assunto: ASSUNTO
@@ -260,6 +261,17 @@ comercial:
         dest_lista_limpa: lista limpa
         csv_lido: '{nome} · {n} e-mail(s)'
         csv_selecionar: Selecionar arquivo .csv
+        csv_relatorio: '{lidas} linha(s) lida(s), {validas} válida(s), {repetidas} repetida(s), {invalidas} inválida(s)'
+        csv_relatorio_vazias: '{n} vazia(s)'
+        csv_motivo_invalido: e-mail inválido
+        csv_motivo_repetido: repetido
+        csv_motivo_vazia: linha vazia
+        csv_recusadas_cabecalho: 'linha;conteudo;motivo'
+        csv_recusadas_arquivo: 'linhas-recusadas-{nome}'
+        confirmar_modelo: 'Modelo: {nome}'
+        confirmar_publico: 'Público: {origem}'
+        confirmar_amostra: 'Primeiros endereços: {lista}'
+        confirmar_amostra_mais: 'e mais {n}'
         filtro_curto: '{n} de {m} com filtro'
         filtro_todos: 'Todos ({m})'
         filtro_atendem: '{n} de {m} atendem ao filtro'

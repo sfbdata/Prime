@@ -88,6 +88,16 @@ final class PublicosDaCampanhaTest extends TestCase
         self::assertSame(['leads' => 1, 'contatos' => 0, 'prim' => 0, 'sec' => 0, 'todos' => 0, 'csv' => 3, 'indiv' => 0], $publicos->tamanhos('csv', $informados));
     }
 
+    #[TestDox('A2: o cartão do CSV e do Individual conta os válidos sem repetidos (o mesmo e-mail em maiúsculas conta uma vez)')]
+    public function testCartaoContaValidosSemRepetidos(): void
+    {
+        $publicos = $this->publicos();
+        $informados = [new DestinatarioDaCampanha('ana@exemplo.com'), new DestinatarioDaCampanha('ANA@Exemplo.com'), new DestinatarioDaCampanha('x@y')];
+
+        self::assertSame(1, $publicos->tamanhos('csv', $informados)['csv']);
+        self::assertSame(1, $publicos->tamanhos('indiv', $informados)['indiv']);
+    }
+
     #[TestDox('A lista informada não alcança os primários: o CSV só traz o que veio nele')]
     public function testCsvNaoMisturaFontes(): void
     {
