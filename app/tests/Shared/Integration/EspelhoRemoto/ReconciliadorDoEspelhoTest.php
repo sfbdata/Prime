@@ -8,6 +8,10 @@ use App\Shared\Armazenamento\CategoriaDeArquivo;
 use App\Shared\Armazenamento\ChaveDeArquivo;
 use App\Shared\Armazenamento\EscopoDeArquivo;
 use App\Shared\Armazenamento\FonteDeConteudo;
+use App\Shared\Armazenamento\Exception\ArquivoNaoEncontrado;
+use App\Shared\EspelhoRemoto\EspelhoRemoto;
+use App\Shared\EspelhoRemoto\MetadadosRemotos;
+use App\Tests\Shared\Doubles\PausaSemEspera;
 use App\Shared\EspelhoRemoto\LayoutDeChaveRemota;
 use App\Shared\EspelhoRemoto\Liberacao\RegistroDeLiberacao;
 use App\Shared\EspelhoRemoto\Outbox\OutboxDeReplicacao;
@@ -83,7 +87,10 @@ final class ReconciliadorDoEspelhoTest extends KernelTestCase
     public function testPaneNaoViraAusente(): void
     {
         $ref = $this->comLocal('p.pdf', 'x');
-        $this->s3->falharAProxima(new MockResponse('<?xml version="1.0"?><Error><Code>InternalError</Code></Error>', ['http_code' => 500]));
+        // O erro tem de persistir nas 3 tentativas para virar erro_de_consulta.
+        for ($i = 0; $i < 3; $i++) {
+            $this->s3->falharAProxima(new MockResponse('<?xml version="1.0"?><Error><Code>InternalError</Code></Error>', ['http_code' => 500]));
+        }
 
         $relatorio = $this->reconciliador([$ref])->reconciliar($this->espelho);
 
@@ -211,7 +218,7 @@ final class ReconciliadorDoEspelhoTest extends KernelTestCase
     }
 
     /** @param iterable<ReferenciaDeArquivo> $referencias */
-    private function reconciliador(iterable $referencias): ReconciliadorDoEspelho
+    private function reconciliador(iterable $referencias, ?PausaSemEspera $pausa = null): ReconciliadorDoEspelho
     {
         $fonte = new class ($referencias) implements FonteDeReferencias {
             /** @param iterable<ReferenciaDeArquivo> $referencias */
@@ -225,6 +232,120 @@ final class ReconciliadorDoEspelhoTest extends KernelTestCase
             }
         };
 
-        return new ReconciliadorDoEspelho($fonte, $this->local, $this->outbox, new RegistroDeLiberacao($this->conexao, new MockClock()), hash('sha256', $this->conteudoDoErro401()));
+        return new ReconciliadorDoEspelho($fonte, $this->local, $this->outbox, new RegistroDeLiberacao($this->conexao, new MockClock()), hash('sha256', $this->conteudoDoErro401()), $pausa ?? new PausaSemEspera());
+    }
+
+    /** Espelho que lança a exceção nas primeiras `$falhas` consultas e depois responde como o S3 simulado. */
+    private function espelhoQueFalhaNasPrimeiras(int $falhas, \Throwable $erro): EspelhoRemoto
+    {
+        return new class ($this->espelho, $falhas, $erro) implements EspelhoRemoto {
+            public int $consultas = 0;
+
+            public function __construct(private readonly EspelhoRemoto $real, private int $falhas, private readonly \Throwable $erro)
+            {
+            }
+
+            public function enviar(ChaveDeArquivo $chave, mixed $conteudo, int $tamanhoBytes, string $sha256, string $mimeType): void
+            {
+                $this->real->enviar($chave, $conteudo, $tamanhoBytes, $sha256, $mimeType);
+            }
+
+            public function consultar(ChaveDeArquivo $chave): ?MetadadosRemotos
+            {
+                $this->consultas++;
+                if ($this->falhas > 0) {
+                    $this->falhas--;
+
+                    throw $this->erro;
+                }
+
+                return $this->real->consultar($chave);
+            }
+
+            public function existe(ChaveDeArquivo $chave): bool
+            {
+                return $this->real->existe($chave);
+            }
+
+            public function baixar(ChaveDeArquivo $chave, mixed $destino, int $tamanhoEsperado, string $sha256Esperado): void
+            {
+                $this->real->baixar($chave, $destino, $tamanhoEsperado, $sha256Esperado);
+            }
+
+            public function excluir(ChaveDeArquivo $chave): void
+            {
+                $this->real->excluir($chave);
+            }
+        };
+    }
+
+    #[TestDox('erro na 1ª consulta e sucesso na 2ª: classe certa, uma pausa de 2 s')]
+    public function testErroPassageiroNaPrimeiraTentativa(): void
+    {
+        $ref   = $this->comLocal('t1.pdf', 'x', remoto: ['x', hash('sha256', 'x')]);
+        $pausa = new PausaSemEspera();
+
+        $relatorio = $this->reconciliador([$ref], $pausa)->reconciliar($this->espelhoQueFalhaNasPrimeiras(1, new \RuntimeException('R2 instável')));
+
+        self::assertSame(1, $relatorio->quantos(ClasseDeReconciliacao::IGUAL));
+        self::assertSame(0, $relatorio->quantos(ClasseDeReconciliacao::ERRO_DE_CONSULTA));
+        self::assertSame([2], $pausa->pausas);
+    }
+
+    #[TestDox('erro na 2ª tentativa também passa: pausas de 2 s e 5 s')]
+    public function testErroPassageiroNasDuasPrimeiras(): void
+    {
+        $ref   = $this->comLocal('t2.pdf', 'x', remoto: ['x', hash('sha256', 'x')]);
+        $pausa = new PausaSemEspera();
+
+        $relatorio = $this->reconciliador([$ref], $pausa)->reconciliar($this->espelhoQueFalhaNasPrimeiras(2, new \RuntimeException('R2 instável')));
+
+        self::assertSame(1, $relatorio->quantos(ClasseDeReconciliacao::IGUAL));
+        self::assertSame([2, 5], $pausa->pausas);
+    }
+
+    #[TestDox('erro nas 3 tentativas: erro_de_consulta, 3 consultas e 2 pausas')]
+    public function testErroPersistenteViraErroDeConsulta(): void
+    {
+        $ref     = $this->comLocal('t3.pdf', 'x', remoto: ['x', hash('sha256', 'x')]);
+        $pausa   = new PausaSemEspera();
+        $espelho = $this->espelhoQueFalhaNasPrimeiras(99, new \RuntimeException('R2 fora'));
+
+        $relatorio = $this->reconciliador([$ref], $pausa)->reconciliar($espelho);
+
+        self::assertSame(1, $relatorio->quantos(ClasseDeReconciliacao::ERRO_DE_CONSULTA));
+        self::assertSame(3, $espelho->consultas);
+        self::assertSame([2, 5], $pausa->pausas);
+    }
+
+    #[TestDox('ArquivoNaoEncontrado não repete: local_ausente, sem pausa')]
+    public function testArquivoNaoEncontradoNaoRepete(): void
+    {
+        $ref     = $this->comLocal('t4.pdf', 'x', remoto: ['x', hash('sha256', 'x')]);
+        $pausa   = new PausaSemEspera();
+        $espelho = $this->espelhoQueFalhaNasPrimeiras(99, ArquivoNaoEncontrado::para($ref->chave));
+
+        $relatorio = $this->reconciliador([$ref], $pausa)->reconciliar($espelho);
+
+        self::assertSame(1, $relatorio->quantos(ClasseDeReconciliacao::LOCAL_AUSENTE));
+        self::assertSame(1, $espelho->consultas);
+        self::assertSame([], $pausa->pausas);
+    }
+
+    #[TestDox('espelho fora do ar: depois de 3 erros seguidos, as próximas referências não repetem nem esperam')]
+    public function testErrosSeguidosParamDeRepetir(): void
+    {
+        $refs = [];
+        foreach (['f1', 'f2', 'f3', 'f4', 'f5'] as $nome) {
+            $refs[] = $this->comLocal($nome . '.pdf', 'x', remoto: ['x', hash('sha256', 'x')]);
+        }
+        $pausa   = new PausaSemEspera();
+        $espelho = $this->espelhoQueFalhaNasPrimeiras(999, new \RuntimeException('R2 fora'));
+
+        $relatorio = $this->reconciliador($refs, $pausa)->reconciliar($espelho);
+
+        self::assertSame(5, $relatorio->quantos(ClasseDeReconciliacao::ERRO_DE_CONSULTA));
+        self::assertSame(3 * 3 + 2, $espelho->consultas, 'as 3 primeiras repetem; a 4ª e a 5ª consultam uma vez só');
+        self::assertSame([2, 5, 2, 5, 2, 5], $pausa->pausas);
     }
 }

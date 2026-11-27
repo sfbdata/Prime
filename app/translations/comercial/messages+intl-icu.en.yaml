@@ -35,6 +35,7 @@ comercial:
             indiv: Individual
             indiv_desc: Type one or more emails
         csv_selecionar: Select .csv file
+        csv_baixar_recusadas: Download rejected lines (CSV)
         individual: Emails separated by commas
         passo_msg: · MESSAGE
         assunto: SUBJECT
@@ -257,6 +258,17 @@ comercial:
         dest_lista_limpa: list cleared
         csv_lido: '{nome} · {n} email(s)'
         csv_selecionar: Select .csv file
+        csv_relatorio: '{lidas} line(s) read, {validas} valid, {repetidas} duplicate(s), {invalidas} invalid'
+        csv_relatorio_vazias: '{n} empty'
+        csv_motivo_invalido: invalid email
+        csv_motivo_repetido: duplicate
+        csv_motivo_vazia: empty line
+        csv_recusadas_cabecalho: 'line;content;reason'
+        csv_recusadas_arquivo: 'rejected-lines-{nome}'
+        confirmar_modelo: 'Template: {nome}'
+        confirmar_publico: 'Audience: {origem}'
+        confirmar_amostra: 'First addresses: {lista}'
+        confirmar_amostra_mais: 'and {n} more'
         filtro_curto: '{n} of {m} with filter'
         filtro_todos: 'All ({m})'
         filtro_atendem: '{n} of {m} match the filter'

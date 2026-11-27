@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Comercial\Campanha;
 
 use App\Comercial\DTO\DestinatarioDaCampanha;
+use App\Comercial\DTO\RelatorioDaImportacao;
 use App\Comercial\Exception\CampanhaRecusada;
 
 /**
@@ -29,17 +30,50 @@ final class ListaInformada
     /** @return list<DestinatarioDaCampanha> */
     public static function doCsv(string $texto): array
     {
-        if (\strlen($texto) > self::BYTES_DO_CSV) {
-            throw new CampanhaRecusada(self::CSV_GRANDE);
-        }
-        $linhas = array_values(array_filter(preg_split('/\r?\n/', $texto) ?: [], static fn (string $l): bool => trim($l) !== ''));
-        if (\count($linhas) > self::LINHAS_DO_CSV) {
-            throw new CampanhaRecusada(self::CSV_LONGO);
-        }
+        $linhas = array_values(self::linhasDoCsv($texto));
 
         // Os inválidos seguem na lista para a contagem dizer "Z inválido(s) ignorado(s)" (dc 21.10 L665); só conta a linha
         // que tem uma coluna com "@" (o cabeçalho da planilha não é um e-mail errado). Quem filtra é o PublicosDaCampanha.
         return array_values(array_filter(array_map(self::linhaDoCsv(...), $linhas), static fn (DestinatarioDaCampanha $d): bool => str_contains($d->email, '@')));
+    }
+
+    /**
+     * O relatório da importação (A2, 27/11/2026), com a mesma leitura e os mesmos limites do {@see self::doCsv()}: cada
+     * linha não vazia do arquivo é válida, repetida (o mesmo e-mail, sem diferença de maiúsculas, já lido numa linha
+     * anterior), inválida (sem `@` ou com um endereço que não passa no {@see DestinatarioDaCampanha::valido()}) ou vazia
+     * (só separadores e aspas, a linha em branco da planilha). A primeira linha sem `@` é o cabeçalho e não conta.
+     */
+    public static function relatorioDoCsv(string $texto): RelatorioDaImportacao
+    {
+        $contas = [RelatorioDaImportacao::MOTIVO_INVALIDO => 0, RelatorioDaImportacao::MOTIVO_REPETIDO => 0, RelatorioDaImportacao::MOTIVO_VAZIA => 0];
+        $validas = 0;
+        $vistos = [];
+        $recusadas = [];
+        $primeira = true;
+        foreach (self::linhasDoCsv($texto) as $indice => $linha) {
+            $ehPrimeira = $primeira;
+            $primeira = false;
+            $vazia = trim(str_replace(['"', ';', ',', "\t"], '', $linha)) === '';
+            if ($ehPrimeira && !$vazia && !str_contains($linha, '@')) {
+                continue; // o cabeçalho da planilha (email;nome) não é um e-mail errado
+            }
+            $destinatario = self::linhaDoCsv($linha);
+            $motivo = match (true) {
+                $vazia => RelatorioDaImportacao::MOTIVO_VAZIA,
+                !$destinatario->valido() => RelatorioDaImportacao::MOTIVO_INVALIDO,
+                isset($vistos[$destinatario->email]) => RelatorioDaImportacao::MOTIVO_REPETIDO,
+                default => null,
+            };
+            if ($motivo === null) {
+                $vistos[$destinatario->email] = true;
+                ++$validas;
+                continue;
+            }
+            ++$contas[$motivo];
+            $recusadas[] = ['linha' => $indice + 1, 'conteudo' => mb_substr(mb_scrub(trim($linha), 'UTF-8'), 0, RelatorioDaImportacao::TAMANHO_DA_LINHA), 'motivo' => $motivo];
+        }
+
+        return new RelatorioDaImportacao($validas, $contas[RelatorioDaImportacao::MOTIVO_REPETIDO], $contas[RelatorioDaImportacao::MOTIVO_INVALIDO], $contas[RelatorioDaImportacao::MOTIVO_VAZIA], $recusadas);
     }
 
     /** @return list<DestinatarioDaCampanha> */
@@ -54,6 +88,24 @@ final class ListaInformada
         }
 
         return $lista;
+    }
+
+    /**
+     * As linhas não vazias do CSV, com o índice da linha no arquivo (0 = a primeira), depois dos limites de tamanho.
+     *
+     * @return array<int, string>
+     */
+    private static function linhasDoCsv(string $texto): array
+    {
+        if (\strlen($texto) > self::BYTES_DO_CSV) {
+            throw new CampanhaRecusada(self::CSV_GRANDE);
+        }
+        $linhas = array_filter(preg_split('/\r?\n/', $texto) ?: [], static fn (string $l): bool => trim($l) !== '');
+        if (\count($linhas) > self::LINHAS_DO_CSV) {
+            throw new CampanhaRecusada(self::CSV_LONGO);
+        }
+
+        return $linhas;
     }
 
     private static function linhaDoCsv(string $linha): DestinatarioDaCampanha

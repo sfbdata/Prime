@@ -211,10 +211,15 @@ final class PublicosDaCampanha
         return $this->contatos->marcarConvite(array_map(static fn (DestinatarioDaCampanha $d): string => $d->email, $destinatarios), $agora);
     }
 
-    /** @param list<DestinatarioDaCampanha> $lista */
+    /**
+     * O número do cartão do CSV e do Individual: os endereços válidos, sem repetidos (A2, 27/11/2026: o mesmo e-mail em
+     * maiúsculas contava duas vezes no cartão e uma no resumo).
+     *
+     * @param list<DestinatarioDaCampanha> $lista
+     */
     private static function validos(array $lista): int
     {
-        return \count(array_filter($lista, static fn (DestinatarioDaCampanha $d): bool => $d->valido()));
+        return \count(self::semRepetidos($lista));
     }
 
     /**

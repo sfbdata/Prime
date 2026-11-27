@@ -18,6 +18,9 @@ use App\Comercial\Exception\CampanhaRecusada;
  *
  * `modelo` é a chave do modelo em edição (spec §11): com `vagas`, a Base de contatos inclui quem autorizou os alertas
  * de vagas. Na contagem vem do campo `modelo` do JSON; no "Enviar campanha", da mensagem ({@see PedidoDeCampanha}).
+ *
+ * `importacao` é o relatório do CSV (A2, 27/11/2026), lido do mesmo texto, só no público `csv` e só na contagem
+ * (`$comRelatorio`): o "Enviar campanha" não o usa.
  */
 final class PedidoDePublico
 {
@@ -34,6 +37,7 @@ final class PedidoDePublico
         public readonly FiltroDoPublico $filtro = new FiltroDoPublico(),
         public readonly string $modo = self::MODO_COMERCIAL,
         public readonly string $modelo = '',
+        public readonly ?RelatorioDaImportacao $importacao = null,
     ) {
         if (!\array_key_exists($publico, PublicosDaCampanha::ROTULOS)) {
             throw new CampanhaRecusada('Público inválido.');
@@ -56,9 +60,10 @@ final class PedidoDePublico
 
     /**
      * @param array<mixed> $dados
-     * @param ?string      $modelo a chave do modelo, quando quem chama já a tem (o `modelo` do envio é o objeto inteiro)
+     * @param ?string      $modelo       a chave do modelo, quando quem chama já a tem (o `modelo` do envio é o objeto inteiro)
+     * @param bool         $comRelatorio monta o relatório da importação do CSV (a contagem da tela)
      */
-    public static function deArray(array $dados, ?string $modelo = null): self
+    public static function deArray(array $dados, ?string $modelo = null, bool $comRelatorio = false): self
     {
         $publico = \is_string($dados['publico'] ?? null) ? $dados['publico'] : 'leads';
 
@@ -68,12 +73,13 @@ final class PedidoDePublico
         }
 
         $modo = $dados['modo'] ?? self::MODO_COMERCIAL;
+        $csv = $publico === 'csv' ? self::texto($dados['csv'] ?? '') : '';
 
         return new self($publico, match ($publico) {
-            'csv' => ListaInformada::doCsv(self::texto($dados['csv'] ?? '')),
+            'csv' => ListaInformada::doCsv($csv),
             'indiv' => ListaInformada::doIndividual(self::texto($dados['individual'] ?? '')),
             default => [],
-        }, FiltroDoPublico::deArray($filtro), \is_string($modo) ? $modo : throw new CampanhaRecusada('Pedido inválido.'), $modelo ?? self::modelo($dados['modelo'] ?? ''));
+        }, FiltroDoPublico::deArray($filtro), \is_string($modo) ? $modo : throw new CampanhaRecusada('Pedido inválido.'), $modelo ?? self::modelo($dados['modelo'] ?? ''), $comRelatorio && $csv !== '' ? ListaInformada::relatorioDoCsv($csv) : null);
     }
 
     /** A chave do modelo na contagem: texto curto; outro tipo vale como nenhum modelo. */

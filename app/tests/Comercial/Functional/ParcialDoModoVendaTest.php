@@ -88,7 +88,7 @@ final class ParcialDoModoVendaTest extends KernelTestCase
         self::assertSame(['1 · PARA QUEM'], $this->textos(self::EDITOR . ' > .mc-cp-para-cabeca > .mc-cp-passo'));
         self::assertSame(['2 · MENSAGEM'], $this->textos(self::EDITOR . ' > .mc-cp-passo'));
         $ordem = $this->doc->filter(self::EDITOR . ' > *')->each(static fn (Crawler $c): string => (string) $c->attr('class'));
-        self::assertSame(['mc-cp-para-cabeca', 'mc-cp-publicos mc-cp-publicos-3', 'mc-cf', 'mc-cp-csv', 'mc-cp-individual', 'mc-cp-passo mc-cp-passo-seguinte'], \array_slice($ordem, 0, 6));
+        self::assertSame(['mc-cp-para-cabeca', 'mc-cp-publicos mc-cp-publicos-3', 'mc-cf', 'mc-cp-csv', 'mc-cp-csv-rel', 'mc-cp-individual', 'mc-cp-passo mc-cp-passo-seguinte'], \array_slice($ordem, 0, 7));
     }
 
     #[TestDox('"Cadastrar e-mail" no cabeçalho do PARA QUEM (cmLeadAdd), com a URL própria e o aviso de LGPD do dc')]
