@@ -20,7 +20,7 @@ enum MotivoFalhaDatajud: string
     /** A requisição ao CNJ estourou o tempo limite. */
     case Timeout = 'timeout';
 
-    /** CNJ respondeu 429 — consultas demais em pouco tempo. */
+    /** CNJ respondeu 429: o serviço está sobrecarregado (es_rejected_execution_exception) e recusa consultas por um tempo. */
     case LimiteExcedido = 'limite_excedido';
 
     /** O tribunal existe, mas não tem índice na base pública do CNJ (ex.: algumas justiças militares). */
