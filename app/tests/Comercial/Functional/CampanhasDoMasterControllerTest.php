@@ -295,7 +295,7 @@ final class CampanhasDoMasterControllerTest extends JusPrimeWebTestCase
         $c = $this->json($client);
         self::assertSame([1, 1, 1], [$c['destinatarios'], $c['descadastrados'], $c['semAutorizacao']]);
         self::assertSame(3, $c['publicos']['indiv'], 'A2: a grade conta os válidos lidos, sem repetidos');
-        self::assertSame(['email' => $ana->getEmail(), 'nome' => ''], $c['exemplo']);
+        self::assertSame(['email' => $ana->getEmail(), 'nome' => '', 'publico' => 'indiv', 'lista' => 'comercial_campanhas'], $c['exemplo'], 'C1: o público e a lista voltam com o exemplo, para a prévia');
 
         $this->postar($client, '/master/comercial/campanhas', $this->pedido([], ['individual' => $texto]));
         $id = $this->json($client)['id'];

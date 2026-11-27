@@ -6,6 +6,7 @@ namespace App\Comercial\UseCase;
 
 use App\Comercial\Service\RastreioDaLeitura;
 use App\Comercial\Campanha\ComposicaoDaCampanha;
+use App\Comercial\Campanha\MotivoDoEnvioDaCampanha;
 use App\Comercial\DTO\CampanhaDoRelatorio;
 use App\Comercial\DTO\DestinatarioDoRelatorio;
 use App\Comercial\Entity\CampanhaDeEmail;
@@ -43,6 +44,7 @@ final class AbrirCampanhaDoRelatorioUseCase
         private readonly ComposicaoDaCampanha $composicao,
         private readonly IdentidadeDeEmail $identidade,
         private readonly RastreioDaLeitura $rastreio,
+        private readonly MotivoDoEnvioDaCampanha $motivos,
     ) {
     }
 
@@ -109,14 +111,15 @@ final class AbrirCampanhaDoRelatorioUseCase
     }
 
     /**
-     * O HTML que o destinatário recebe, remontado da cópia congelada. Null se ela não passa mais na validação.
+     * O HTML que o destinatário recebe, remontado da cópia congelada, com a frase de origem do público no rodapé (C1;
+     * nos Contatos salvos, a geral da base). Null se ela não passa mais na validação.
      *
      * @param Campanha $c
      */
     private function html(array $c): ?string
     {
         try {
-            return $this->composicao->previa($this->composicao->descongelar($c));
+            return $this->composicao->previa($this->composicao->descongelar($c), motivoDoEnvio: $this->motivos->frase($c['publico']));
         } catch (CampanhaRecusada|\InvalidArgumentException) {
             return null;
         }

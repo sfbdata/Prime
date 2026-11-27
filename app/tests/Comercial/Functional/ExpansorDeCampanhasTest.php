@@ -167,6 +167,11 @@ final class ExpansorDeCampanhasTest extends KernelTestCase
         ], $envio);
         $envios = array_filter($this->fila->getSent(), static fn ($e): bool => $e->getMessage() instanceof EnviarEmail);
         self::assertCount(1, $envios);
+        self::assertSame(
+            'Você recebeu este e-mail porque tem conta no BlueJus ou confirmou seu endereço para receber novidades do BlueJus.',
+            $this->conexao->fetchOne('SELECT c.motivo_do_envio FROM comercial_envio e JOIN comercial_envio_conteudo c ON c.envio_id = e.id WHERE e.origem = ?', ['campanha:' . $id]),
+            'C1: a campanha Individual leva a frase da lista informada no rodapé',
+        );
     }
 
     #[TestDox('F3g: campanha sem confirmação de leitura não pede rastreio no envio')]
@@ -491,6 +496,8 @@ final class ExpansorDeCampanhasTest extends KernelTestCase
         self::assertSame($novo, $email->getTo()[0]->getAddress());
         self::assertMatchesRegularExpression('#^<https?://[^>]+>$#', (string) $email->getHeaders()->get('List-Unsubscribe')?->getBodyAsString(), 'o convite a contato salvo leva o descadastro');
         self::assertSame('List-Unsubscribe=One-Click', $email->getHeaders()->get('List-Unsubscribe-Post')?->getBodyAsString());
+        self::assertStringContainsString('Você recebeu este e-mail porque seu endereço profissional está numa lista de contatos profissionais importada pelo BlueJus.', (string) $email->getHtmlBody(), 'C1: o rodapé diz que o contato veio de uma lista importada');
+        self::assertStringNotContainsString('se cadastrou no BlueJus ou autorizou', (string) $email->getHtmlBody());
 
         $segunda = $this->campanha([], ['publico' => 'contatos', 'parametros' => null, 'total' => 2]);
         $expansor->materializarDevidas(new \DateTimeImmutable());
@@ -543,6 +550,12 @@ final class ExpansorDeCampanhasTest extends KernelTestCase
         $link = $c->get(DescadastroDeEmailInterface::class)->gerarLink(null, $vaga, PublicosDaCampanha::LISTA_DE_VAGAS);
         self::assertSame('<' . $link . '>', $email->getHeaders()->get('List-Unsubscribe')?->getBodyAsString());
         self::assertStringContainsString(htmlspecialchars($link, ENT_QUOTES), (string) $email->getHtmlBody(), 'o link de descadastro do corpo é o da lista de vagas');
+        self::assertStringContainsString('Você recebeu este e-mail porque confirmou seu endereço para receber os alertas de vagas do BlueJus.', (string) $email->getHtmlBody(), 'C1: o rodapé segue a lista do destino');
+        self::assertSame(
+            'Você recebeu este e-mail porque confirmou seu endereço para receber convites, ofertas e novidades do BlueJus.',
+            $this->conexao->fetchOne('SELECT motivo_do_envio FROM comercial_envio_conteudo WHERE envio_id = ?', [$envios[$dupla]['id']]),
+            'quem está nas duas listas sai pela Base de contatos, com a frase dela',
+        );
     }
 
     #[TestDox('Modelo vagas gravado sem a âncora (campanha antiga): a execução não alcança quem só autorizou vagas_alerta')]
@@ -663,6 +676,7 @@ final class ExpansorDeCampanhasTest extends KernelTestCase
             new NullLogger(),
             new CotaDeEnvio($c->get(EnvioDeEmailRepository::class), $c->get(DestinoDaCampanhaRepository::class), new MockClock(), $tetoTotal, $teto, 10, 80),
             $c->get(\App\Comercial\Campanha\ImagensDaCampanha::class),
+            $c->get(\App\Comercial\Campanha\MotivoDoEnvioDaCampanha::class),
         );
     }
 

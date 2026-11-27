@@ -54,6 +54,13 @@
     return window.McCampanha && typeof window.McCampanha.modeloAtual === 'function' ? window.McCampanha.modeloAtual() : null;
   }
 
+  /* C1: o público escolhido na seção do clique (o botão com aria-pressed="true" da grade "2 · PARA QUEM"). O servidor
+     escolhe por ele a frase do rodapé que diz por que a pessoa recebeu; sem ele, a frase de lista de antes. */
+  function publicoDaSecao() {
+    const botao = atual.secao ? atual.secao.querySelector('[data-mc-cp-publico][aria-pressed="true"]') : null;
+    return botao ? botao.dataset.mcCpPublico || '' : '';
+  }
+
   function enviar() {
     const modelo = modeloDaSecao();
     if (!modelo) { erro(BJ_T.t('comercial.js.teste_sem_modelo')); return; }
@@ -64,7 +71,7 @@
     fetch(aberto.raiz.dataset.url, {
       method: 'POST', credentials: 'same-origin',
       headers: { 'Content-Type': 'application/json', Accept: 'application/json', 'X-CSRF-Token': aberto.token },
-      body: JSON.stringify(Object.assign({}, modelo, { para: aberto.raiz.querySelector('[data-mc-tst-para]').value })),
+      body: JSON.stringify(Object.assign({}, modelo, { para: aberto.raiz.querySelector('[data-mc-tst-para]').value, publico: publicoDaSecao() })),
     })
       .then(r => r.json().catch(() => ({})).then(j => (r.ok ? j : Promise.reject(new Error(j.erro || BJ_T.t('comercial.js.teste_erro'))))))
       .then(r => {

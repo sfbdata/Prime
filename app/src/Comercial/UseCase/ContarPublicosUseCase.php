@@ -38,6 +38,7 @@ final class ContarPublicosUseCase
             $resolvido->puladosPeloIntervalo,
             $resolvido->amostra(ContagemDosPublicos::TAMANHO_DA_AMOSTRA),
             $pedido->importacao,
+            $pedido->publico,
         );
     }
 }
