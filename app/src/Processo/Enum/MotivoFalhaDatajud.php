@@ -57,7 +57,7 @@ enum MotivoFalhaDatajud: string
             self::Timeout =>
                 'O CNJ demorou a responder. Tente novamente em instantes.',
             self::LimiteExcedido =>
-                'Muitas consultas em sequência. Aguarde alguns segundos e tente novamente.',
+                'O serviço do CNJ está sobrecarregado no momento. Tente de novo em alguns minutos.',
             self::TribunalSemBasePublica => ($siglaTribunal !== null && $siglaTribunal !== '')
                 ? sprintf('O %s ainda não disponibiliza consulta pública pelo CNJ. Preencha os dados manualmente.', $siglaTribunal)
                 : 'Este tribunal ainda não disponibiliza consulta pública pelo CNJ. Preencha os dados manualmente.',
