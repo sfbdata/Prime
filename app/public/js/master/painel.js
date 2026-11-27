@@ -45,16 +45,19 @@
   const agora = () => dataHora(new Date().toISOString());
 
   const S = { aba: 'painel', sec: 'visao', grMet: 'pastas', grVis: 'mes', grMod: 'acum', grAce: false, grSel: null, mapaModo: 'br', mapaQuem: 'esc', mapaUsu: 'geral', mapaInd: 'env',
-    faltamOn: false, faltamCid: false, busca: '', cOrd: 'num', fSit: '', rBusca: '', rOrd: 'cons', menu: null, menuPos: null, audTipo: '', audConta: null, audPag: 1, audPor: 50, audBusca: '', audTermo: '', audSeq: 0, aviso: null, fx: null, fxMsg: null };
+    faltamOn: false, faltamCid: false, busca: '', cOrd: 'num', fSit: '', fPlano: '', rBusca: '', rOrd: 'cons', rPlano: '', rSit: '', menu: null, menuPos: null, audTipo: '', audConta: null, audPag: 1, audPor: 50, audBusca: '', audTermo: '', audSeq: 0, aviso: null, fx: null, fxMsg: null };
   let CONVENIO = {}; // sigla => estado do convênio (do painel Convênio OAB), mais novo que o das contas carregadas
   const D = { visao: null, contas: null, oab: null, audit: null, planos: null };
   const ERRO = {};
 
   const SECS = [['visao', T('master.js.secao.visao'), 'bi-speedometer2'], ['contas', T('master.js.secao.contas'), 'bi-buildings'], ['oab', T('master.js.secao.oab'), 'bi-person-vcard'],
-    ['arm', T('master.js.secao.arm'), 'bi-hdd-stack'], ['planos', T('master.js.secao.planos'), 'bi-sliders'], ['custos', T('master.js.secao.custos'), 'bi-cash-coin'],
+    // "Planos e armazenamento" (pedido do Farlei de 27/11): as antigas seções Armazenamento e Planos e limites numa só,
+    // sem perder nada. O endereço antigo (#sec=arm) abre a seção unificada (SEC_ANTIGA).
+    ['planos', T('master.js.secao.planos'), 'bi-sliders'], ['custos', T('master.js.secao.custos'), 'bi-cash-coin'],
     ['desemp', T('master.js.secao.desemp'), 'bi-activity'], ['audit', T('master.js.secao.audit'), 'bi-journal-check'], ['config', T('master.js.secao.config'), 'bi-gear']];
   // Seções de outras frentes (desenho 1.2): entram só quando o parcial delas existe e trouxe conteúdo.
   const EXTERNAS = {};
+  const SEC_ANTIGA = { arm: 'planos' };
   raiz.querySelectorAll('[data-sec-externa]').forEach(el => { if (el.innerHTML.trim()) EXTERNAS[el.dataset.secExterna] = el; });
   if (EXTERNAS.com) SECS.push(['com', T('master.js.secao.com'), 'bi-megaphone']);
   if (EXTERNAS.ind) SECS.push(['ind', T('master.js.secao.ind'), 'bi-share']);
@@ -74,6 +77,8 @@
   // A situação gravada vem do servidor em português (ATIVA, SUSPENSA, QUARENTENA): é dado, comparado aqui e no filtro.
   // O rótulo da tela sai do catálogo (SIT_ROTULO); situação desconhecida aparece como veio.
   const ATIVA = 'Ativa', SUSPENSA = 'Suspensa', QUARENTENA = 'Em quarentena';
+  // Opção "Pagantes" do mesmo select de situação: não é situação gravada, é quem paga o Contribua hoje (`c.pagante`).
+  const PAGANTES = 'pagantes';
   // Pedido de exclusão pendente (o Tenant segue ativo): a tabela mostra "Suspensa a pedido", não "Ativa" (desvio pelo
   // dado: o protótipo mostrava Ativa). Só o rótulo muda; filtro e menu seguem a situação gravada da conta.
   const A_PEDIDO = 'a_pedido';
@@ -101,7 +106,7 @@
       .catch(() => { ERRO[chave] = 'falhou'; if (deps(S.sec).includes(chave)) renderSecao(); });
   };
   // Armazenamento e Planos leem as contas (plano, limite, faixa) e o catálogo com as faixas de alerta.
-  const precisa = { visao: ['visao'], contas: ['contas'], arm: ['contas', 'planos'], planos: ['planos', 'contas'], oab: ['oab'], audit: ['audit'] };
+  const precisa = { visao: ['visao'], contas: ['contas'], planos: ['planos', 'contas'], oab: ['oab'], audit: ['audit'] };
   const deps = sec => precisa[sec] || [];
   // A trilha é paginada e filtrada no servidor: a URL leva página, "por página", ação e conta do estado (S.aud*).
   const urlDaTrilha = extra => URLS.auditoria + '?' + new URLSearchParams(Object.assign({ pagina: S.audPag, porPagina: S.audPor },
@@ -123,12 +128,17 @@
   // Vale no carregamento e no hashchange (itens "Exclusivo do Master" do menu do usuário com a página já aberta, e o
   // Voltar e o Avançar do navegador). Devolve true quando a seção mudou.
   const doHash = chave => (location.hash.match(new RegExp(chave + '=(\\w+)')) || [])[1];
+  // Filtro por plano de "Contas e escritórios" pelo endereço (#aba=painel&sec=contas&plano=<código>): o cartão de plano
+  // linka para a lista já filtrada. Endereço de Contas sem `plano` (o Voltar, um link sem filtro) limpa o filtro.
   function aplicarAncora() {
     const aba = doHash('aba');
     S.aba = aba && raiz.querySelector('[data-aba="' + aba + '"]') ? aba : 'painel';
     mostrarAba();
-    const sec = doHash('sec') || (location.hash.length > 1 ? null : 'visao');
-    if (!SECS.some(([k]) => k === sec) || sec === S.sec) return false;
+    const lida = doHash('sec') || (location.hash.length > 1 ? null : 'visao'), sec = SEC_ANTIGA[lida] || lida;
+    if (!SECS.some(([k]) => k === sec)) return false;
+    const plano = sec === 'contas' ? doHash('plano') || '' : undefined, mudouPlano = plano !== undefined && plano !== S.fPlano;
+    if (mudouPlano) S.fPlano = plano;
+    if (sec === S.sec && !mudouPlano) return false;
     S.sec = sec;
     return true;
   }
@@ -138,7 +148,7 @@
 
   // M5.16: a âncora canônica da tela aberta. pushState e replaceState não disparam o hashchange, então não há laço.
   // `trocar` (replaceState) é para quando o endereço já mudou por fora (link, Voltar) e só falta o formato canônico.
-  const ancoraAtual = () => '#aba=' + S.aba + (S.aba === 'painel' ? '&sec=' + S.sec : '');
+  const ancoraAtual = () => '#aba=' + S.aba + (S.aba === 'painel' ? '&sec=' + S.sec + (S.sec === 'contas' && S.fPlano ? '&plano=' + S.fPlano : '') : '');
   function escreverAncora(trocar) {
     const alvo = ancoraAtual();
     // Parâmetro a mais de outra tela (ex.: &bloco= da I.A.) fica até a aba ou a seção mudar.
@@ -168,8 +178,8 @@
     if (sec === 'visao') return montarVisao();
     if (sec === 'contas') return montarContas();
     if (sec === 'oab') return montarOab();
-    if (sec === 'arm') return montarArm();
-    if (sec === 'planos') return montarPlanos();
+    // L2-M5: as configurações do Contribua no fim da seção, depois dos planos e do armazenamento.
+    if (sec === 'planos') { montarPlanos(); montarArm(); return anexarConfiguracoesDoContribua(); }
     if (sec === 'audit') return montarAudit();
     if (sec === 'roab') { elSecao.innerHTML = '<div id="mp-roab"></div>'; return montarRevisaoOab(); }
     if (sec === 'blog') { elSecao.innerHTML = '<div id="mp-blog"></div>'; return montarArtigosDoBlog(); }
@@ -225,7 +235,7 @@
 
   // KPI ARMAZENAMENTO (desenho 1.2, linha 688; spec P9): cota = soma dos limites das contas com limite, cor e barra pela faixa.
   function kpiArmazenamento(k, a) {
-    const base = { rot: T('master.js.visao.kpi.armazenamento'), n: gb(k.bytes), ir: 'arm' };
+    const base = { rot: T('master.js.visao.kpi.armazenamento'), n: gb(k.bytes), ir: 'planos' };
     if (!a) return Object.assign(base, { desc: T('master.js.visao.kpi.arm_sem_dado'), cor: '#c08a12' });
     // Número, descrição e barra somam só as contas com limite, como no desenho (a cota é delas); o uso das contas
     // sem limite vem no sufixo. Sem nenhuma conta com limite, fica o texto antigo, com o uso total.
@@ -779,7 +789,10 @@
       + '<select class="mp-select mp-select-34" data-f-sit><option value="">' + T('master.js.contas.todas_situacoes') + '</option>'
       + [ATIVA, SUSPENSA].map(v => '<option value="' + v + '"' + (S.fSit === v ? ' selected' : '') + '>' + rotuloDaSituacao(v) + '</option>').join('')
       // C4b: as contas excluídas só aparecem nesta opção, com a data da purga.
-      + '<option value="' + QUARENTENA + '"' + (S.fSit === QUARENTENA ? ' selected' : '') + '>' + rotuloDaSituacao(QUARENTENA) + '</option></select>'
+      + '<option value="' + QUARENTENA + '"' + (S.fSit === QUARENTENA ? ' selected' : '') + '>' + rotuloDaSituacao(QUARENTENA) + '</option>'
+      + '<option value="' + PAGANTES + '"' + (S.fSit === PAGANTES ? ' selected' : '') + '>' + T('master.js.contas.pagantes') + '</option></select>'
+      + '<select class="mp-select mp-select-34" data-f-plano title="' + esc(T('master.js.contas.filtrar_plano')) + '" aria-label="' + esc(T('master.js.contas.filtrar_plano')) + '"><option value="">' + T('master.js.contas.todos_planos') + '</option>'
+      + planosDasContas().map(([cod, nome]) => '<option value="' + esc(cod) + '"' + (S.fPlano === cod ? ' selected' : '') + '>' + esc(nome) + '</option>').join('') + '</select>'
       + '<label class="mp-busca"><i class="bi bi-search"></i><input data-busca value="' + esc(S.busca) + '" placeholder="' + esc(T('master.js.contas.busca')) + '" aria-label="' + esc(T('master.js.contas.busca')) + '"></label></div>'
       + '<div id="mp-contas-aviso"></div><div class="mp-rolagem"><div class="mp-contas-grade"><div class="mp-contas-cab">'
       + ['conta', 'primario_plano', 'usuarios', 'pastas', 'docs', 'armazenamento', 'dias30', 'previsao', 'situacao'].map(k => '<div>' + T('master.js.contas.cab.' + k) + '</div>').join('') + '<div></div></div>'
@@ -816,6 +829,24 @@
     const [cor, texto] = v.modo === 'dif' ? ['#0a6fa0', T('master.js.convenio.rotulo_conta_dif', p)]
       : v.modo === 'sem' ? ['#a3232b', T('master.js.convenio.rotulo_conta_sem', p)] : ['#1e7b45', T('master.js.convenio.rotulo_conta', p)];
     return '<span class="mp-conta-conv" style="color:' + cor + '">' + esc(texto) + '</span>';
+  }
+
+  // Opções do filtro por plano: os planos que as contas têm hoje (`espaco.planoCodigo`), em ordem de nome. O plano vindo
+  // pelo endereço que nenhuma conta tem entra também (com o código como nome), para o select mostrar o filtro aplicado.
+  function planosDasContas(escolhido = S.fPlano) {
+    const planos = new Map(D.contas.contas.map(c => [c.espaco.planoCodigo, c.espaco.planoNome]));
+    if (escolhido && !planos.has(escolhido)) planos.set(escolhido, escolhido);
+    return [...planos].sort((a, b) => a[1].localeCompare(b[1], 'pt-BR'));
+  }
+
+  // Quem paga o Contribua (`c.pagante`, do ListarContasPagantesUseCase): plano, valor por mês e até quando vale, na mesma
+  // etiqueta do convênio. Em carência (cobrança recusada ou renovação atrasada) troca o texto e a cor.
+  function rotuloDoPagante(c) {
+    const p = c.pagante;
+    if (!p) return '';
+    const dados = { plano: p.plano, valor: 'R$ ' + window.BJFormato.numero(p.valorCentavos / 100, 2), data: dataBr(p.valeAte) };
+    const [cor, texto] = p.carencia ? ['#b02a37', T('master.js.contas.pagante_carencia', dados)] : ['#1e7b45', T('master.js.contas.pagante', dados)];
+    return '<span class="mp-conta-conv" data-mp-pagante style="color:' + cor + '">' + esc(texto) + '</span>';
   }
 
   // Pedidos de exclusão de conta (desenho 1.2, linhas 148 e 679), de /master/dados/contas (`pedidosExclusao`).
@@ -930,10 +961,10 @@
 
   function avisar(ok, msg) {
     if (window.BJMasterConf) window.BJMasterConf.fechar();
-    S.aviso = { ok, msg: msg || (ok ? T('master.js.contas.aviso_ok') : T('master.js.erro_acao')) };
+    S.aviso = { ok, msg: msg || (ok ? T('master.js.contas.aviso_ok') : T('master.js.erro_acao')), ranking: S.sec === 'planos' };
     renderSecs();
     if (S.sec === 'contas') { renderPedidosDeExclusao(); renderContasLista(); }
-    if (S.sec === 'arm') renderRanking();
+    if (S.sec === 'planos') renderRanking();
   }
 
   // Armazenamento da linha (desenho 1.2, linhas 166 e 733): "<uso> de <limite>", %, barra e "<faixa> · livre <livre>".
@@ -990,7 +1021,8 @@
 
   function renderContasLista() {
     const b = S.busca.toLowerCase().trim();
-    const contas = ordenarContas(D.contas.contas.filter(c => (S.fSit ? c.situacao === S.fSit : c.situacao !== QUARENTENA) && (!b || casaNaBusca(c, b))));
+    const naSituacao = c => S.fSit === PAGANTES ? !!c.pagante && c.situacao !== QUARENTENA : S.fSit ? c.situacao === S.fSit : c.situacao !== QUARENTENA;
+    const contas = ordenarContas(D.contas.contas.filter(c => naSituacao(c) && (!S.fPlano || c.espaco.planoCodigo === S.fPlano) && (!b || casaNaBusca(c, b))));
     document.getElementById('mp-contas-n').textContent = T('master.js.contas.contagem', { n: num(contas.length) });
     // Resultado de suspender/reativar: uma linha acima da tabela, até trocar de seção.
     document.getElementById('mp-contas-aviso').innerHTML = avisoHtml();
@@ -999,7 +1031,7 @@
       return '<div class="mp-conta mp-lin" data-conta="' + c.id + '">'
         + '<div class="mp-conta-nome mp-hv"><b title="' + esc(c.nome) + '">' + esc(c.nome) + '</b><span class="mp-conta-ids"><span class="mp-conta-nro" title="' + esc(T('master.js.contas.numero_dica')) + '">' + esc(T('master.js.contas.numero', { numero: c.numero })) + '</span>'
         + (c.codigo ? '<span class="mp-conta-codigo" title="' + esc(T('master.js.contas.codigo_dica')) + '">' + esc(c.codigo) + '</span>' : '') + '</span><span>' + esc(T('master.js.contas.desde', { desde: c.desde, acesso: acessoRelativo(c.ultimoAcesso) })) + '</span></div>'
-        + '<div class="mp-conta-prim mp-hv"><span>' + esc(c.titular || T('master.js.contas.titular_ausente')) + '</span><span>' + esc(c.espaco.planoNome) + '</span>' + rotuloDoConvenio(c) + '</div>'
+        + '<div class="mp-conta-prim mp-hv"><span>' + esc(c.titular || T('master.js.contas.titular_ausente')) + '</span><span>' + esc(c.espaco.planoNome) + '</span>' + rotuloDoConvenio(c) + rotuloDoPagante(c) + '</div>'
         + '<div class="mp-conta-usu mp-hv"><b>' + num(c.usuarios) + '</b><span> / ' + (c.espaco.limiteUsuarios === null ? T('master.js.sem_limite') : num(c.espaco.limiteUsuarios)) + '</span></div>'
         + '<div class="mp-conta-num mp-hv">' + num(c.pastas) + '</div><div class="mp-conta-num mp-hv">' + num(c.documentos) + '</div>'
         + celulaArm(c)
@@ -1012,7 +1044,7 @@
           : '<span style="--cor:' + cor + '"><i></i>' + esc(rotuloDaSituacao(sit)) + '</span>') + '</div>'
         + '<div class="mp-conta-acoes mp-hv"><button type="button" class="mp-btn-icone" data-menu="' + c.id + '" title="' + esc(T('master.js.contas.acoes')) + '" aria-label="' + esc(T('master.js.contas.acoes')) + '"><i class="bi bi-three-dots-vertical"></i></button></div>'
         + '</div>';
-    }).join('') : '<div class="mp-vazio-linha">' + T('master.js.contas.nenhuma') + '</div>';
+    }).join('') : '<div class="mp-vazio-linha">' + T(S.fSit === PAGANTES && !b && !S.fPlano ? 'master.js.contas.nenhuma_pagante' : 'master.js.contas.nenhuma') + '</div>';
     renderMenuDaConta();
   }
 
@@ -1090,7 +1122,8 @@
 
   function montarArm() {
     if (!S.fx) S.fx = fxDoServidor();
-    elSecao.innerHTML = faixaDeDuplicidade() + '<div class="mp-card mp-faixas"><b class="mp-faixas-tit">' + T('master.js.arm.faixas_titulo') + ' <span>' + T('master.js.arm.configuraveis') + '</span></b>'
+    // Na seção "Planos e armazenamento", depois dos cartões de plano (montarPlanos), com o rótulo próprio.
+    elSecao.insertAdjacentHTML('beforeend', '<div class="mp-planos-rotulo">' + T('master.js.arm.rotulo') + '</div>' + faixaDeDuplicidade() + '<div class="mp-card mp-faixas"><b class="mp-faixas-tit">' + T('master.js.arm.faixas_titulo') + ' <span>' + T('master.js.arm.configuraveis') + '</span></b>'
       + '<div class="mp-faixas-chips">' + CHIPS.map(([k, rot, cor, bg]) => '<label class="mp-faixa-chip" style="--cor:' + cor + ';--bg:' + bg + '"><span>' + T('master.js.arm.a_partir', { faixa: rot }) + '</span>'
         + '<input type="number" min="1" max="100" step="1" data-faixa="' + k + '" value="' + esc(S.fx[k]) + '" aria-label="' + esc(T('master.js.arm.a_partir', { faixa: rot })) + '">%</label>').join('') + '</div>'
       + '<span class="mp-faixas-nota">' + T('master.js.arm.faixas_nota') + '</span>'
@@ -1099,9 +1132,14 @@
       + '<div class="mp-faixas-rodape"><span class="mp-faixas-msg" data-faixas-msg></span><button type="button" class="mp-btn-azul" data-faixas-salvar>' + T('master.js.arm.salvar_faixas') + '</button></div></div>'
       + '<div class="mp-card mp-ranking"><div class="mp-cab-simples"><b>' + T('master.js.arm.ranking') + '</b>'
       + '<select class="mp-select mp-select-34" data-r-ord title="' + esc(T('master.js.arm.ordenar')) + '" aria-label="' + esc(T('master.js.arm.ordenar')) + '">' + ORDENS_RANKING.map(o => '<option value="' + o[0] + '"' + (S.rOrd === o[0] ? ' selected' : '') + '>' + o[1]() + '</option>').join('') + '</select>'
+      // Filtros das colunas Plano e Situação (a faixa de consumo da linha; "sem limite" é a conta sem cota).
+      + '<select class="mp-select mp-select-34" data-r-plano title="' + esc(T('master.js.contas.filtrar_plano')) + '" aria-label="' + esc(T('master.js.contas.filtrar_plano')) + '"><option value="">' + T('master.js.contas.todos_planos') + '</option>'
+      + planosDasContas(S.rPlano).map(([cod, nome]) => '<option value="' + esc(cod) + '"' + (S.rPlano === cod ? ' selected' : '') + '>' + esc(nome) + '</option>').join('') + '</select>'
+      + '<select class="mp-select mp-select-34" data-r-sit title="' + esc(T('master.js.arm.filtrar_situacao')) + '" aria-label="' + esc(T('master.js.arm.filtrar_situacao')) + '"><option value="">' + T('master.js.contas.todas_situacoes') + '</option>'
+      + SITUACOES_RANKING.map(([k, rot]) => '<option value="' + k + '"' + (S.rSit === k ? ' selected' : '') + '>' + esc(rot()) + '</option>').join('') + '</select>'
       + '<label class="mp-busca"><i class="bi bi-search"></i><input data-r-busca value="' + esc(S.rBusca) + '" placeholder="' + esc(T('master.js.contas.busca')) + '" aria-label="' + esc(T('master.js.contas.busca')) + '"></label></div>'
       + '<div id="mp-arm-aviso"></div><div id="mp-ranking-lista"></div></div>'
-      + '<span class="mp-nota">' + T('master.js.arm.nota') + '</span>';
+      + '<span class="mp-nota">' + T('master.js.arm.nota') + '</span>');
     atualizarFaixas();
     renderRanking();
   }
@@ -1119,6 +1157,9 @@
   // no fim; na mesma faixa, por nome). Empate final: pelo nº da conta, como nas Contas.
   const consumo = c => (c.espaco.percentual === null ? -1 : c.bytes / (c.espaco.limiteGb * GB));
   const gravidade = c => (c.espaco.percentual === null ? -1 : ORDEM_FAIXA[c.espaco.faixa] || 0);
+  // Situação da linha do ranking: a faixa de consumo, ou "sem limite" quando a conta não tem cota.
+  const situacaoNoRanking = c => (c.espaco.percentual === null ? 'sem' : FAIXA[c.espaco.faixa] ? c.espaco.faixa : 'livre');
+  const SITUACOES_RANKING = Object.keys(ORDEM_FAIXA).map(k => [k, () => FAIXA[k][0]]).concat([['sem', () => T('master.js.sem_limite')]]);
   const ORDENS_RANKING = [['cons', () => T('master.js.arm.ordem_cons')], ['nome', () => T('master.js.arm.ordem_nome')], ['sit', () => T('master.js.arm.ordem_sit')]];
   const COMPARA_RANKING = {
     cons: (a, b) => consumo(b) - consumo(a) || b.bytes - a.bytes,
@@ -1131,14 +1172,15 @@
   function renderRanking() {
     const el = document.getElementById('mp-ranking-lista'); if (!el) return;
     const b = S.rBusca.toLowerCase().trim();
-    const contas = D.contas.contas.filter(c => c.situacao !== QUARENTENA && (!b || casaNaBusca(c, b)))
+    const contas = D.contas.contas.filter(c => c.situacao !== QUARENTENA && (!S.rPlano || c.espaco.planoCodigo === S.rPlano) && (!S.rSit || situacaoNoRanking(c) === S.rSit) && (!b || casaNaBusca(c, b)))
       .sort((x, y) => (COMPARA_RANKING[S.rOrd] || COMPARA_RANKING.cons)(x, y) || x.id - y.id);
-    document.getElementById('mp-arm-aviso').innerHTML = avisoHtml();
+    // O resultado de "Editar limite" aparece aqui, junto da lista; o dos cartões de plano, no topo da seção (montarPlanos).
+    document.getElementById('mp-arm-aviso').innerHTML = S.aviso && S.aviso.ranking ? avisoHtml() : '';
     el.innerHTML = contas.length ? contas.map(c => {
       const sem = c.espaco.percentual === null, [rotulo, cor] = sem ? [T('master.js.sem_limite'), '#4a6373'] : faixaDe(c), p = sem ? 0 : c.bytes / (c.espaco.limiteGb * GB) * 100;
-      return '<div class="mp-rank mp-lin" style="--cor:' + cor + '"><span class="mp-hv" title="' + esc(c.nome) + '">' + esc(c.nome) + '</span><div class="mp-barra-8"><div style="--w:' + Math.min(100, p) + '%"></div></div>'
+      return '<div class="mp-rank mp-lin" style="--cor:' + cor + '"><span class="mp-hv" title="' + esc(c.nome) + '">' + esc(c.nome) + '</span><span class="mp-rank-plano mp-hv" title="' + esc(c.espaco.planoNome) + '">' + esc(c.espaco.planoNome) + '</span><div class="mp-barra-8"><div style="--w:' + Math.min(100, p) + '%"></div></div>'
         + '<b class="mp-hv">' + (sem ? '' : c.espaco.percentual + '%') + '</b><span class="mp-hv">' + esc(rotulo) + '</span><button type="button" class="mp-rank-btn" data-lim-arm="' + c.id + '">' + T('master.js.arm.editar_limite') + '</button></div>';
-    }).join('') : '<div class="mp-vazio-linha">' + T(b ? 'master.js.contas.nenhuma' : 'master.js.arm.nenhuma') + '</div>';
+    }).join('') : '<div class="mp-vazio-linha">' + T(b || S.rPlano || S.rSit ? 'master.js.contas.nenhuma' : 'master.js.arm.nenhuma') + '</div>';
   }
 
   function salvarFaixas() {
@@ -1151,7 +1193,7 @@
     postar(URLS.faixas, corpo, j => {
       // O catálogo, as faixas e as contas (a faixa de cada uma muda) recarregam; a trilha também.
       S.fxEnviando = false; S.fx = null; S.fxMsg = { ok: true, texto: j.mensagem }; D.planos = null; D.contas = null; ERRO.planos = null; ERRO.contas = null; recarregarVisaoETrilha();
-      if (S.sec === 'arm') renderSecao();
+      if (S.sec === 'planos') renderSecao();
     }, erro => { S.fxEnviando = false; S.fxMsg = { ok: false, texto: erro }; atualizarFaixas(); });
   }
 
@@ -1184,15 +1226,17 @@
         + '<span class="mp-plano-preco">' + esc(reais(p.precoCentavos)) + '<span> ' + T('master.js.planos.por_mes') + '</span></span>'
         + '<span class="mp-plano-cap">' + T('master.js.planos.cap', { gb: num(p.cotaGb) }) + '</span>'
         + '<span class="mp-plano-recursos"><i class="bi bi-check2"></i> ' + T('master.js.planos.recursos') + '</span>'
-        + '<span class="mp-plano-contas">' + T('master.js.planos.contas', { n: num(p.escritorios), acima: num(acima) }) + '</span></div>';
+        // O número de contas em destaque abre "Contas e escritórios" filtrada pelo plano (pedido do Farlei de 27/11).
+        + '<span class="mp-plano-contas"><button type="button" class="mp-plano-contas-link" data-ir-plano="' + esc(p.codigo) + '" title="' + esc(T('master.js.planos.contas_dica')) + '">'
+        + T('master.js.planos.contas_n', { n: num(p.escritorios) }) + '</button> · ' + T('master.js.planos.contas_acima', { acima: num(acima) }) + '</span></div>';
     }).join('') + '</div>'
       + '<span class="mp-nota">' + T(convenio ? 'master.js.planos.nota' : 'master.js.planos.nota_sem_convenio') + '</span>';
-    document.getElementById('mp-planos-aviso').innerHTML = avisoHtml();
-    anexarConfiguracoesDoContribua();
+    document.getElementById('mp-planos-aviso').innerHTML = S.aviso && S.aviso.ranking ? '' : avisoHtml();
   }
 
   // L2-M5 (pedido do Farlei, lote 2): o pagamento por cartão, os pedidos de espaço e a integração bancária que ficavam
-  // na página Contribua vêm prontos no HTML (master/_contribua_config.html.twig) e entram no fim desta seção. O mesmo nó
+  // na página Contribua vêm prontos no HTML (master/_contribua_config.html.twig) e entram no fim da seção "Planos e
+  // armazenamento" (renderSecao, depois do montarArm). O mesmo nó
   // é recolocado a cada montagem: o innerHTML da seção o tira da página, mas a referência (elContribua) guarda o mesmo
   // nó, então os ouvintes e o que foi digitado continuam.
   function anexarConfiguracoesDoContribua() {
@@ -1305,7 +1349,7 @@
       // KPI, selo e trilha recarregam; os cartões de plano ("perto ou acima da franquia") leem a conta já trocada.
       recarregarVisaoETrilha();
       fecharModal();
-      S.aviso = { ok: true, msg: j.mensagem };
+      S.aviso = { ok: true, msg: j.mensagem, ranking: S.sec === 'planos' };
       renderSecs(); renderSecao();
     }, falhaNoModal);
   }
@@ -1493,6 +1537,8 @@
   elSecao.addEventListener('click', e => {
     const t = e.target;
     const kpi = t.closest('[data-ir]'); if (kpi) return irPara(kpi.dataset.ir);
+    // Cartão de plano: "Contas e escritórios" só com as contas do plano (sem outro filtro, para o número bater).
+    const doPlano = t.closest('[data-ir-plano]'); if (doPlano) { S.fPlano = doPlano.dataset.irPlano; S.fSit = ''; S.busca = ''; return irPara('contas'); }
     const ped = t.closest('[data-pedido-op]'); if (ped) { e.stopPropagation(); fecharMenuDaConta(); return pedirAcaoNaConta(ped.dataset.pedidoOp, +ped.dataset.contaId); }
     if (t.closest('[data-parar]') && !t.closest('[data-op]')) return e.stopPropagation();
     const vis = t.closest('[data-gr-vis]'); if (vis) { S.grVis = vis.dataset.grVis; return renderGrafico(); }
@@ -1512,7 +1558,7 @@
     const op = t.closest('[data-op]');
     if (op) {
       e.stopPropagation(); fecharMenuDaConta();
-      if (op.dataset.op === 'estat') return irPara('arm');
+      if (op.dataset.op === 'estat') return irPara('planos');
       if (op.dataset.op === 'limArm' || op.dataset.op === 'limUsu') return abrirLimite(op.dataset.op === 'limArm' ? 'arm' : 'usu', +op.dataset.contaId);
       if (CONF_CONTA[op.dataset.op]) return pedirAcaoNaConta(op.dataset.op, +op.dataset.contaId);
       S.audConta = +op.dataset.contaId; S.audTipo = ''; S.audBusca = ''; S.audTermo = ''; S.audPag = 1; D.audit = null; ERRO.audit = null; return irPara('audit');
@@ -1534,9 +1580,13 @@
   elSecao.addEventListener('change', e => {
     const t = e.target;
     if (t.matches('[data-gr-met]')) { S.grMet = t.value; return renderGrafico(); }
+    // O endereço acompanha o filtro (replaceState direto: o escreverAncora mantém parâmetro a mais e não limparia o &plano=).
+    if (t.matches('[data-f-plano]')) { S.fPlano = t.value; fecharMenuDaConta(); if (location.hash !== ancoraAtual()) history.replaceState(null, '', ancoraAtual()); return renderContasLista(); }
     if (t.matches('[data-c-ord]')) { S.cOrd = t.value; fecharMenuDaConta(); return renderContasLista(); }
     if (t.matches('[data-f-sit]')) { S.fSit = t.value; fecharMenuDaConta(); return renderContasLista(); }
     if (t.matches('[data-r-ord]')) { S.rOrd = t.value; return renderRanking(); }
+    if (t.matches('[data-r-plano]')) { S.rPlano = t.value; return renderRanking(); }
+    if (t.matches('[data-r-sit]')) { S.rSit = t.value; return renderRanking(); }
     if (t.matches('[data-aud-tipo]')) { S.audTipo = t.value; return recarregarTrilha(); }
     if (t.matches('[data-aud-por]')) { S.audPor = +t.value; return recarregarTrilha(); }
     if (t.matches('[data-faixa-bloqueio]')) { S.fx.bloqueioAtivo = t.checked; S.fxMsg = null; return atualizarFaixas(); }

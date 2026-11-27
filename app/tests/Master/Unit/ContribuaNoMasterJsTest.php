@@ -35,13 +35,14 @@ final class ContribuaNoMasterJsTest extends TestCase
         self::assertStringNotContainsString('innerHTML', $js);
     }
 
-    #[TestDox('O painel.js põe o bloco no fim da seção dos planos, movendo o mesmo nó a cada montagem')]
+    #[TestDox('O painel.js põe o bloco no fim da seção "Planos e armazenamento" (depois dos planos e do armazenamento), movendo o mesmo nó a cada montagem')]
     public function testAnexaNaSecaoDosPlanos(): void
     {
         $js = self::js('master/painel.js');
 
         self::assertStringContainsString("const elContribua = raiz.querySelector('[data-mp-contribua]');", $js);
-        self::assertStringContainsString("    document.getElementById('mp-planos-aviso').innerHTML = avisoHtml();\n    anexarConfiguracoesDoContribua();\n  }", $js);
+        self::assertStringContainsString("if (sec === 'planos') { montarPlanos(); montarArm(); return anexarConfiguracoesDoContribua(); }", $js);
+        self::assertSame(2, substr_count($js, 'anexarConfiguracoesDoContribua('), 'só a declaração e a chamada no fim da seção');
         self::assertStringContainsString("    elSecao.appendChild(elContribua);\n    elContribua.hidden = false;", $js);
     }
 

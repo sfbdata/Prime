@@ -281,7 +281,9 @@
 .mp-rank > span:first-child { flex: 1; min-width: 0; font-size: 13.5px; font-weight: bold; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .mp-rank > .mp-barra-8 { flex: none; width: 240px; }
 .mp-rank > b { width: 50px; text-align: right; font-size: 13px; color: var(--cor); }
-.mp-rank > span:nth-of-type(2) { width: 100px; font-size: 12px; color: var(--cor); }
+.mp-rank > span:nth-of-type(3) { width: 100px; font-size: 12px; color: var(--cor); }
+/* Coluna Plano do ranking (Planos e armazenamento, 27/11). */
+.mp-rank > .mp-rank-plano { flex: none; width: 110px; font-size: 12px; color: #4a6373; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 /* "Editar limite" do ranking (desenho 1.2, linha 201); o mesmo botão abre "Editar plano" nos cartões (convenção). */
 .mp .mp-rank-btn { height: 30px; border: none; border-radius: 4px; background: #e2e9ee; color: #243845; font-size: 12.5px; font-weight: bold; padding: 0 12px; cursor: pointer; }
 .mp .mp-rank-btn:hover { background: #0a6fa0; color: #fff; }
@@ -321,6 +323,9 @@
 .mp-plano-preco > span { font-size: 12px; color: #5b7383; font-weight: normal; }
 .mp-plano-cap { font-size: 13px; color: #34505f; }
 .mp-plano-contas { font-size: 12.5px; color: #5b7383; }
+/* O número de contas do plano em destaque, com link para Contas e escritórios filtrada pelo plano (27/11). */
+.mp .mp-plano-contas-link { border: none; background: none; padding: 0; font: inherit; font-size: 14px; font-weight: bold; color: var(--cor); cursor: pointer; }
+.mp .mp-plano-contas-link:hover, .mp .mp-plano-contas-link:focus-visible { text-decoration: underline; }
 .mp .mp-plano-editar { margin-left: auto; order: 9; display: inline-flex; align-items: center; gap: 6px; }
 .mp-plano-recursos { font-size: 12.5px; color: #1e7b45; }
 .mp-plano-recursos + .mp-plano-contas { border-top: 1px solid #eef2f5; padding-top: 7px; margin-top: 2px; }

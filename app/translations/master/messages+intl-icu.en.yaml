@@ -485,8 +485,7 @@ master:
             visao: Overview
             contas: Accounts and firms
             oab: Users and OABs
-            arm: Storage
-            planos: Plans and limits
+            planos: Plans and storage
             custos: Costs and infrastructure
             desemp: Performance
             audit: Security and audit
@@ -764,6 +763,12 @@ master:
             purga: deleted from
             acoes: Account actions
             nenhuma: No account found.
+            pagantes: Paying
+            todos_planos: All plans
+            filtrar_plano: Filter by plan
+            nenhuma_pagante: No paying account yet.
+            pagante: '{plano} · {valor}/month · valid until {data}'
+            pagante_carencia: 'In grace period · {plano} · {valor}/month · paid until {data}'
             arm_nao_medido: usage not measured
             arm_quarentena: account in quarantine
             arm_em_uso: '{gb} in use'
@@ -827,6 +832,8 @@ master:
             nota: 'Normalized count: number without dots and leading zeros + state in uppercase. A registration only counts as confirmed after validation.'
             revisao: Open OAB Review
         arm:
+            rotulo: STORAGE
+            filtrar_situacao: Filter by status
             faixas_titulo: Usage alert thresholds
             configuraveis: (configurable)
             a_partir: '{faixa} from'
@@ -865,7 +872,9 @@ master:
             por_mes: / month
             cap: '<b>{gb} GB</b> of storage · unlimited users'
             recursos: All features enabled
-            contas: '{n} account(s) · {acima} near or above the allowance'
+            contas_n: '{n} account(s)'
+            contas_acima: '{acima} near or above the allowance'
+            contas_dica: See these accounts in Accounts and firms
             ajustar: Adjust
             ajustar_dica: Adjust price and space
             editar: Edit plan

@@ -63,8 +63,11 @@ final class PainelRankingDoArmazenamentoJsTest extends TestCase
         self::assertStringContainsString('<input data-r-busca value="\' + esc(S.rBusca) + \'"', $js);
         self::assertStringContainsString("if (e.target.matches('[data-r-busca]')) { S.rBusca = e.target.value; renderRanking(); }", $js);
         self::assertStringContainsString('const b = S.rBusca.toLowerCase().trim();', $js, 'a busca ignora maiúsculas e espaços nas pontas, como nas Contas');
-        self::assertStringContainsString("D.contas.contas.filter(c => c.situacao !== QUARENTENA && (!b || casaNaBusca(c, b)))", $js);
-        self::assertStringContainsString("T(b ? 'master.js.contas.nenhuma' : 'master.js.arm.nenhuma')", $js, 'busca sem resultado diz "Nenhuma conta encontrada."');
+        self::assertStringContainsString("D.contas.contas.filter(c => c.situacao !== QUARENTENA && (!S.rPlano || c.espaco.planoCodigo === S.rPlano) && (!S.rSit || situacaoNoRanking(c) === S.rSit) && (!b || casaNaBusca(c, b)))", $js, 'filtros das colunas Plano e Situação (27/11) junto da busca');
+        self::assertStringContainsString("T(b || S.rPlano || S.rSit ? 'master.js.contas.nenhuma' : 'master.js.arm.nenhuma')", $js, 'busca ou filtro sem resultado diz "Nenhuma conta encontrada."');
+        self::assertStringContainsString('<span class="mp-rank-plano mp-hv" title="', $js, 'coluna Plano, logo depois do nome');
+        self::assertStringContainsString("if (t.matches('[data-r-plano]')) { S.rPlano = t.value; return renderRanking(); }", $js);
+        self::assertStringContainsString("if (t.matches('[data-r-sit]')) { S.rSit = t.value; return renderRanking(); }", $js);
 
         $css = self::css();
         self::assertStringContainsString('.mp-ranking > .mp-cab-simples { padding: 13px 20px; display: flex; align-items: center; gap: 12px; flex-wrap: wrap; }', $css);

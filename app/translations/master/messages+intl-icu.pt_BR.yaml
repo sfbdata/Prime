@@ -519,8 +519,7 @@ master:
             visao: Visão geral
             contas: Contas e escritórios
             oab: Usuários e OABs
-            arm: Armazenamento
-            planos: Planos e limites
+            planos: Planos e armazenamento
             custos: Custos e infraestrutura
             desemp: Desempenho
             audit: Segurança e auditoria
@@ -801,6 +800,13 @@ master:
             purga: apagada a partir de
             acoes: Ações da conta
             nenhuma: Nenhuma conta encontrada.
+            # Filtro "Pagantes" (assinatura do Contribua paga e valendo) e a etiqueta de quem paga, na linha da conta.
+            pagantes: Pagantes
+            todos_planos: Todos os planos
+            filtrar_plano: Filtrar por plano
+            nenhuma_pagante: Nenhuma conta pagante ainda.
+            pagante: '{plano} · {valor}/mês · vale até {data}'
+            pagante_carencia: 'Em carência · {plano} · {valor}/mês · pago até {data}'
             arm_nao_medido: uso não medido
             arm_quarentena: conta em quarentena
             arm_em_uso: '{gb} em uso'
@@ -865,6 +871,8 @@ master:
             nota: 'Contagem normalizada: número sem pontos e zeros à esquerda + UF em maiúsculas. Inscrição só conta como confirmada após validação.'
             revisao: Abrir a Revisão de OAB
         arm:
+            rotulo: ARMAZENAMENTO
+            filtrar_situacao: Filtrar por situação
             faixas_titulo: Faixas de alerta de consumo
             configuraveis: (configuráveis)
             a_partir: '{faixa} a partir de'
@@ -903,7 +911,9 @@ master:
             por_mes: / mês
             cap: '<b>{gb} GB</b> de armazenamento · usuários ilimitados'
             recursos: Todos os recursos liberados
-            contas: '{n} conta(s) · {acima} perto ou acima da franquia'
+            contas_n: '{n} conta(s)'
+            contas_acima: '{acima} perto ou acima da franquia'
+            contas_dica: Ver estas contas em Contas e escritórios
             ajustar: Ajustar
             ajustar_dica: Ajustar preço e espaço
             editar: Editar plano
