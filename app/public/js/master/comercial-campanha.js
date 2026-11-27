@@ -393,6 +393,7 @@
         atualizarPrevia();
         return true;
       }).catch(e => {
+        if (numero !== pedidoDaContagem) return false; // resposta de um arquivo/pedido que já não é o atual
         if (publico === 'csv') { csvTexto = ''; csvNome = ''; }
         contagem = null;
         desenharPublicos();
@@ -534,10 +535,36 @@
       }).then(ok => { if (ok) sair(); });
     }
 
+    /* A1/B4: outro arquivo zera a contagem do anterior (resumo, filtro e cartão) antes de contar de novo; a resposta
+       atrasada de uma contagem antiga é descartada por `pedidoDaContagem`. Lê em UTF-8; se vier caractere inválido
+       (U+FFFD, CSV salvo pelo Excel em Windows-1252), relê como windows-1252. */
+    let leituraDoCsv = 0;
     function lerCsv(arquivo) {
+      // Dois arquivos trocados depressa: só o último lido vale (a leitura do anterior pode terminar depois).
+      const leitura = ++leituraDoCsv;
+      const aplicar = texto => { if (leitura === leituraDoCsv) aplicarCsv(texto, arquivo.name); };
       const leitor = new FileReader();
-      leitor.onload = () => { csvTexto = String(leitor.result); csvNome = arquivo.name; contar(); };
-      leitor.readAsText(arquivo);
+      leitor.onload = () => {
+        const texto = String(leitor.result);
+        if (texto.indexOf('\uFFFD') !== -1 && leitor.encodingUsado !== 'windows-1252') {
+          const novo = new FileReader();
+          novo.encodingUsado = 'windows-1252';
+          novo.onload = () => aplicar(String(novo.result));
+          novo.readAsText(arquivo, 'windows-1252');
+          return;
+        }
+        aplicar(texto);
+      };
+      leitor.readAsText(arquivo, 'UTF-8');
+    }
+
+    function aplicarCsv(texto, nome) {
+      pedidoDaContagem++;
+      contagem = null;
+      csvTexto = texto;
+      csvNome = nome;
+      desenharPublicos();
+      contar();
     }
 
     function desenharGrade() {

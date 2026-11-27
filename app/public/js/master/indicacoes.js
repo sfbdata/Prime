@@ -100,8 +100,9 @@
     estado = d;
     elResumo.textContent = T('master.js.indicacoes.resumo', { enviadas: num(d.enviadas), hoje: num(d.hoje), conta: num(d.viraramConta) });
     const pausado = !!d.limites.pausadoParaTodos;
-    elChave.setAttribute('aria-checked', pausado ? 'true' : 'false');
-    elChave.setAttribute('aria-label', pausado ? T('master.js.indicacoes.liberar_todos') : T('master.js.indicacoes.pausar_todos'));
+    // B1: ligada = convites liberados (o servidor continua guardando "pausado para todos"; só a leitura da chave inverte).
+    elChave.setAttribute('aria-checked', pausado ? 'false' : 'true');
+    elChave.setAttribute('aria-label', T('master.js.indicacoes.liberados'));
     elChaveTxt.textContent = pausado ? T('master.js.indicacoes.pausados') : T('master.js.indicacoes.liberados');
     campos.forEach(c => { c.value = String(d.limites[c.dataset.miLimite]); });
     elCaixa.removeAttribute('aria-busy');

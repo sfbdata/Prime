@@ -48,6 +48,6 @@ final class ObterMinhasIndicacoesUseCase
     public static function mensagemSugerida(string $nome, string $link): string
     {
         return 'Olá! Aqui é ' . ($nome !== '' ? $nome : 'um colega') . '. Uso o BlueJus no meu escritório para controlar prazos, '
-            . 'processos e documentos em um só lugar, e é grátis para começar. Crie a sua conta pelo meu convite: ' . $link;
+            . 'processos e documentos em um só lugar. Crie a sua conta pelo meu convite: ' . $link;
     }
 }

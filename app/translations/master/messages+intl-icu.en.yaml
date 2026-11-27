@@ -206,6 +206,7 @@ master:
             sem_destino: There is no one left to reply to for this message.
     indicacoes:
         titulo: BlueJus Referrals
+        chave_ajuda: When on, people can send invitations. When off, invitations are paused for everyone and nobody can invite until you turn it back on.
         pausar_todos: Pause invitations for everyone
         liberados: Invitations enabled
         limite_dia: DAILY LIMIT (PER PERSON)

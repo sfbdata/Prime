@@ -359,15 +359,15 @@ final class CampanhaDoMasterControllerTest extends JusPrimeWebTestCase
         self::assertSame(0, $this->contar('comercial_campanha'));
     }
 
-    #[TestDox('Enviar teste: o teto é de 10 por hora por Master e cada endereço conta 1; passou do que resta, recusa inteira')]
+    #[TestDox('Enviar teste: o teto é de 30 por hora por Master e cada endereço conta 1; passou do que resta, recusa inteira')]
     public function testTetoPorHora(): void
     {
         $client = $this->clienteMaster();
-        $this->testesDoMaster(8, '-10 minutes');
+        $this->testesDoMaster(28, '-10 minutes');
         $this->testesDoMaster(5, '-2 hours');
         $this->postar($client, '/master/comercial/teste', $this->convite() + ['para' => 'a@x.com, b@x.com, c@x.com']);
         self::assertResponseStatusCodeSame(422);
-        self::assertSame('Limite de 10 testes por hora: restam 2.', $this->json($client)['erro']);
+        self::assertSame('Limite de 30 testes por hora: restam 2.', $this->json($client)['erro']);
         self::assertSame(0, $this->contar('comercial_envio'));
 
         $this->postar($client, '/master/comercial/teste', $this->convite() + ['para' => 'a@x.com, b@x.com']);
@@ -375,7 +375,7 @@ final class CampanhaDoMasterControllerTest extends JusPrimeWebTestCase
 
         $this->postar($client, '/master/comercial/teste', $this->convite());
         self::assertResponseStatusCodeSame(422);
-        self::assertSame('Limite de 10 testes por hora atingido.', $this->json($client)['erro']);
+        self::assertSame('Limite de 30 testes por hora atingido.', $this->json($client)['erro']);
         self::assertSame(2, $this->contar('comercial_envio'));
     }
 

@@ -769,7 +769,7 @@ Branch `comercial-2`, **empilhada sobre `comercial-1a` (#99)**, declarada. Desen
 **Enviar teste (a C4, "só ao Master", caiu em 23/11/2026: pedido do Farlei M5 item 8, decisão do Coordenador):** monta como a campanha e manda a de 1 a 5 endereços do campo "Enviar para" (vírgula, ponto e vírgula ou espaço; sem endereço, só ao Master logado), `tipo = lista`, lista `comercial_campanhas`,
 origem `teste_campanha` (fora do prefixo `campanha:` que o Monitoramento agrupa), `layout` conforme o modo. Isento do
 teto diário: a lista `EnviarEmailHandler::ORIGENS_DO_CICLO_DA_CONTA` vira `ORIGENS_ISENTAS_DO_TETO_DIARIO` (ciclo da
-conta mais `teste_campanha`) e a §3.6 é emendada; sujeito ao limite por minuto; teto de 10 testes por hora por Master, em que cada endereço conta 1 (soma do `total` das linhas de teste dele; pedido que passa do que resta é recusado inteiro). Descadastro é por endereço: o teste sai para os outros. Cada clique grava uma linha `teste` com os destinos ligados aos envios e `camp_teste` `{total}` na trilha. Mensagens: "Teste enviado para A, B." e "Não enviado para C (descadastrado da lista)."; todos descadastrados: recusa; endereço: "Informe de 1 a 5 endereços." / "Endereço inválido: X."; teto: "Limite de 10
+conta mais `teste_campanha`) e a §3.6 é emendada; sujeito ao limite por minuto; teto de 30 testes por hora (10 até 27/11) por Master, em que cada endereço conta 1 (soma do `total` das linhas de teste dele; pedido que passa do que resta é recusado inteiro). Descadastro é por endereço: o teste sai para os outros. Cada clique grava uma linha `teste` com os destinos ligados aos envios e `camp_teste` `{total}` na trilha. Mensagens: "Teste enviado para A, B." e "Não enviado para C (descadastrado da lista)."; todos descadastrados: recusa; endereço: "Informe de 1 a 5 endereços." / "Endereço inválido: X."; teto: "Limite de 30
 testes por hora atingido." (R13, R14)
 
 **`comercial_campanha` (2b):** `id`, `chave_idempotencia` (UNIQUE), `nome` (= assunto, como o dc), cópia congelada do
@@ -883,7 +883,7 @@ recorrente pula, +1 mês no fim do mês, comando de encerrar).
 11. O botão `espaco` aponta para `/contribua#espaco` (comprar espaço fica no Contribua); o dc aponta para a Lista do
     Expediente (revisão da 2a).
 12. Para a 2b (revisão da 2a): `{nome}` vindo do CSV entra no `style`/`href` do HTML importado só escapado para HTML;
-    atinge só o e-mail da própria pessoa, mas a 2b sanitiza o nome do CSV (sem `;:()<>"'`). O teto de 10 testes por
+    atinge só o e-mail da própria pessoa, mas a 2b sanitiza o nome do CSV (sem `;:()<>"'`). O teto de 30 testes por
     hora não é atômico (só o Master chega lá; o limite por minuto vale).
 13. A recorrente com até 24 h de atraso executa uma vez; com mais, pula (mesma tolerância da agendada).
 14. Desempenho: a contagem e a execução consultam o descadastro um endereço por vez; consulta em lote com a 0d é follow-up.
@@ -972,7 +972,7 @@ comemorativas. Com migration: F3e, F3g e, provavelmente, F3i e F4 (números pedi
 
 ### Com o dono (não implementar a parte em dúvida; o controle fica desabilitado ou de fora)
 - Teste para qualquer endereço (dc L668, "Encaminhar para um e-mail"): resolvido em 23/11/2026 (pedido do Farlei M5 item 8;
-  a C4 caiu). Está implementado: até 5 endereços, 10 testes por hora por Master.
+  a C4 caiu). Está implementado: até 5 endereços, 30 testes por hora (10 até 27/11) por Master.
 - Imagem no modo simples: o dc grava como `data:`, que o Gmail bloqueia; hospedar no servidor exige decidir tamanho,
   retenção e URL pública.
 - "Limpar lista" dos Descadastrados (reativação em massa, risco LGPD).

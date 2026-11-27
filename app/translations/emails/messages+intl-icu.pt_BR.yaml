@@ -84,7 +84,7 @@ emails:
         convite:
             ola: Olá!
             # <b>{quem indica}</b> indicou o BlueJus para você...
-            indicou: indicou o BlueJus para você. O BlueJus reúne prazos, processos e documentos do escritório em um só lugar, e é grátis para começar.
+            indicou: indicou o BlueJus para você. O BlueJus reúne prazos, processos e documentos do escritório em um só lugar.
             crie: Crie a sua conta pelo convite. Você abre o seu próprio escritório no BlueJus.
             criar_conta: Criar minha conta
             nao_funcionar: 'Se o botão não funcionar, copie e cole este endereço no navegador:'

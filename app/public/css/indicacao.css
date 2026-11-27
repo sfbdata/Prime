@@ -35,6 +35,7 @@
 .ind-btn-sec:hover { background: #f2f8fc; }
 
 .ind-aviso { font-size: 13px; color: #1e7b45; }
+.ind-aviso-alerta { color: #8a4b00; background: #fff4e0; border: 1px solid #f0c987; border-radius: 4px; padding: 6px 10px; }
 
 .ind-titulo-lista { font-size: 12px; font-weight: 700; letter-spacing: .5px; color: #5f7684; margin-top: 4px; }
 .ind-vazio { font-size: 12.5px; color: #9aabb7; }

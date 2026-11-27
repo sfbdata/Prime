@@ -190,7 +190,7 @@ comercial:
         fechar: Fechar
         enviar_para: ENVIAR PARA
         separe: (separe vários por vírgula)
-        dica: 'Até 5 endereços, separados por vírgula. Limite de 10 testes por hora (cada endereço conta 1).'
+        dica: 'Até 5 endereços, separados por vírgula. Limite de 30 testes por hora (cada endereço conta 1).'
         nota: O teste chega com [TESTE] no assunto e não entra nas métricas da campanha.
         cancelar: Cancelar
         enviar: Enviar teste

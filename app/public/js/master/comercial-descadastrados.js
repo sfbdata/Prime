@@ -165,6 +165,10 @@
     }, 250);
   });
 
+  // A3: o resumo (campanhas, na fila, base) muda com o envio e com a lista recarregada.
+  document.addEventListener('mc:campanha-confirmada', carregarResumo);
+  document.addEventListener('mc:relatorio-recarregar', carregarResumo);
+
   const painel = document.getElementById('master-painel');
   // O N do botão "Descadastrados" vem do resumo, nas duas seções que têm a Central (com e, no modo venda, ind).
   if (painel) painel.addEventListener('mp:secao', e => { if (e.detail && ['com', 'ind'].includes(e.detail.sec) && !resumoCarregado) carregarResumo(); });

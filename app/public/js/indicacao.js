@@ -27,13 +27,25 @@
       });
   }
 
-  function aviso(texto) {
+  /* A5: a recusa (422) sai como alerta, com cor e ícone (não só cor); o sucesso continua no tom verde. */
+  function aviso(texto, alerta) {
     const el = $('[data-ind-aviso]');
-    el.textContent = texto || '';
+    el.textContent = '';
+    el.classList.toggle('ind-aviso-alerta', !!(texto && alerta));
+    el.setAttribute('role', alerta ? 'alert' : 'status');
+    el.setAttribute('aria-live', alerta ? 'assertive' : 'polite');
+    if (texto && alerta) {
+      const ic = document.createElement('i');
+      ic.className = 'bi bi-exclamation-triangle-fill';
+      ic.setAttribute('aria-hidden', 'true');
+      el.appendChild(ic);
+      el.appendChild(document.createTextNode(' '));
+    }
+    el.appendChild(document.createTextNode(texto || ''));
     el.hidden = !texto;
   }
 
-  function desenhar(d) {
+  function desenhar(d, manterCampos) {
     estado = d;
     const falta = d.pendencias.length > 0;
     $('[data-ind-pendencias]').hidden = !falta;
@@ -43,7 +55,7 @@
     $('[data-ind-envio]').hidden = falta || !!d.trava;
     $('[data-ind-nome]').textContent = d.nome;
     $('[data-ind-link]').textContent = d.link;
-    $('#indNome').value = ''; $('#indEmail').value = '';
+    if (!manterCampos) { $('#indNome').value = ''; $('#indEmail').value = ''; }
     $('#indMensagem').value = d.mensagem;
     $('[data-ind-total]').textContent = String(d.total);
     const n = d.contasCriadas;
@@ -51,12 +63,12 @@
       : BJ_T.t(n === 1 ? 'publicas.js.indicacao.conta_uma' : 'publicas.js.indicacao.conta_varias', { n: String(n) });
   }
 
-  function carregar(textoDoAviso) {
+  function carregar(textoDoAviso, recusa) {
     return pedir(raiz().dataset.urlJanela).then(r => {
       if (r.status !== 200) throw new Error('janela');
-      desenhar(r.dados);
+      desenhar(r.dados, !!recusa); // só o sucesso limpa Nome e E-mail
       // Trava ou cadastro incompleto já aparecem na própria caixa: o aviso não repete.
-      aviso(r.dados.pendencias.length || r.dados.trava ? '' : textoDoAviso);
+      aviso(r.dados.pendencias.length || r.dados.trava ? '' : textoDoAviso, !!recusa);
     });
   }
 
@@ -66,7 +78,7 @@
     raiz().querySelectorAll('.ind-acoes > button').forEach(b => { b.disabled = true; });
     return pedir(url, { method: 'POST', body: JSON.stringify(corpo || {}) })
       .then(r => {
-        if (r.status === 200 || r.status === 422) return carregar(r.dados.mensagem);
+        if (r.status === 200 || r.status === 422) return carregar(r.dados.mensagem, r.status === 422);
         aviso(r.dados.mensagem || '');
       })
       .catch(falhou)
