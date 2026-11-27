@@ -41,8 +41,8 @@ use Psr\Clock\ClockInterface;
 final class EnviarTesteDaCampanhaUseCase
 {
     public const ORIGEM = 'teste_campanha';
-    public const TETO_POR_HORA = 10;
-    public const TETO_ATINGIDO = 'Limite de 10 testes por hora atingido.';
+    public const TETO_POR_HORA = 30;
+    public const TETO_ATINGIDO = 'Limite de 30 testes por hora atingido.';
     public const DESCADASTRADO = 'O endereço está descadastrado da lista de campanhas; o teste não foi enviado.';
     public const DESCADASTRADOS = 'Os endereços estão descadastrados da lista de campanhas; o teste não foi enviado.';
     public const NAO_REGISTRADO = 'O teste foi enviado, mas não entrou no Relatório. Não precisa enviar de novo.';

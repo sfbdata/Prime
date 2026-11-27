@@ -229,6 +229,7 @@ master:
     # próprias do IndicacoesDoMasterController. A do validador e a do UseCase (domínio Indicacao) ficam fora.
     indicacoes:
         titulo: Indicações do BlueJus
+        chave_ajuda: Ligada, as pessoas podem enviar convites. Desligada, os convites ficam pausados para todos e ninguém consegue indicar até você ligar de novo.
         pausar_todos: Pausar os convites para todos
         liberados: Convites liberados
         limite_dia: LIMITE POR DIA (POR PESSOA)

@@ -96,8 +96,8 @@ final class MontadorDeEmail
         $html = $this->twig->render(self::TEMPLATE, [
             'assunto' => $m->assunto,
             'selo' => $m->selo,
-            'titulo' => $m->titulo === null ? null : str_replace('{nome}', $nome, $m->titulo),
-            'corpo' => str_replace('{nome}', htmlspecialchars($nome, ENT_QUOTES), $corpo),
+            'titulo' => $m->titulo === null ? null : self::trocarNome($m->titulo, $nome),
+            'corpo' => self::trocarNome($corpo, htmlspecialchars($nome, ENT_QUOTES)),
             'layout' => $m->layout->value,
             'logo' => $this->base() . self::LOGO,
             'tipo' => $m->tipo->value,
@@ -161,11 +161,39 @@ final class MontadorDeEmail
         }
     }
 
-    private static function primeiroNome(?string $nome): string
+    /** O primeiro nome já normalizado; sem nome, "colega" (minúsculo: `trocarNome()` põe a maiúscula quando abre a frase). */
+    public static function primeiroNome(?string $nome): string
     {
         $partes = preg_split('/\s+/', trim((string) $nome)) ?: [];
 
-        return ($partes[0] ?? '') !== '' ? $partes[0] : 'colega';
+        return ($partes[0] ?? '') !== '' ? self::normalizarNome($partes[0]) : 'colega';
+    }
+
+    /**
+     * Primeira letra maiúscula e o resto minúsculo, por palavra ("FARLEI" vira "Farlei"). Com mais de uma palavra, as
+     * partículas (de, da, do, das, dos, e) ficam minúsculas, menos se abrirem o nome.
+     */
+    public static function normalizarNome(string $nome): string
+    {
+        $palavras = preg_split('/\s+/', trim($nome), -1, PREG_SPLIT_NO_EMPTY) ?: [];
+        $saida = [];
+        foreach ($palavras as $i => $palavra) {
+            $minuscula = mb_strtolower($palavra);
+            $saida[] = $i > 0 && \in_array($minuscula, ['de', 'da', 'do', 'das', 'dos', 'e'], true)
+                ? $minuscula
+                : mb_convert_case($minuscula, MB_CASE_TITLE);
+        }
+
+        return implode(' ', $saida);
+    }
+
+    /** Troca `{nome}`; quando ele abre o texto ou uma frase, a primeira letra sai maiúscula ("Colega, veja..."). */
+    public static function trocarNome(string $texto, string $nome): string
+    {
+        $abre = static fn (array $m): string => $m[1] . mb_strtoupper(mb_substr($nome, 0, 1)) . mb_substr($nome, 1);
+        $texto = (string) preg_replace_callback('/(^\s*|[.!?]\s+|>\s*)\{nome\}/u', $abre, $texto);
+
+        return str_replace('{nome}', $nome, $texto);
     }
 
     /** A versão texto, gerada do HTML: quebras nos blocos, sem marcação, sem linhas em branco repetidas. */

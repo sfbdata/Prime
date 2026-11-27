@@ -21,9 +21,10 @@
             <i class="bi bi-share mi-cabeca-ic" aria-hidden="true"></i>
             <b class="mi-cabeca-titulo" id="mi-titulo">{{ 'master.indicacoes.titulo'|trans }}</b>
             <span class="mi-cabeca-sub" data-mi-resumo></span>
-            <button type="button" class="mi-chave" role="switch" aria-checked="false" aria-label="{{ 'master.indicacoes.pausar_todos'|trans }}" data-mi-pausa disabled>
+            <button type="button" class="mi-chave" role="switch" aria-checked="false" aria-label="{{ 'master.indicacoes.liberados'|trans }}" aria-describedby="mi-chave-ajuda" data-mi-pausa disabled>
                 <span class="mi-chave-trilho" aria-hidden="true"><span class="mi-chave-bola"></span></span><span data-mi-pausa-txt>{{ 'master.indicacoes.liberados'|trans }}</span>
             </button>
+            <p class="mi-chave-ajuda" id="mi-chave-ajuda">{{ 'master.indicacoes.chave_ajuda'|trans }}</p>
         </div>
         <div class="mi-quem" data-mi-quem>
             <div class="mi-quem-barra">

@@ -103,7 +103,7 @@ final class ParcialDoComercialTest extends KernelTestCase
         $para = $tst->filter('.mc-tst-corpo > input[data-mc-tst-para]');
         self::assertNull($para->attr('readonly'), 'M5.17: o campo aceita até 5 endereços');
         self::assertNotNull($para->attr('aria-describedby'));
-        self::assertStringContainsString('Até 5 endereços, separados por vírgula. Limite de 10 testes por hora', $tst->filter('.mc-tst-corpo')->text());
+        self::assertStringContainsString('Até 5 endereços, separados por vírgula. Limite de 30 testes por hora', $tst->filter('.mc-tst-corpo')->text());
         self::assertStringNotContainsString('ainda não está disponível', $tst->filter('.mc-tst-corpo')->text());
         self::assertStringContainsString('O teste chega com [TESTE] no assunto e não entra nas métricas da campanha.', $tst->filter('.mc-tst-corpo')->text());
         self::assertSame(['Cancelar', 'Enviar teste'], array_map('trim', $tst->filter('.mc-tst-rodape > button')->each(static fn (Crawler $b): string => $b->text())));

@@ -161,6 +161,24 @@
         : '<div class="mc-rl-vazio"><i class="bi bi-inbox" aria-hidden="true"></i>' + esc(BJ_T.t('comercial_relatorio.js.vazia')) + '</div>';
       lista.removeAttribute('aria-busy');
       desenharSelecao();
+      agendarAtualizacao(campanhas);
+    }
+
+    /* A4: enquanto houver campanha na fila ou enviando, a lista se atualiza sozinha a cada 15 s (sem o aria-busy nem aviso
+       de erro); sem nenhuma, a consulta para. Cada desenho reagenda ou encerra o ciclo. */
+    let temporizador = null;
+    function agendarAtualizacao(campanhas) {
+      clearTimeout(temporizador);
+      temporizador = null;
+      if (!campanhas.some(c => c.estado === 'na_fila' || c.estado === 'enviando')) return;
+      temporizador = setTimeout(() => {
+        temporizador = null;
+        if (!raiz.isConnected) return;
+        const q = new URLSearchParams({ aba: estado.aba, q: estado.q, p: String(estado.p) });
+        pedir(raiz.dataset.urlLista + '?' + q.toString())
+          .then(desenhar)
+          .catch(() => agendarAtualizacao([{ estado: 'na_fila' }]));
+      }, 15000);
     }
 
     function carregar() {
@@ -417,7 +435,7 @@
         desenharSelecao();
         return;
       }
-      if (e.target.closest('[data-mc-rl-fechar]')) { fechar(); return; }
+      if (e.target.closest('[data-mc-rl-fechar]')) { fechar(); carregar(); return; } // A4: o estado pode ter mudado com o detalhe aberto
       if (e.target.closest('[data-mc-rl-duplicar]')) { duplicar(); return; }
       if (e.target.closest('[data-mc-rl-cancelar]')) { cancelar(); return; }
       if (e.target.closest('[data-mc-rl-reenviar]')) { reenviar(estado.aberta, false); return; }
@@ -436,7 +454,7 @@
     });
 
     raiz.addEventListener('keydown', e => {
-      if (e.key === 'Escape' && !ver.hidden && menu.hidden) fechar();
+      if (e.key === 'Escape' && !ver.hidden && menu.hidden) { fechar(); carregar(); }
     });
 
     raiz.addEventListener('contextmenu', e => {

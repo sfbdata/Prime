@@ -88,7 +88,7 @@ final class ModelosDeAutomacao
             'urlDaSugestao' => $this->urls->generate('contribua_index', [], UrlGeneratorInterface::ABSOLUTE_URL) . '#sug',
             'urlDoVideo' => self::VIDEO_DA_PRIMEIRA_PASTA,
         ]);
-        $titulo = str_replace(['{nome}', '{limite}'], [$primeiroNome, $variaveis['limite'] ?? ''], $titulo);
+        $titulo = str_replace('{limite}', $variaveis['limite'] ?? '', MontadorDeEmail::trocarNome($titulo, $primeiroNome));
 
         return new ModeloMontado($assunto, $selo, $titulo, $corpo);
     }
@@ -117,15 +117,12 @@ final class ModelosDeAutomacao
         // `{limite}` (o percentual do aviso de 90%) vale no assunto, no título e no texto; `{nome}` no corpo o montador troca.
         $limitar = static fn (string $texto): string => str_replace('{limite}', $limite, $texto);
 
-        return new ModeloMontado($limitar($m->assunto), $m->selo, $limitar(str_replace('{nome}', $primeiroNome, $m->titulo)), $limitar($corpo), $layout);
+        return new ModeloMontado($limitar($m->assunto), $m->selo, $limitar(MontadorDeEmail::trocarNome($m->titulo, $primeiroNome)), $limitar($corpo), $layout);
     }
 
     public static function primeiroNome(?string $nomeCompleto): string
     {
-        $partes = preg_split('/\s+/', trim((string) $nomeCompleto)) ?: [];
-        $primeiro = $partes[0] ?? '';
-
-        return $primeiro === '' ? 'colega' : mb_convert_case($primeiro, MB_CASE_TITLE);
+        return MontadorDeEmail::primeiroNome($nomeCompleto);
     }
 
     private static function chaveDoModelo(Automacao $automacao): string

@@ -40,7 +40,7 @@ final class ObterMinhasIndicacoesUseCaseTest extends TestCase
         self::assertSame('Ana Souza Lima', $saida->nome);
         self::assertSame('https://bluejus.test/i/ABCD2345', $saida->linkCurto);
         self::assertSame(
-            'Olá! Aqui é Ana Souza Lima. Uso o BlueJus no meu escritório para controlar prazos, processos e documentos em um só lugar, e é grátis para começar. Crie a sua conta pelo meu convite: https://bluejus.test/i/ABCD2345',
+            'Olá! Aqui é Ana Souza Lima. Uso o BlueJus no meu escritório para controlar prazos, processos e documentos em um só lugar. Crie a sua conta pelo meu convite: https://bluejus.test/i/ABCD2345',
             $saida->mensagem,
         );
         self::assertSame([], $saida->pendencias);

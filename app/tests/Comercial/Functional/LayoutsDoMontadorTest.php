@@ -59,7 +59,7 @@ final class LayoutsDoMontadorTest extends KernelTestCase
         self::assertStringNotContainsString('<script', $html);
         self::assertStringNotContainsString('onclick', $html);
         self::assertStringNotContainsString('javascript:', $html);
-        self::assertStringContainsString('<p>Oi, &lt;b&gt;Eva&lt;/b&gt;</p>', $html, 'o nome entra escapado, depois da sanitização');
+        self::assertStringContainsString('<p>Oi, &lt;B&gt;Eva&lt;/B&gt;</p>', $html, 'o nome entra escapado, depois da sanitização');
         $rodape = (new Crawler($html))->filter('table[data-rodape-cru] td.rodape-legal');
         self::assertSame(1, $rodape->count());
         self::assertStringContainsString('CNPJ 66.803.163/0001-10', $rodape->text());

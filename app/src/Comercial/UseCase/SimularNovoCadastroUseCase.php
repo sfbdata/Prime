@@ -16,7 +16,7 @@ use Psr\Clock\ClockInterface;
 final class SimularNovoCadastroUseCase
 {
     public const DESTINATARIO = 'novo.cliente@exemplo.com';
-    public const MENSAGEM = 'Simulação: um novo cadastro disparou a confirmação e, após validar, as boas-vindas.';
+    public const MENSAGEM = 'Isto é só uma simulação: nenhum e-mail foi enviado. Os dois avisos de um novo cadastro (confirmação e boas-vindas) foram apenas registrados em Últimos disparos.';
 
     public function __construct(
         private readonly RegistroDeEnvioExterno $registro,

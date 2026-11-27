@@ -84,7 +84,7 @@ emails:
         convite:
             ola: Hello!
             # <b>{referrer}</b> referred BlueJus to you...
-            indicou: referred BlueJus to you. BlueJus brings the firm deadlines, cases and documents together in one place, and it is free to start.
+            indicou: referred BlueJus to you. BlueJus brings the firm deadlines, cases and documents together in one place.
             crie: Create your account through the invitation. You open your own firm on BlueJus.
             criar_conta: Create my account
             nao_funcionar: 'If the button does not work, copy and paste this address into your browser:'
