@@ -319,6 +319,7 @@
             + '<span class="bjaVao"></span>'
             + (s.filtro === 'lixeira'
                 ? (url.restaurar ? '<button type="button" class="bjaB" data-bja-acao="restaurar-lote"><i class="bi bi-arrow-counterclockwise"></i>' + esc(T('restaurar')) + '</button>' : '')
+                + (url.excluir ? '<button type="button" class="bjaB bjaR" data-bja-acao="excluir-def-lote"><i class="bi bi-trash3"></i>' + esc(T('ctx.excluir_def')) + '</button>' : '')
                 : (url.lixeira ? '<button type="button" class="bjaB bjaR" data-bja-acao="excluir-lote"><i class="bi bi-trash3"></i>' + esc(T('excluir')) + '</button>' : ''))
             + '<button type="button" class="bjaB bjaN" data-bja-acao="limpar-sel">' + esc(T('limpar_selecao')) + '</button>';
 
@@ -1447,6 +1448,7 @@
             case 'exc-nao': s.exc = null; desenharCamadas(); break;
             case 'exc-sim': if (s.exc.mod) { excluirModelo(s.exc.mod.id); } else if (s.exc.def) { apagar(s.exc.ids); } else { moverParaLixeira(s.exc.ids); } break;
             case 'restaurar-lote': restaurar(selDe(vis())); break;
+            case 'excluir-def-lote': pedirExclusao(selDe(vis()), true); break;
             case 'excluir-lote': pedirExclusao(selDe(vis()), false); break;
             case 'limpar-sel': s.sel = {}; desenharDocs(); break;
             case 'voltar-lista': irParaLista(); break;
