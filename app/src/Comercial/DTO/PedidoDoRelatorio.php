@@ -20,7 +20,7 @@ final class PedidoDoRelatorio
         public readonly string $aba = 'env',
         public readonly string $busca = '',
         public readonly int $pagina = 1,
-        /** Nula: as das duas Centrais (o conector de I.A., que lê o Comercial inteiro, como antes). */
+        /** Nula: as das duas Centrais (o conector de I.A., que lê o Comercial inteiro, como antes). Pela tela (`deQuery`), sempre a da seção; sem `secao`, a Comercial. */
         public readonly ?CentralDaCampanha $central = null,
     ) {
     }
