@@ -384,7 +384,6 @@ services:
     App\Shared\EspelhoRemoto\Replica\ReplicadorDeArquivos:
         arguments:
             $local: '@App\Shared\Armazenamento\ArmazenamentoLocal'
-    App\Shared\EspelhoRemoto\Reconciliacao\PausaEntreTentativas: '@App\Shared\EspelhoRemoto\Reconciliacao\PausaReal'
     App\Shared\EspelhoRemoto\Reconciliacao\ReconciliadorDoEspelho:
         arguments:
             $local: '@App\Shared\Armazenamento\ArmazenamentoLocal'
