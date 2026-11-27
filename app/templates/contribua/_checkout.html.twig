@@ -14,7 +14,9 @@
      data-url-ampliacao="{{ path('contribua_ampliacao_automatica') }}"
      data-chave-publica="{{ pg.chavePublica }}"
      data-pagador-nome="{{ pg.pagadorNome }}"
-     data-pagador-email="{{ pg.email }}">
+     data-pagador-email="{{ pg.email }}"
+     {# Volta do gateway: o pacote pago, para o resumo da esquerda não abrir vazio no "Pagamento enviado" #}
+     {% if retorno %}data-retorno-plano="{{ retorno.plano }}" data-retorno-gb="{{ retorno.gbDoPlano }}" data-retorno-mul="{{ retorno.multiplicador }}" data-retorno-centavos="{{ retorno.centavos }}" data-retorno-preco="{{ retorno.preco }}"{% endif %}>
     <div class="co-fundo" data-fechar-checkout></div>
     <div class="co-centro">
         <div class="co-janela" role="dialog" aria-label="Pagamento seguro">
