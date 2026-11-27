@@ -1084,6 +1084,10 @@ master:
             codigo: CÓDIGO DO CONVITE
             gerar_outro: Gerar outro código
             gerar_outro_nota: O código anterior deixa de valer para novos usos.
+            campo_codigo: CÓDIGO (OPCIONAL)
+            campo_codigo_novo: NOVO CÓDIGO (OPCIONAL)
+            codigo_dica: Deixe em branco para sortear
+            codigo_nota: De 4 a 16 letras e números. Maiúsculas e minúsculas valem igual.
             nota_oab: Neste convênio a abrangência e o benefício não mudam aqui. Para o valor de cada estado, use "Por estado".
             desligar_titulo: Desligar convênio
             desligar_data: 'O BENEFÍCIO TERMINA EM'

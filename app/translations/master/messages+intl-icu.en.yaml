@@ -1040,6 +1040,10 @@ master:
             codigo: INVITE CODE
             gerar_outro: Generate another code
             gerar_outro_nota: The previous code stops working for new uses.
+            campo_codigo: CODE (OPTIONAL)
+            campo_codigo_novo: NEW CODE (OPTIONAL)
+            codigo_dica: Leave blank to draw one
+            codigo_nota: 4 to 16 letters and numbers. Upper and lower case count the same.
             nota_oab: In this agreement the coverage and the benefit do not change here. For the value of each state, use "By state".
             desligar_titulo: Turn off agreement
             desligar_data: 'THE BENEFIT ENDS ON'
