@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Comercial\Service;
 
 use App\Comercial\Campanha\SanitizadorDeHtmlDeEmail;
+use App\Comercial\DTO\MensagemDaCampanha;
 use App\Comercial\Envio\LayoutDoEmail;
 use App\Comercial\Envio\MensagemDeEmail;
 use App\Comercial\Envio\TipoDeEnvio;
@@ -161,12 +162,15 @@ final class MontadorDeEmail
         }
     }
 
-    /** O primeiro nome já normalizado; sem nome, "colega" (minúsculo: `trocarNome()` põe a maiúscula quando abre a frase). */
-    public static function primeiroNome(?string $nome): string
+    /**
+     * O primeiro nome já normalizado; sem nome, o "texto quando não houver nome" do modelo (pedido do Farlei M1, A6),
+     * "colega" por padrão (minúsculo: `trocarNome()` põe a maiúscula quando abre a frase).
+     */
+    public static function primeiroNome(?string $nome, string $semNome = MensagemDaCampanha::SEM_NOME_PADRAO): string
     {
         $partes = preg_split('/\s+/', trim((string) $nome)) ?: [];
 
-        return ($partes[0] ?? '') !== '' ? self::normalizarNome($partes[0]) : 'colega';
+        return ($partes[0] ?? '') !== '' ? self::normalizarNome($partes[0]) : MensagemDaCampanha::semNomeValido($semNome);
     }
 
     /**

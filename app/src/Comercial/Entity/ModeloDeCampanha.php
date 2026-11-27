@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Comercial\Entity;
 
+use App\Comercial\DTO\MensagemDaCampanha;
 use App\Comercial\Repository\ModeloDeCampanhaRepository;
 use App\Entity\Auth\User;
 use Doctrine\ORM\Mapping as ORM;
@@ -55,6 +56,13 @@ class ModeloDeCampanha
     #[ORM\Column(type: 'text')]
     private string $conteudo;
 
+    /**
+     * O que entra no lugar de `{nome}` quando o destinatário não tem nome (pedido do Farlei M1, A6). Vale como foi digitado
+     * no meio da frase; no começo de uma frase sai com a primeira letra maiúscula ({@see \App\Comercial\Service\MontadorDeEmail::trocarNome()}).
+     */
+    #[ORM\Column(name: 'texto_sem_nome', length: 40, options: ['default' => MensagemDaCampanha::SEM_NOME_PADRAO])]
+    private string $textoSemNome = MensagemDaCampanha::SEM_NOME_PADRAO;
+
     #[ORM\Column(name: 'fixo_chave', length: 40, nullable: true)]
     private ?string $fixoChave = null;
 
@@ -105,12 +113,13 @@ class ModeloDeCampanha
         return preg_match(self::PADRAO_DO_ICONE, $icone) === 1 ? $icone : self::ICONE_PADRAO;
     }
 
-    public function preencher(string $assunto, string $selo, string $titulo, string $conteudo, \DateTimeImmutable $agora): void
+    public function preencher(string $assunto, string $selo, string $titulo, string $conteudo, \DateTimeImmutable $agora, string $textoSemNome = MensagemDaCampanha::SEM_NOME_PADRAO): void
     {
         $this->assunto = mb_substr($assunto, 0, 255);
         $this->selo = mb_substr($selo, 0, 120);
         $this->titulo = mb_substr($titulo, 0, 255);
         $this->conteudo = $conteudo;
+        $this->textoSemNome = MensagemDaCampanha::semNomeValido($textoSemNome);
         $this->alteradoEm = $agora;
     }
 
@@ -162,6 +171,11 @@ class ModeloDeCampanha
     public function getConteudo(): string
     {
         return $this->conteudo;
+    }
+
+    public function getTextoSemNome(): string
+    {
+        return $this->textoSemNome;
     }
 
     public function getCriadoEm(): \DateTimeImmutable

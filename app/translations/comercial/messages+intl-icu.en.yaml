@@ -45,6 +45,9 @@ comercial:
         nome_previa_dica: "replaces '{nome}' here only"
         nome_previa_exemplo: Dr. Ana
         titulo_email: TITLE
+        sem_nome: WITHOUT A NAME, USE
+        sem_nome_dica: "goes into '{nome}' when there is no name"
+        sem_nome_exemplo: colleague
         nome_modelo: TEMPLATE NAME
         texto: TEXT
         texto_dica: "use '{nome}' for the first name"
@@ -266,6 +269,11 @@ comercial:
         csv_recusadas_cabecalho: 'line;content;reason'
         csv_recusadas_arquivo: 'rejected-lines-{nome}'
         confirmar_modelo: 'Template: {nome}'
+        base_legal_rotulo: Legal basis for sending (LGPD)
+        base_legal_vazio: Choose the legal basis
+        base_legal_consentimento: 'Consent: the person agreed to receive'
+        base_legal_execucao_de_contrato: 'Performance of contract: the person has a BlueJus account'
+        base_legal_legitimo_interesse: 'Legitimate interest: professional contact, with one-click unsubscribe'
         confirmar_publico: 'Audience: {origem}'
         confirmar_amostra: 'First addresses: {lista}'
         confirmar_amostra_mais: 'and {n} more'

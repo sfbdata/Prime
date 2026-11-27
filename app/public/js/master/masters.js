@@ -22,6 +22,10 @@
   let palavraExigida = null;
   const campo = conf ? qs('[data-mp-conf-campo]', conf) : null;
   const entrada = conf ? qs('[data-mp-conf-palavra]', conf) : null;
+  // Escolha obrigatória (op.escolha = { rotulo, vazio, opcoes: [[valor, texto]] }): o botão só libera com uma opção escolhida.
+  const escolha = conf ? qs('[data-mp-conf-escolha]', conf) : null;
+  const selecao = conf ? qs('[data-mp-conf-escolha-select]', conf) : null;
+  let escolhaExigida = false;
 
   // Pergunta em andamento por perguntar(): fechar sem confirmar (Cancelar, Esc, clique fora) resolve com false.
   let respostaPendente = null;
@@ -50,12 +54,23 @@
       entrada.value = '';
       qs('[data-mp-conf-rotulo]', conf).textContent = palavraExigida ? T('master.js.masters.digite', { palavra: palavraExigida }) : '';
     }
-    // A ação do painel não recarrega a página: destrava para a próxima confirmação. Com palavra, só destrava quando bater.
-    ok.disabled = !!palavraExigida;
+    escolhaExigida = !!(op.escolha && escolha && selecao);
+    if (escolha && selecao) {
+      escolha.hidden = !escolhaExigida;
+      selecao.replaceChildren();
+      if (escolhaExigida) {
+        qs('[data-mp-conf-escolha-rotulo]', conf).textContent = op.escolha.rotulo || '';
+        selecao.append(new Option(op.escolha.vazio || '', ''));
+        (op.escolha.opcoes || []).forEach(([valor, texto]) => selecao.append(new Option(texto, valor)));
+      }
+    }
+    // A ação do painel não recarrega a página: destrava para a próxima confirmação. Com palavra, só destrava quando bater;
+    // com escolha, só quando houver uma opção escolhida.
+    ok.disabled = !!palavraExigida || escolhaExigida;
     conf.style.setProperty('--cor', op.cor);
     aoConfirmar = op.aoConfirmar;
     conf.hidden = false;
-    (palavraExigida && entrada ? entrada : ok).focus();
+    (palavraExigida && entrada ? entrada : (escolhaExigida ? selecao : ok)).focus();
   };
 
   if (conf) {
@@ -66,18 +81,21 @@
       const acao = aoConfirmar; if (!acao) return;
       const digitado = entrada ? entrada.value.trim() : '';
       if (palavraExigida && digitado !== palavraExigida) return;
-      aoConfirmar = null; e.currentTarget.disabled = true; acao(digitado);
+      if (escolhaExigida && !selecao.value) return;
+      aoConfirmar = null; e.currentTarget.disabled = true; acao(escolhaExigida ? selecao.value : digitado);
     });
     if (entrada) entrada.addEventListener('input', () => { if (palavraExigida) qs('[data-mp-conf-ok]', conf).disabled = entrada.value.trim() !== palavraExigida; });
+    if (selecao) selecao.addEventListener('change', () => { if (escolhaExigida) qs('[data-mp-conf-ok]', conf).disabled = !selecao.value; });
     document.addEventListener('keydown', e => { if (e.key === 'Escape' && !conf.hidden) fecharConf(); });
   }
 
   // Confirmação compartilhada com o painel.js (menu da conta: suspender, reativar e excluir com a palavra EXCLUIR).
-  // Versão com Promise (campanhas de e-mail): resolve true só se confirmar; Cancelar, Esc e clique fora resolvem false.
+  // Versão com Promise (campanhas de e-mail): resolve true só se confirmar (com `escolha`, o valor escolhido); Cancelar, Esc
+  // e clique fora resolvem false.
   const perguntar = op => new Promise(resolver => {
     if (!conf) { resolver(false); return; }
     abrirConf(Object.assign({ icone: 'bi-question-circle', cor: COR_ROXO }, op, {
-      aoConfirmar: () => { respostaPendente = null; fecharConf(); resolver(true); },
+      aoConfirmar: valor => { respostaPendente = null; fecharConf(); resolver(op.escolha ? valor : true); },
     }));
     respostaPendente = resolver;
   });

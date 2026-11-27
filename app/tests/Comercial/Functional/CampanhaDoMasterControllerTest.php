@@ -266,6 +266,23 @@ final class CampanhaDoMasterControllerTest extends JusPrimeWebTestCase
         self::assertSame(1, $this->contar('comercial_envio'), 'só uma pessoa');
     }
 
+    #[TestDox('M1: o teste da seção Indicações fica com a Central de lá (D5); sem nome, o {nome} vira o texto do modelo, com maiúscula no começo da frase (A6)')]
+    public function testTesteDaVendaComTextoSemNome(): void
+    {
+        $client = $this->clienteMaster();
+        $modelo = ['titulo' => '{nome}, conheça o BlueJus', 'corpo' => 'Olá, {nome}!', 'semNome' => 'doutor(a)'] + $this->convite();
+        $this->postar($client, '/master/comercial/teste', $modelo + ['secao' => 'ind', 'para' => 'sem.nome@exemplo.com']);
+
+        self::assertResponseIsSuccessful();
+        $conteudo = $this->conexao()->fetchAssociative('SELECT c.titulo, c.corpo_html FROM comercial_envio_conteudo c');
+        self::assertSame('Doutor(a), conheça o BlueJus', $conteudo['titulo']);
+        self::assertStringContainsString('Olá, doutor(a)!', (string) $conteudo['corpo_html']);
+        self::assertSame(
+            ['central' => 'indicacoes', 'texto_sem_nome' => 'doutor(a)', 'base_legal' => null],
+            $this->conexao()->fetchAssociative("SELECT central, texto_sem_nome, base_legal FROM comercial_campanha WHERE estado = 'teste'"),
+        );
+    }
+
     #[TestDox('C1: a prévia e o teste levam no rodapé a frase da origem do público; sem público (ou com um inventado), a frase de lista de antes')]
     public function testRodapeDaOrigemNaPreviaENoTeste(): void
     {

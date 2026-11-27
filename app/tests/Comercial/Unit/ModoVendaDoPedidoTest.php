@@ -111,7 +111,7 @@ final class ModoVendaDoPedidoTest extends TestCase
         return array_merge([
             'chave' => '0f8c3a6e-1d2b-4c5d-9e8f-123456789abc',
             'modelo' => ['chave' => $modelo, 'modo' => 'simples', 'assunto' => 'Oi', 'selo' => 'S', 'titulo' => 'T', 'corpo' => 'Olá'],
-            'publico' => 'indiv', 'individual' => 'ana@exemplo.com', 'frequencia' => 'unica', 'agendar' => '',
+            'publico' => 'indiv', 'individual' => 'ana@exemplo.com', 'frequencia' => 'unica', 'agendar' => '', 'baseLegal' => 'consentimento',
         ], $troca);
     }
 }

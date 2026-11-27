@@ -221,7 +221,7 @@ final class ImagemDaCampanhaTest extends JusPrimeWebTestCase
             '/master/comercial/previa-campanha' => static fn (array $m): array => $m,
             '/master/comercial/teste' => static fn (array $m): array => $m,
             '/master/comercial/modelos/' . $proprio => static fn (array $m): array => $m,
-            '/master/comercial/campanhas' => fn (array $m): array => ['chave' => bin2hex(random_bytes(16)), 'modelo' => $m, 'publico' => 'indiv', 'individual' => (string) $this->cadastradoAtivo()->getEmail(), 'frequencia' => 'unica', 'agendar' => ''],
+            '/master/comercial/campanhas' => fn (array $m): array => ['chave' => bin2hex(random_bytes(16)), 'modelo' => $m, 'publico' => 'indiv', 'individual' => (string) $this->cadastradoAtivo()->getEmail(), 'frequencia' => 'unica', 'agendar' => '', 'baseLegal' => 'consentimento'],
         ];
         foreach ($pedidos as $url => $pedido) {
             foreach ([str_repeat('e', 32), $vencida] as $invalido) {
@@ -245,7 +245,7 @@ final class ImagemDaCampanhaTest extends JusPrimeWebTestCase
         $token = $this->imagemGravada(FabricaDeImagens::jpeg(30, 30));
         $agora = new \DateTimeImmutable();
 
-        $this->postar($client, '/master/comercial/campanhas', ['chave' => bin2hex(random_bytes(16)), 'modelo' => ['imagem' => $token] + $convite, 'publico' => 'indiv', 'individual' => (string) $this->cadastradoAtivo()->getEmail(), 'frequencia' => 'unica', 'agendar' => '']);
+        $this->postar($client, '/master/comercial/campanhas', ['chave' => bin2hex(random_bytes(16)), 'modelo' => ['imagem' => $token] + $convite, 'publico' => 'indiv', 'individual' => (string) $this->cadastradoAtivo()->getEmail(), 'frequencia' => 'unica', 'agendar' => '', 'baseLegal' => 'consentimento']);
 
         self::assertResponseIsSuccessful();
         $linha = $this->linha($token);

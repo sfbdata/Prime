@@ -229,8 +229,21 @@
         chave: m.chave, modo: m.modo, nome: m.nome, icone: m.icone, assunto: m.assunto || '', selo: m.selo || '', titulo: m.titulo || '',
         corpo: m.corpo || '', itens: m.itens || [], cta: m.cta || '', link: m.link || '', blocos: m.blocos || [], html: m.html || '',
         imagem: m.modo === 'simples' ? m.imagem || '' : '',
+        // Pedido do Farlei M1 (A6): o texto do {nome} de quem não tem nome; vazio, o servidor usa "colega".
+        semNome: m.semNome || '',
       };
     }
+
+    /* Pedido do Farlei M1 (C1): a base legal que o Master declara na confirmação do Enviar, obrigatória; o botão só libera
+       com uma escolhida. Os valores são os do servidor (BaseLegalDoEnvio). */
+    const escolhaDaBaseLegal = () => ({
+      rotulo: BJ_T.t('comercial.js.base_legal_rotulo'), vazio: BJ_T.t('comercial.js.base_legal_vazio'),
+      opcoes: [
+        ['consentimento', BJ_T.t('comercial.js.base_legal_consentimento')],
+        ['execucao_de_contrato', BJ_T.t('comercial.js.base_legal_execucao_de_contrato')],
+        ['legitimo_interesse', BJ_T.t('comercial.js.base_legal_legitimo_interesse')],
+      ],
+    });
 
     // A chave de idempotência da campanha: nova depois de cada envio aceito; a mesma se o pedido se repetir.
     function novaChave() {
@@ -481,8 +494,9 @@
         return perguntar({
           titulo: BJ_T.t(agenda ? 'comercial.js.enviar_titulo_agendar' : 'comercial.js.enviar_titulo'), icone: 'bi-send',
           texto: aviso + pergunta + '\n\n' + resumoDoEnvio(m, contagem), botao: BJ_T.t(agenda ? 'comercial.js.enviar_botao_agendar' : 'comercial.js.enviar_botao'),
-        }).then(confirmou => {
-          if (!confirmou) return;
+          escolha: escolhaDaBaseLegal(),
+        }).then(baseLegal => {
+          if (!baseLegal) return;
           if (!chave) chave = novaChave();
           const botao = el('[data-mc-cp-enviar]');
           botao.disabled = true;
@@ -491,7 +505,7 @@
           // globais, só na instância `com` (F3h), e os desta instância, pendurados na raiz (`raiz.mcExtrasDoEnvio`).
           const globais = (M.ganchos && window.McCampanha && window.McCampanha.extrasDoEnvio) || [];
           const extras = [...globais, ...(raiz.mcExtrasDoEnvio || [])].map(f => { try { return f() || {}; } catch (x) { return {}; } });
-          postar(ROTAS.urlCampanha, Object.assign(pedidoDoPublico(), ...extras, { chave, modelo: pedido(), frequencia, agendar: agenda }))
+          postar(ROTAS.urlCampanha, Object.assign(pedidoDoPublico(), ...extras, { chave, modelo: pedido(), frequencia, agendar: agenda, baseLegal }))
             .then(r => {
               chave = '';
               el('[data-mc-cp-agenda]').value = '';
@@ -687,7 +701,8 @@
       espera = null;
       if (!base()) return Promise.resolve('');
       const numero = ++pedidoDaPrevia;
-      const exemplo = contagem && contagem.exemplo ? { exemplo: contagem.exemplo } : {};
+      // O público escolhido vai junto do exemplo, para o rodapé da prévia dizer por que a pessoa recebe (a mesma frase do envio).
+      const exemplo = contagem && contagem.exemplo ? { exemplo: Object.assign({}, contagem.exemplo, { publico }) } : {};
       return postar(ROTAS.urlPrevia, Object.assign(pedido(), exemplo, { nomeDaPrevia })).then(r => {
         if (numero === pedidoDaPrevia) { elPrevia.srcdoc = r.html; ultimaPrevia = r.html; }
         return r.html;

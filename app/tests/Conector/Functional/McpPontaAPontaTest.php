@@ -302,7 +302,7 @@ final class McpPontaAPontaTest extends JusPrimeWebTestCase
         $ultimo = $this->ultimoIdDaAuditoria();
         $antes = (int) $this->conexao()->fetchOne('SELECT COUNT(*) FROM comercial_campanha');
 
-        $proposta = $this->resultado($this->chamarCampanhas($token, ['acao' => 'criar', 'modelo' => 'convite', 'publico' => 'leads', 'agendar' => (new \DateTimeImmutable('+2 days'))->format('Y-m-d\TH:i')], 2), 2)['structuredContent'];
+        $proposta = $this->resultado($this->chamarCampanhas($token, ['acao' => 'criar', 'modelo' => 'convite', 'publico' => 'leads', 'base_legal' => 'consentimento', 'agendar' => (new \DateTimeImmutable('+2 days'))->format('Y-m-d\TH:i')], 2), 2)['structuredContent'];
 
         self::assertSame('aguardando_confirmacao', $proposta['estado']);
         self::assertSame($antes, (int) $this->conexao()->fetchOne('SELECT COUNT(*) FROM comercial_campanha'), 'propor não cria campanha');

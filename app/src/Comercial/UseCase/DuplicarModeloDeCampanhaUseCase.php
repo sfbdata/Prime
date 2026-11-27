@@ -37,7 +37,7 @@ final class DuplicarModeloDeCampanhaUseCase
         $agora = $this->relogio->now();
         $modelo = new ModeloDeCampanha($base->nome . ' (cópia)', $base->icone, $copia->modo, $por, $agora);
         $html = $copia->modo === 'html' ? $this->sanitizador->sanitizar($copia->html) : '';
-        $modelo->preencher($copia->assunto, $copia->selo, $copia->titulo, ModeloDaGrade::conteudoParaGravar($copia, $html), $agora);
+        $modelo->preencher($copia->assunto, $copia->selo, $copia->titulo, ModeloDaGrade::conteudoParaGravar($copia, $html), $agora, $copia->semNome);
         $this->modelos->salvar($modelo, ModeloDeCampanhaRepository::NOVO, $por);
 
         return new ModeloSalvoOutput(ModeloDaGrade::deEntidade($modelo), self::MENSAGEM);
@@ -55,6 +55,6 @@ final class DuplicarModeloDeCampanhaUseCase
             $blocos[] = ['t' => 'botao', 'a' => $m->cta, 'b' => $m->link];
         }
 
-        return new MensagemDaCampanha($m->chave, 'blocos', $m->assunto, $m->selo, $m->titulo, blocos: $blocos, nome: $m->nome, icone: $m->icone);
+        return new MensagemDaCampanha($m->chave, 'blocos', $m->assunto, $m->selo, $m->titulo, blocos: $blocos, nome: $m->nome, icone: $m->icone, semNome: $m->semNome);
     }
 }

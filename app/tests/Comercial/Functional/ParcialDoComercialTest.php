@@ -163,11 +163,15 @@ final class ParcialDoComercialTest extends KernelTestCase
         self::assertSame('/master/comercial/imagens', $this->doc->filter('section.mc-cp[data-mc-campanha]')->attr('data-url-imagem'));
     }
 
-    #[TestDox('Os campos da mensagem (L.242-247) com os rótulos e as dicas literais')]
+    #[TestDox('Os campos da mensagem (L.242-247) com os rótulos e as dicas literais; depois do título, o texto que entra no lugar do nome (pedido do Farlei M1, A6)')]
     public function testCamposDaMensagem(): void
     {
         $rotulos = $this->doc->filter('.mc-cp-editor > label.mc-cp-campo')->each(static fn (Crawler $c): string => trim((string) $c->getNode(0)?->firstChild?->textContent));
-        self::assertSame(['ASSUNTO', 'TÍTULO', 'NOME DO MODELO', 'HTML IMPORTADO'], $rotulos);
+        self::assertSame(['ASSUNTO', 'TÍTULO', 'SEM NOME, USAR', 'NOME DO MODELO', 'HTML IMPORTADO'], $rotulos);
+        $semNome = $this->doc->filter('.mc-cp-editor > label.mc-cp-campo > input[data-mc-cp-campo="semNome"]');
+        self::assertSame(['40', 'colega'], [$semNome->attr('maxlength'), $semNome->attr('placeholder')]);
+        self::assertSame(['entra no {nome} de quem não tem nome'], $this->doc->filter('.mc-cp-editor > label.mc-cp-campo > .mc-cp-dica')->reduce(static fn (Crawler $c): bool => $c->nextAll()->filter('input[data-mc-cp-campo="semNome"]')->count() === 1)->each(static fn (Crawler $c): string => trim($c->text())));
+        self::assertSame(1, $this->doc->filter('.mc-cp-editor > label.mc-cp-campo > .mc-cp-dica + input[data-mc-cp-campo="semNome"]')->count());
         self::assertSame(['use {nome} para o primeiro nome'], $this->textos('[data-mc-cp-simples] > label > .mc-cp-dica'));
         self::assertSame(['monte o layout; a prévia atualiza na hora'], $this->textos('[data-mc-cp-blocos] > .mc-cp-blocos-titulo > .mc-cp-dica'));
     }

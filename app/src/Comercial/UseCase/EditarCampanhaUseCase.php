@@ -60,6 +60,7 @@ final class EditarCampanhaUseCase
                 'assunto' => $mensagem->assunto, 'modelo_nome' => $mensagem->nome !== '' ? $mensagem->nome : $campanha['modelo_nome'],
                 'modo' => $mensagem->modo, 'selo' => $mensagem->selo, 'titulo' => $mensagem->titulo,
                 'conteudo' => $this->composicao->congelar($mensagem), 'frequencia' => $pedido->frequencia,
+                'sem_nome' => $mensagem->semNome,
             ] + self::agendaDaEdicao($campanha, $pedido, $agora));
             $this->imagens->renovarPeloEnvio($mensagem, $agora);
             $this->campanhas->auditar(

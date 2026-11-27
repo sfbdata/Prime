@@ -91,7 +91,7 @@ final class CampanhasDeEmailFerramentaTest extends KernelTestCase
     private static function argumentosValidos(string $acao): array
     {
         return match ($acao) {
-            'criar' => ['modelo' => 'convite', 'publico' => 'leads'],
+            'criar' => ['modelo' => 'convite', 'publico' => 'leads', 'base_legal' => 'consentimento'],
             'enviar_teste' => ['modelo' => 'convite'],
             default => ['campanha_id' => 1],
         };
@@ -118,8 +118,9 @@ final class CampanhasDeEmailFerramentaTest extends KernelTestCase
     {
         $invalidas = [
             [], ['acao' => 'importar'], ['acao' => 'criar'], ['acao' => 'criar', 'modelo' => 'convite'], ['acao' => 'criar', 'modelo' => 'convite', 'publico' => 'csv'],
-            ['acao' => 'criar', 'modelo' => 'convite', 'publico' => 'indiv'], ['acao' => 'criar', 'modelo' => 'convite', 'publico' => 'leads', 'campanha_id' => 1],
-            ['acao' => 'criar', 'modelo' => 'convite', 'publico' => 'leads', 'frequencia' => 'diaria'], ['acao' => 'criar', 'modelo' => 'Bad Key!', 'publico' => 'leads'],
+            ['acao' => 'criar', 'modelo' => 'convite', 'publico' => 'indiv'], ['acao' => 'criar', 'modelo' => 'convite', 'publico' => 'leads', 'base_legal' => 'consentimento', 'campanha_id' => 1],
+            ['acao' => 'criar', 'modelo' => 'convite', 'publico' => 'leads'], ['acao' => 'criar', 'modelo' => 'convite', 'publico' => 'leads', 'base_legal' => 'contrato'],
+            ['acao' => 'criar', 'modelo' => 'convite', 'publico' => 'leads', 'base_legal' => 'consentimento', 'frequencia' => 'diaria'], ['acao' => 'criar', 'modelo' => 'Bad Key!', 'publico' => 'leads', 'base_legal' => 'consentimento'],
             ['acao' => 'cancelar'], ['acao' => 'cancelar', 'campanha_id' => '1'], ['acao' => 'cancelar', 'campanha_id' => 0], ['acao' => 'editar', 'campanha_id' => 1, 'publico' => 'leads'],
             ['acao' => 'editar', 'campanha_id' => 1, 'atualizar_do_modelo' => 'sim'], ['acao' => 'enviar_teste'], ['acao' => 'enviar_teste', 'modelo' => 'convite', 'para' => 'a@b.com'],
         ];
@@ -131,8 +132,8 @@ final class CampanhasDeEmailFerramentaTest extends KernelTestCase
                 self::assertSame(ErroDaFerramenta::MOTIVO_ENTRADA_INVALIDA, $erro->motivo, json_encode($argumentos));
             }
         }
-        $this->assertRecusa(['acao' => 'criar', 'modelo' => 'convite', 'publico' => 'leads', 'agendar' => str_repeat('2', 20)], 'O campo agendar passa do limite de 19 caracteres.');
-        $this->assertRecusa(['acao' => 'criar', 'modelo' => str_repeat('a', 41), 'publico' => 'leads'], 'O campo modelo passa do limite de 40 caracteres.');
+        $this->assertRecusa(['acao' => 'criar', 'modelo' => 'convite', 'publico' => 'leads', 'base_legal' => 'consentimento', 'agendar' => str_repeat('2', 20)], 'O campo agendar passa do limite de 19 caracteres.');
+        $this->assertRecusa(['acao' => 'criar', 'modelo' => str_repeat('a', 41), 'publico' => 'leads', 'base_legal' => 'consentimento'], 'O campo modelo passa do limite de 40 caracteres.');
         self::assertSame(0, $this->contarPropostas());
     }
 
@@ -141,11 +142,11 @@ final class CampanhasDeEmailFerramentaTest extends KernelTestCase
     {
         $this->semearLead();
         $agendar = (new \DateTimeImmutable('+2 days'))->format('Y-m-d\TH:i');
-        $proposta = $this->executar(['acao' => 'criar', 'modelo' => 'convite', 'publico' => 'leads', 'agendar' => $agendar]);
+        $proposta = $this->executar(['acao' => 'criar', 'modelo' => 'convite', 'publico' => 'leads', 'base_legal' => 'consentimento', 'agendar' => $agendar]);
 
         self::assertSame('aguardando_confirmacao', $proposta->dados['estado']);
         $resumo = $proposta->dados['proposta']['resumo'];
-        foreach (['Convite · novos escritórios', 'Base de contatos, 1 destinatário(s)', 'envio único em ' . (new \DateTimeImmutable($agendar))->format('d/m/Y H:i'), 'Seu escritório 100% digital, de graça', 'envio de campanhas está desligado', 'Texto:'] as $trecho) {
+        foreach (['Convite · novos escritórios', 'Base de contatos, 1 destinatário(s)', 'envio único em ' . (new \DateTimeImmutable($agendar))->format('d/m/Y H:i'), 'Seu escritório 100% digital, de graça', 'envio de campanhas está desligado', 'Texto:', 'Base legal: Consentimento (LGPD, art. 7º, I).'] as $trecho) {
             self::assertStringContainsString($trecho, $resumo);
         }
         self::assertSame(0, $this->contar('comercial_campanha'), 'propor não grava');
@@ -153,8 +154,9 @@ final class CampanhasDeEmailFerramentaTest extends KernelTestCase
         $confirmada = $this->confirmar($proposta);
 
         self::assertSame('confirmada', $confirmada->dados['estado']);
-        $campanha = $this->conexao()->fetchAssociative('SELECT estado, total, publico, modelo_chave, chave_idempotencia FROM comercial_campanha');
+        $campanha = $this->conexao()->fetchAssociative('SELECT estado, total, publico, modelo_chave, chave_idempotencia, base_legal, central FROM comercial_campanha');
         self::assertSame(['agendada', 1, 'leads', 'convite'], [$campanha['estado'], (int) $campanha['total'], $campanha['publico'], $campanha['modelo_chave']]);
+        self::assertSame(['consentimento', 'comercial'], [$campanha['base_legal'], $campanha['central']]);
         self::assertMatchesRegularExpression('/^[a-f0-9]{32}$/', $campanha['chave_idempotencia']);
         $this->exigirTrilha('camp_conf');
         self::assertDoesNotMatchRegularExpression('/[\w.+-]+@[\w-]+\.[\w.-]+/u', json_encode($confirmada->dados, \JSON_THROW_ON_ERROR));
@@ -163,19 +165,19 @@ final class CampanhasDeEmailFerramentaTest extends KernelTestCase
     #[TestDox('criar recusa antes de propor: sem destinatário, data passada ou inválida e modelo inexistente; recorrente aparece no resumo')]
     public function testCriarRecusas(): void
     {
-        $this->assertRecusa(['acao' => 'criar', 'modelo' => 'convite', 'publico' => 'leads'], 'Nenhum destinatário nesta lista.');
+        $this->assertRecusa(['acao' => 'criar', 'modelo' => 'convite', 'publico' => 'leads', 'base_legal' => 'consentimento'], 'Nenhum destinatário nesta lista.');
         $this->semearLead();
-        $this->assertRecusa(['acao' => 'criar', 'modelo' => 'convite', 'publico' => 'leads', 'agendar' => '2020-01-01T10:00'], 'Escolha uma data futura.');
-        $this->assertRecusa(['acao' => 'criar', 'modelo' => 'convite', 'publico' => 'leads', 'agendar' => 'amanha'], 'Data de agendamento inválida.');
+        $this->assertRecusa(['acao' => 'criar', 'modelo' => 'convite', 'publico' => 'leads', 'base_legal' => 'consentimento', 'agendar' => '2020-01-01T10:00'], 'Escolha uma data futura.');
+        $this->assertRecusa(['acao' => 'criar', 'modelo' => 'convite', 'publico' => 'leads', 'base_legal' => 'consentimento', 'agendar' => 'amanha'], 'Data de agendamento inválida.');
         try {
-            $this->executar(['acao' => 'criar', 'modelo' => 'cu999999', 'publico' => 'leads']);
+            $this->executar(['acao' => 'criar', 'modelo' => 'cu999999', 'publico' => 'leads', 'base_legal' => 'consentimento']);
             self::fail('devia recusar');
         } catch (ErroDaFerramenta $erro) {
             self::assertSame(ErroDaFerramenta::MOTIVO_NAO_ENCONTRADO, $erro->motivo);
         }
         self::assertSame(0, $this->contarPropostas());
 
-        $recorrente = $this->executar(['acao' => 'criar', 'modelo' => 'convite', 'publico' => 'leads', 'frequencia' => 'mensal']);
+        $recorrente = $this->executar(['acao' => 'criar', 'modelo' => 'convite', 'publico' => 'leads', 'base_legal' => 'consentimento', 'frequencia' => 'mensal']);
         self::assertStringContainsString('mensal, a partir de agora', $recorrente->dados['proposta']['resumo']);
         $this->confirmar($recorrente);
         self::assertSame('recorrente', $this->conexao()->fetchOne('SELECT estado FROM comercial_campanha'));
@@ -186,13 +188,13 @@ final class CampanhasDeEmailFerramentaTest extends KernelTestCase
     {
         $this->semearLead();
         $id = $this->inserirModelo('Meu modelo');
-        $proposta = $this->executar(['acao' => 'criar', 'modelo' => 'cu' . $id, 'publico' => 'leads']);
+        $proposta = $this->executar(['acao' => 'criar', 'modelo' => 'cu' . $id, 'publico' => 'leads', 'base_legal' => 'consentimento']);
         $this->conexao()->executeStatement("UPDATE comercial_modelo SET assunto = 'Mudou por fora' WHERE id = ?", [$id]);
 
         self::assertSame(CampanhasDeEmailFerramenta::MUDOU, $this->recusaDaConfirmacao($proposta)->getMessage());
         self::assertSame(0, $this->contar('comercial_campanha'));
 
-        $outra = $this->executar(['acao' => 'criar', 'modelo' => 'convite', 'publico' => 'leads']);
+        $outra = $this->executar(['acao' => 'criar', 'modelo' => 'convite', 'publico' => 'leads', 'base_legal' => 'consentimento']);
         $this->tirarOPapelDeMaster();
         self::assertSame(CampanhasDeEmailFerramenta::MOTIVO_SO_DO_MASTER, $this->recusaDaConfirmacao($outra)->motivo);
         self::assertSame(0, $this->contar('comercial_campanha'));
@@ -202,7 +204,7 @@ final class CampanhasDeEmailFerramentaTest extends KernelTestCase
     public function testCriarPublicoMudou(): void
     {
         $this->semearLead();
-        $proposta = $this->executar(['acao' => 'criar', 'modelo' => 'convite', 'publico' => 'leads']);
+        $proposta = $this->executar(['acao' => 'criar', 'modelo' => 'convite', 'publico' => 'leads', 'base_legal' => 'consentimento']);
         $agora = (new \DateTimeImmutable())->format('Y-m-d H:i:s');
         $this->conexao()->executeStatement("INSERT INTO comercial_confirmacao_endereco (lista, email, pedido_em, confirmado_em) VALUES ('comercial_campanhas', ?, ?, ?)", ['outro_' . uniqid() . '@exemplo.com', $agora, $agora]);
 
@@ -216,7 +218,7 @@ final class CampanhasDeEmailFerramentaTest extends KernelTestCase
     public function testCriarIdempotente(): void
     {
         $this->semearLead();
-        $dados = ['modelo' => 'convite', 'publico' => 'leads', 'total' => 1, 'frequencia' => 'unica', 'agendar' => '', 'chave' => bin2hex(random_bytes(16))];
+        $dados = ['modelo' => 'convite', 'publico' => 'leads', 'total' => 1, 'frequencia' => 'unica', 'agendar' => '', 'base_legal' => 'consentimento', 'chave' => bin2hex(random_bytes(16))];
         static::getContainer()->get('services_resetter')->reset();
         $ferramenta = static::getContainer()->get(CampanhasDeEmailFerramenta::class);
         $chamada = $this->chamada();
@@ -268,7 +270,7 @@ final class CampanhasDeEmailFerramentaTest extends KernelTestCase
     {
         $this->semearLead();
         $modelo = $this->inserirModelo('Para campanha');
-        $this->confirmar($this->executar(['acao' => 'criar', 'modelo' => 'cu' . $modelo, 'publico' => 'leads', 'agendar' => (new \DateTimeImmutable('+2 days'))->format('Y-m-d\TH:i')]));
+        $this->confirmar($this->executar(['acao' => 'criar', 'modelo' => 'cu' . $modelo, 'publico' => 'leads', 'base_legal' => 'consentimento', 'agendar' => (new \DateTimeImmutable('+2 days'))->format('Y-m-d\TH:i')]));
         $id = (int) $this->conexao()->fetchOne('SELECT MAX(id) FROM comercial_campanha');
         $this->conexao()->executeStatement("UPDATE comercial_modelo SET assunto = 'Assunto renovado' WHERE id = ?", [$modelo]);
 
@@ -354,7 +356,7 @@ final class CampanhasDeEmailFerramentaTest extends KernelTestCase
     private function campanhaAgendada(): int
     {
         $this->semearLead();
-        $this->confirmar($this->executar(['acao' => 'criar', 'modelo' => 'convite', 'publico' => 'leads', 'agendar' => (new \DateTimeImmutable('+2 days'))->format('Y-m-d\TH:i')]));
+        $this->confirmar($this->executar(['acao' => 'criar', 'modelo' => 'convite', 'publico' => 'leads', 'base_legal' => 'consentimento', 'agendar' => (new \DateTimeImmutable('+2 days'))->format('Y-m-d\TH:i')]));
 
         return (int) $this->conexao()->fetchOne('SELECT MAX(id) FROM comercial_campanha');
     }

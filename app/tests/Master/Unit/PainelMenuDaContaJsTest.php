@@ -109,7 +109,7 @@ final class PainelMenuDaContaJsTest extends TestCase
         self::assertStringContainsString('excluir: () => URLS.contaExcluir', $js);
 
         $masters = self::js('masters.js');
-        self::assertStringContainsString('ok.disabled = !!palavraExigida;', $masters, 'com palavra, o botão nasce desabilitado');
+        self::assertStringContainsString('ok.disabled = !!palavraExigida || escolhaExigida;', $masters, 'com palavra (ou escolha obrigatória), o botão nasce desabilitado');
         self::assertStringContainsString("qs('[data-mp-conf-ok]', conf).disabled = entrada.value.trim() !== palavraExigida;", $masters, 'só habilita quando a palavra bate');
         self::assertStringContainsString('.mp .mp-conf-ok:disabled { background: #9fb3c0; cursor: not-allowed; }', (string) file_get_contents(self::RAIZ . 'public/css/master.css'), 'desabilitado na convenção do desenho (linha 625)');
         self::assertStringContainsString('if (palavraExigida && digitado !== palavraExigida) return;', $masters);
@@ -148,7 +148,7 @@ final class PainelMenuDaContaJsTest extends TestCase
         self::assertStringContainsString('window.BJMasterConf.abrir(', $js);
 
         self::assertStringContainsString('window.BJMasterConf = { abrir: abrirConf, fechar: fecharConf, perguntar };', self::js('masters.js'));
-        self::assertStringContainsString('ok.disabled = !!palavraExigida;', self::js('masters.js'), 'a confirmação destrava para a próxima ação sem recarregar (menos a que exige palavra)');
+        self::assertStringContainsString('ok.disabled = !!palavraExigida || escolhaExigida;', self::js('masters.js'), 'a confirmação destrava para a próxima ação sem recarregar (menos a que exige palavra ou escolha)');
 
         $twig = (string) file_get_contents(self::RAIZ . 'templates/master/painel.html.twig');
         self::assertStringContainsString("contaSuspender: path('master_conta_suspender', {id: 0})", $twig);

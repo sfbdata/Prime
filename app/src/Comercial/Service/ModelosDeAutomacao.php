@@ -77,7 +77,7 @@ final class ModelosDeAutomacao
     {
         $chave = self::chaveDoModelo($automacao);
         $primeiroNome = self::primeiroNome($nomeCompleto);
-        $editado = $this->editado($chave, $primeiroNome, $variaveis['limite'] ?? '');
+        $editado = $this->editado($chave, $nomeCompleto, $variaveis['limite'] ?? '');
         if ($editado !== null) {
             return $editado;
         }
@@ -95,9 +95,10 @@ final class ModelosDeAutomacao
 
     /**
      * A versão do Master do padrão correspondente, ou nulo (sem cópia na Central, sem versão editada, ou versão que não
-     * compõe: aí vale o texto do sistema, e a automação nunca deixa de sair). `{nome}` no corpo o montador troca.
+     * compõe: aí vale o texto do sistema, e a automação nunca deixa de sair). `{nome}` sai trocado aqui, no título e no
+     * corpo, pelo primeiro nome ou, sem nome, pelo "texto quando não houver nome" da versão (pedido do Farlei M1, A6).
      */
-    private function editado(string $chave, string $primeiroNome, string $limite): ?ModeloMontado
+    private function editado(string $chave, ?string $nomeCompleto, string $limite): ?ModeloMontado
     {
         $fixo = self::FIXO_DA_CENTRAL[$chave] ?? null;
         $versao = $fixo === null ? null : $this->efetivos->editadoDoFixo($fixo);
@@ -114,8 +115,10 @@ final class ModelosDeAutomacao
             return null;
         }
 
-        // `{limite}` (o percentual do aviso de 90%) vale no assunto, no título e no texto; `{nome}` no corpo o montador troca.
+        // `{limite}` (o percentual do aviso de 90%) vale no assunto, no título e no texto.
         $limitar = static fn (string $texto): string => str_replace('{limite}', $limite, $texto);
+        $primeiroNome = MontadorDeEmail::primeiroNome($nomeCompleto, $m->semNome);
+        $corpo = MontadorDeEmail::trocarNome($corpo, htmlspecialchars($primeiroNome, ENT_QUOTES));
 
         return new ModeloMontado($limitar($m->assunto), $m->selo, $limitar(MontadorDeEmail::trocarNome($m->titulo, $primeiroNome)), $limitar($corpo), $layout);
     }

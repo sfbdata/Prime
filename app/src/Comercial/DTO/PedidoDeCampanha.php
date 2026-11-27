@@ -5,13 +5,15 @@ declare(strict_types=1);
 namespace App\Comercial\DTO;
 
 use App\Comercial\Entity\CampanhaDeEmail;
+use App\Comercial\Enum\BaseLegalDoEnvio;
 use App\Comercial\Exception\CampanhaRecusada;
 
 /**
  * O "Enviar campanha" confirmado na tela (dc L.560; spec §8.1 e §8.4): a chave de idempotência gerada pela tela, o
  * modelo em edição (a cópia que a campanha congela), o público, a frequência (dc L.253) e a data de "Agendar" ou
  * "Primeiro envio" (dc L.254, `datetime-local`, hora local). `rastrearLeitura` é a chave "Confirmação de leitura" (F3g,
- * dc L291): ausente = não; só rastreia de fato com as duas chaves globais.
+ * dc L291): ausente = não; só rastreia de fato com as duas chaves globais. `baseLegal` é a base legal que o Master
+ * declara na confirmação (pedido do Farlei M1, C1): obrigatória, fora da lista é recusada.
  *
  * No modo venda (F3h, seção Indicações; dc 05 VS 21.10.26 L627) o modelo tem de ser um dos quatro fixos que a venda
  * usa ou um modelo próprio (`cu<id>`); os outros são recusados no servidor.
@@ -30,6 +32,7 @@ final class PedidoDeCampanha
         public readonly PedidoDePublico $publico,
         public readonly string $frequencia,
         public readonly ?\DateTimeImmutable $agendarPara,
+        public readonly BaseLegalDoEnvio $baseLegal,
         public readonly bool $rastrearLeitura = false,
     ) {
         if (preg_match(self::PADRAO_DA_CHAVE, $chave) !== 1) {
@@ -60,8 +63,15 @@ final class PedidoDeCampanha
             PedidoDePublico::deArray($dados, $mensagem->chave),
             \is_string($dados['frequencia'] ?? null) ? $dados['frequencia'] : CampanhaDeEmail::UNICA,
             self::data($dados['agendar'] ?? ''),
+            self::baseLegal($dados['baseLegal'] ?? null),
             ($dados['rastrearLeitura'] ?? false) === true,
         );
+    }
+
+    /** A base legal escolhida na confirmação; ausente ou fora da lista, recusa. Também usada pelo conector. */
+    public static function baseLegal(mixed $valor): BaseLegalDoEnvio
+    {
+        return (\is_string($valor) ? BaseLegalDoEnvio::tryFrom($valor) : null) ?? throw new CampanhaRecusada(BaseLegalDoEnvio::RECUSA);
     }
 
     /** A data de "Agendar" (`datetime-local`): vazio é sem data; fora do formato, recusa. Também usada pela edição. */

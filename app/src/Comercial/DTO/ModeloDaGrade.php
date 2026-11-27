@@ -33,7 +33,7 @@ final class ModeloDaGrade
         $base = [
             'chave' => 'cu' . $m->getId(), 'id' => $m->getId(), 'proprio' => true, 'nome' => $m->getNome(),
             'icone' => $m->getIcone(), 'modo' => $m->getModo(), 'assunto' => $m->getAssunto(), 'selo' => $m->getSelo(),
-            'titulo' => $m->getTitulo(),
+            'titulo' => $m->getTitulo(), 'semNome' => $m->getTextoSemNome(),
         ];
         if ($m->getModo() === 'html') {
             return self::completo($base + ['html' => $m->getConteudo()]);
@@ -68,6 +68,6 @@ final class ModeloDaGrade
      */
     private static function completo(array $modelo): array
     {
-        return $modelo + ['corpo' => '', 'itens' => [], 'cta' => '', 'link' => '', 'blocos' => [], 'html' => '', 'imagem' => '', 'editado' => false];
+        return $modelo + ['corpo' => '', 'itens' => [], 'cta' => '', 'link' => '', 'blocos' => [], 'html' => '', 'imagem' => '', 'editado' => false, 'semNome' => MensagemDaCampanha::SEM_NOME_PADRAO];
     }
 }

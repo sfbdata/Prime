@@ -4,7 +4,10 @@ declare(strict_types=1);
 
 namespace App\Comercial\Repository;
 
+use App\Comercial\DTO\MensagemDaCampanha;
 use App\Comercial\Entity\CampanhaDeEmail;
+use App\Comercial\Enum\BaseLegalDoEnvio;
+use App\Comercial\Enum\CentralDaCampanha;
 use Doctrine\Bundle\DoctrineBundle\Repository\ServiceEntityRepository;
 use Doctrine\DBAL\ArrayParameterType;
 use Doctrine\DBAL\Connection;
@@ -28,7 +31,7 @@ use Symfony\Component\HttpFoundation\RequestStack;
  *     publico_parametros: list<array{email: string, nome: string}>, publico_filtro: array<string, string>,
  *     frequencia: string, agendada_para: ?string,
  *     proxima_execucao: ?string, estado: string, motivo: ?string, execucoes: int, total: int, criada_em: string,
- *     rastrear_leitura: bool
+ *     rastrear_leitura: bool, base_legal: ?string, central: ?string, texto_sem_nome: string
  * }
  *
  * @extends ServiceEntityRepository<CampanhaDeEmail>
@@ -50,7 +53,7 @@ class CampanhaDeEmailRepository extends ServiceEntityRepository
 
     private const COLUNAS = 'id, chave_idempotencia, nome, modelo_chave, modelo_nome, modo, assunto, selo, titulo, conteudo,
         publico, publico_parametros, frequencia, agendada_para, proxima_execucao, estado, motivo, execucoes, total, criada_em,
-        rastrear_leitura';
+        rastrear_leitura, base_legal, central, texto_sem_nome';
 
     public function __construct(ManagerRegistry $registry, private readonly ?RequestStack $requisicoes = null)
     {
@@ -170,16 +173,19 @@ class CampanhaDeEmailRepository extends ServiceEntityRepository
      * @param array{chave: string, assunto: string, modelo_chave: string, modelo_nome: string, modo: string, selo: string,
      *     titulo: string, conteudo: string, publico: string, parametros: list<array{email: string, nome: string}>|array{informados: ?list<array{email: string, nome: string}>, filtro: array<string, string>}|null,
      *     frequencia: string, agendada_para: ?\DateTimeImmutable, proxima: \DateTimeImmutable, estado: string,
-     *     total: int, criada_por: ?int, agora: \DateTimeImmutable, rastrear_leitura?: bool} $c
+     *     total: int, criada_por: ?int, agora: \DateTimeImmutable, rastrear_leitura?: bool, base_legal?: ?BaseLegalDoEnvio,
+     *     central?: CentralDaCampanha, sem_nome?: string} $c
+     *
+     * Sem `central`, a Comercial; sem `base_legal`, nula (teste, data comemorativa); sem `sem_nome`, o padrão.
      */
     public function inserir(array $c): ?int
     {
         $id = $this->conexao()->fetchOne(
             'INSERT INTO comercial_campanha (chave_idempotencia, nome, modelo_chave, modelo_nome, modo, assunto, selo, titulo,
                  conteudo, publico, publico_parametros, frequencia, agendada_para, proxima_execucao, estado, execucoes, total,
-                 criada_por_id, criada_em, rastrear_leitura)
+                 criada_por_id, criada_em, rastrear_leitura, base_legal, central, texto_sem_nome)
              VALUES (:chave, :nome, :mchave, :mnome, :modo, :assunto, :selo, :titulo, :conteudo, :publico, :parametros,
-                 :frequencia, :agendada, :proxima, :estado, 0, :total, :por, :agora, :rastrear)
+                 :frequencia, :agendada, :proxima, :estado, 0, :total, :por, :agora, :rastrear, :base, :central, :semnome)
              ON CONFLICT (chave_idempotencia) DO NOTHING RETURNING id',
             [
                 'chave' => $c['chave'], 'nome' => mb_substr($c['assunto'], 0, 255), 'mchave' => mb_substr($c['modelo_chave'], 0, 40),
@@ -189,6 +195,8 @@ class CampanhaDeEmailRepository extends ServiceEntityRepository
                 'frequencia' => $c['frequencia'], 'agendada' => self::dataOuNulo($c['agendada_para']), 'proxima' => self::data($c['proxima']),
                 'estado' => $c['estado'], 'total' => $c['total'], 'por' => $c['criada_por'], 'agora' => self::data($c['agora']),
                 'rastrear' => ($c['rastrear_leitura'] ?? false) ? 'true' : 'false',
+                'base' => ($c['base_legal'] ?? null)?->value, 'central' => ($c['central'] ?? CentralDaCampanha::Comercial)->value,
+                'semnome' => MensagemDaCampanha::semNomeValido($c['sem_nome'] ?? MensagemDaCampanha::SEM_NOME_PADRAO),
             ],
         );
 
@@ -253,19 +261,20 @@ class CampanhaDeEmailRepository extends ServiceEntityRepository
      * Regrava a cópia congelada e a agenda (a edição). O público, os parâmetros dele, a chave do modelo e o total não mudam.
      *
      * @param array{assunto: string, modelo_nome: string, modo: string, selo: string, titulo: string, conteudo: string,
-     *     frequencia: string, agendada_para: ?\DateTimeImmutable, proxima: \DateTimeImmutable, estado: string} $c
+     *     frequencia: string, agendada_para: ?\DateTimeImmutable, proxima: \DateTimeImmutable, estado: string, sem_nome: string} $c
      */
     public function regravar(int $id, array $c): void
     {
         $this->conexao()->executeStatement(
             'UPDATE comercial_campanha SET nome = :nome, assunto = :assunto, modelo_nome = :mnome, modo = :modo, selo = :selo,
                  titulo = :titulo, conteudo = :conteudo, frequencia = :frequencia, agendada_para = :agendada,
-                 proxima_execucao = :proxima, estado = :estado WHERE id = :id',
+                 proxima_execucao = :proxima, estado = :estado, texto_sem_nome = :semnome WHERE id = :id',
             [
                 'id' => $id, 'nome' => mb_substr($c['assunto'], 0, 255), 'assunto' => mb_substr($c['assunto'], 0, 255),
                 'mnome' => mb_substr($c['modelo_nome'], 0, 200), 'modo' => $c['modo'], 'selo' => mb_substr($c['selo'], 0, 120),
                 'titulo' => mb_substr($c['titulo'], 0, 255), 'conteudo' => $c['conteudo'], 'frequencia' => $c['frequencia'],
                 'agendada' => self::dataOuNulo($c['agendada_para']), 'proxima' => self::data($c['proxima']), 'estado' => $c['estado'],
+                'semnome' => MensagemDaCampanha::semNomeValido($c['sem_nome']),
             ],
         );
     }
@@ -462,6 +471,8 @@ class CampanhaDeEmailRepository extends ServiceEntityRepository
             'proxima_execucao' => self::textoOuNulo($l['proxima_execucao']), 'estado' => (string) $l['estado'],
             'motivo' => self::textoOuNulo($l['motivo']), 'execucoes' => (int) $l['execucoes'], 'total' => (int) $l['total'],
             'criada_em' => (string) $l['criada_em'], 'rastrear_leitura' => (bool) $l['rastrear_leitura'],
+            'base_legal' => self::textoOuNulo($l['base_legal']), 'central' => self::textoOuNulo($l['central']),
+            'texto_sem_nome' => (string) $l['texto_sem_nome'],
         ];
     }
 

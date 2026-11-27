@@ -53,7 +53,7 @@ final class ConfirmarCampanhaConcorrenteTest extends KernelTestCase
         );
         $pedido = PedidoDeCampanha::deArray([
             'chave' => $chave, 'modelo' => (array) (new ModelosDeCampanha())->fixo('convite'),
-            'publico' => 'indiv', 'individual' => $email, 'frequencia' => 'unica', 'agendar' => '',
+            'publico' => 'indiv', 'individual' => $email, 'frequencia' => 'unica', 'agendar' => '', 'baseLegal' => 'consentimento',
         ]);
 
         $saida = $casoDeUso->executar($pedido, $this->usuario('master'));

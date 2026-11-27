@@ -11,6 +11,7 @@ use App\Comercial\DTO\CampanhaDoRelatorio;
 use App\Comercial\DTO\DestinatarioDoRelatorio;
 use App\Comercial\Entity\CampanhaDeEmail;
 use App\Comercial\Entity\EnvioDeEmail;
+use App\Comercial\Enum\BaseLegalDoEnvio;
 use App\Comercial\Exception\CampanhaRecusada;
 use App\Comercial\Repository\CampanhaDeEmailRepository;
 use App\Comercial\Repository\RelatorioDeCampanhasRepository;
@@ -73,6 +74,7 @@ final class AbrirCampanhaDoRelatorioUseCase
             $this->html($c),
             $destinatarios,
             max(0, $metricas->destinatarios - \count($destinatarios)),
+            BaseLegalDoEnvio::tryFrom((string) $c['base_legal'])?->rotulo(),
         );
     }
 

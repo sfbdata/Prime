@@ -134,7 +134,7 @@ final class DisparoDasDatasComemorativas
             'modelo_nome' => $mensagem->nome, 'modo' => $mensagem->modo, 'selo' => $mensagem->selo, 'titulo' => $mensagem->titulo,
             'conteudo' => $conteudo, 'publico' => $publico, 'parametros' => null,
             'frequencia' => CampanhaDeEmail::UNICA, 'agendada_para' => null, 'proxima' => $agora, 'estado' => CampanhaDeEmail::NA_FILA,
-            'total' => 0, 'criada_por' => null, 'agora' => $agora,
+            'total' => 0, 'criada_por' => null, 'agora' => $agora, 'sem_nome' => $mensagem->semNome,
         ];
         $id = $this->campanhas->emTransacao(function () use ($linha, $publico, $agora): ?int {
             $id = $this->campanhas->inserir($linha);

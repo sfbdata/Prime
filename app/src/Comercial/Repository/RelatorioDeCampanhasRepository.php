@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Comercial\Repository;
 
 use App\Comercial\Campanha\PublicosDaCampanha;
+use App\Comercial\Enum\CentralDaCampanha;
 use Doctrine\DBAL\ArrayParameterType;
 use Doctrine\DBAL\Connection;
 
@@ -22,6 +23,9 @@ use Doctrine\DBAL\Connection;
  * As marcas são de cada Master (`comercial_campanha_marca`, F3e; spec `comercial-marcas.md`): `est` (Com estrela) é
  * estrela e não arquivada, `arq` (Arquivadas) é a arquivada, que sai das outras quatro; a removida não aparece em aba
  * nenhuma nem conta. Por isso a lista recebe o id do Master logado.
+ *
+ * A Central (pedido do Farlei M1, D5): a tela de cada seção passa a dela e vê só as campanhas e os testes de lá, mais
+ * as antigas sem Central (que a migration não conseguiu separar); sem Central (o conector de I.A.), todas.
  *
  * @phpstan-type LinhaDaCampanha array{
  *     id: int, nome: string, assunto: string, titulo: string, modelo_nome: string, publico: string, frequencia: string,
@@ -57,25 +61,27 @@ class RelatorioDeCampanhasRepository
     }
 
     /** @return Contagens quantas campanhas em cada aba, para o Master (sem a busca, como o dc L700) */
-    public function contarPorAba(int $masterId): array
+    public function contarPorAba(int $masterId, ?CentralDaCampanha $central = null): array
     {
+        $parametros = ['master' => $masterId];
+        $onde = self::VISIVEL . self::condicaoDaCentral($central, $parametros);
         $aberta = 'NOT ' . self::ARQUIVADA . ' AND ' . self::GRUPO;
         $l = (array) $this->conexao->fetchAssociative(
             'SELECT COUNT(*) FILTER (WHERE ' . $aberta . " = 'env') AS env, COUNT(*) FILTER (WHERE " . $aberta . " = 'ag') AS ag,
                     COUNT(*) FILTER (WHERE " . $aberta . " = 'rec') AS rec,
                     COUNT(*) FILTER (WHERE " . self::ESTRELA . ' AND NOT ' . self::ARQUIVADA . ') AS est,
                     COUNT(*) FILTER (WHERE ' . self::ARQUIVADA . ') AS arq
-             FROM ' . self::MARCAS . ' WHERE ' . self::VISIVEL,
-            ['master' => $masterId],
+             FROM ' . self::MARCAS . ' WHERE ' . $onde,
+            $parametros,
         );
 
         return ['env' => (int) ($l['env'] ?? 0), 'ag' => (int) ($l['ag'] ?? 0), 'rec' => (int) ($l['rec'] ?? 0), 'est' => (int) ($l['est'] ?? 0), 'arq' => (int) ($l['arq'] ?? 0)];
     }
 
     /** Quantas campanhas a aba tem com a busca (por nome, assunto, modelo ou e-mail de um destinatário), para o Master. */
-    public function contar(int $masterId, string $aba, string $busca): int
+    public function contar(int $masterId, string $aba, string $busca, ?CentralDaCampanha $central = null): int
     {
-        [$onde, $parametros] = self::filtro($masterId, $aba, $busca);
+        [$onde, $parametros] = self::filtro($masterId, $aba, $busca, $central);
 
         return (int) $this->conexao->fetchOne('SELECT COUNT(*) FROM ' . self::MARCAS . ' WHERE ' . $onde, $parametros);
     }
@@ -85,9 +91,9 @@ class RelatorioDeCampanhasRepository
      *
      * @return list<LinhaDaCampanha>
      */
-    public function pagina(int $masterId, string $aba, string $busca, int $limite, int $deslocamento): array
+    public function pagina(int $masterId, string $aba, string $busca, int $limite, int $deslocamento, ?CentralDaCampanha $central = null): array
     {
-        [$onde, $parametros] = self::filtro($masterId, $aba, $busca);
+        [$onde, $parametros] = self::filtro($masterId, $aba, $busca, $central);
         $linhas = $this->conexao->fetchAllAssociative(
             'SELECT c.id, c.nome, c.assunto, c.titulo, c.modelo_nome, c.publico, c.frequencia, c.estado, c.total, c.execucoes,
                     c.agendada_para, c.criada_em, c.rastrear_leitura, ' . self::ESTRELA . ' AS estrela,
@@ -188,10 +194,10 @@ class RelatorioDeCampanhasRepository
     /**
      * @return array{0: string, 1: array<string, string|int>}
      */
-    private static function filtro(int $masterId, string $aba, string $busca): array
+    private static function filtro(int $masterId, string $aba, string $busca, ?CentralDaCampanha $central): array
     {
         $parametros = ['master' => $masterId];
-        $onde = self::VISIVEL . ' AND ' . self::condicaoDaAba($aba, $parametros);
+        $onde = self::VISIVEL . self::condicaoDaCentral($central, $parametros) . ' AND ' . self::condicaoDaAba($aba, $parametros);
         if ($busca !== '') {
             $onde .= " AND (c.nome ILIKE :q OR c.assunto ILIKE :q OR c.modelo_nome ILIKE :q" . self::buscaNoPublico($busca, $parametros) . "
                 OR EXISTS (SELECT 1 FROM comercial_campanha_destino d WHERE d.campanha_id = c.id AND d.email ILIKE :q))";
@@ -199,6 +205,21 @@ class RelatorioDeCampanhasRepository
         }
 
         return [$onde, $parametros];
+    }
+
+    /**
+     * As da Central e as antigas sem Central (aparecem nas duas seções); sem Central pedida, nenhuma condição.
+     *
+     * @param array<string, string|int> $parametros
+     */
+    private static function condicaoDaCentral(?CentralDaCampanha $central, array &$parametros): string
+    {
+        if ($central === null) {
+            return '';
+        }
+        $parametros['central'] = $central->value;
+
+        return ' AND (c.central = :central OR c.central IS NULL)';
     }
 
     /**

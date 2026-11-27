@@ -36,6 +36,7 @@ comercial_relatorio:
         cancelar: Cancel sending
         para: to
         modelo: template
+        base_legal: legal basis
         quadro: Campaign
         destinatarios: RECIPIENTS
     menu:

@@ -52,7 +52,7 @@ final class SalvarModeloDeCampanhaUseCase
         if ($padrao === null) {
             $modelo->renomear($m->nome);
         }
-        $modelo->preencher($m->assunto, $m->selo, $m->titulo, ModeloDaGrade::conteudoParaGravar($m, $html), $agora);
+        $modelo->preencher($m->assunto, $m->selo, $m->titulo, ModeloDaGrade::conteudoParaGravar($m, $html), $agora, $m->semNome);
         try {
             $this->modelos->salvar($modelo, ModeloDeCampanhaRepository::ALTERADO, $por);
         } catch (UniqueConstraintViolationException) {
