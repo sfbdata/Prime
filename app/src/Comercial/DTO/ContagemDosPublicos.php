@@ -24,6 +24,7 @@ final class ContagemDosPublicos
         public readonly int $repetidos = 0,
         public readonly int $invalidos = 0,
         public readonly int $puladosPeloIntervalo = 0,
+        public readonly string $publico = '',
     ) {
     }
 
@@ -31,7 +32,7 @@ final class ContagemDosPublicos
      * O `filtro` é o que a tela do dc escreve (L662-663): "N de M atendem ao filtro · K sem essa informação no
      * cadastro (ficam de fora)", "Enviando para todos da lista (M)", e o selo com quantos campos estão preenchidos.
      *
-     * @return array{publicos: array<string, int>, destinatarios: int, descadastrados: int, semAutorizacao: int, repetidos: int, invalidos: int, puladosPeloIntervalo: int, exemplo: array{email: string, nome: string}|null, filtro: array{ativo: bool, quantos: int, base: int, atendem: int, semInformacao: int}}
+     * @return array{publicos: array<string, int>, destinatarios: int, descadastrados: int, semAutorizacao: int, repetidos: int, invalidos: int, puladosPeloIntervalo: int, exemplo: array{email: string, nome: string, publico: string, lista: string}|null, filtro: array{ativo: bool, quantos: int, base: int, atendem: int, semInformacao: int}}
      */
     public function paraArray(): array
     {
@@ -39,7 +40,8 @@ final class ContagemDosPublicos
             'publicos' => $this->publicos, 'destinatarios' => $this->destinatarios, 'descadastrados' => $this->descadastrados,
             'semAutorizacao' => $this->semAutorizacao, 'repetidos' => $this->repetidos, 'invalidos' => $this->invalidos,
             'puladosPeloIntervalo' => $this->puladosPeloIntervalo,
-            'exemplo' => $this->exemplo?->paraArray(),
+            // C1: o público e a lista vão junto do exemplo; a tela os devolve na prévia, que escolhe a frase do rodapé.
+            'exemplo' => $this->exemplo === null ? null : $this->exemplo->paraArray() + ['publico' => $this->publico, 'lista' => $this->exemplo->lista],
             'filtro' => [
                 'ativo' => $this->quantosFiltros > 0, 'quantos' => $this->quantosFiltros, 'base' => $this->base ?? $this->destinatarios,
                 'atendem' => $this->destinatarios, 'semInformacao' => $this->semInformacao,

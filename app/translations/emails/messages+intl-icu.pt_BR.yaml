@@ -144,6 +144,15 @@ emails:
             razao_social: BlueJus Gestão e Tecnologia LTDA · CNPJ 66.803.163/0001-10 · Brasília/DF
             motivo_lista: Você recebeu este e-mail porque se cadastrou no BlueJus ou autorizou o envio de novidades.
             motivo_conta: Você recebeu este e-mail por causa da sua conta no BlueJus.
+            # C1 (LGPD): a frase do rodapé da campanha conforme a origem do destinatário (MotivoDoEnvioDaCampanha).
+            motivo_campanha:
+                cadastrados: Você recebeu este e-mail porque tem conta no BlueJus.
+                base_de_contatos: Você recebeu este e-mail porque confirmou seu endereço para receber convites, ofertas e novidades do BlueJus.
+                alertas_de_vagas: Você recebeu este e-mail porque confirmou seu endereço para receber os alertas de vagas do BlueJus.
+                lista_informada: Você recebeu este e-mail porque tem conta no BlueJus ou confirmou seu endereço para receber novidades do BlueJus.
+                contato_importado: Você recebeu este e-mail porque seu endereço profissional está numa lista de contatos profissionais importada pelo BlueJus.
+                contato_incluido: Você recebeu este e-mail porque seu endereço profissional foi incluído pela equipe do BlueJus na base de contatos profissionais.
+                contatos_salvos: Você recebeu este e-mail porque seu endereço profissional está na base de contatos profissionais do BlueJus.
             descadastro_lista: Não quero mais receber
             descadastro_escritorio: 'Não quero mais receber e-mails de {escritorio}'
             descadastro_plataforma: Não quero receber novidades do BlueJus

@@ -38,6 +38,7 @@ final class EncaminharCampanhaDoRelatorioUseCase
             throw new CampanhaRecusada('Esta campanha não pode mais ser montada para o encaminhamento.');
         }
 
-        return $this->teste->executar($mensagem, $master, $para);
+        // C1: o rodapé com a frase da origem do público da campanha, como ela saiu.
+        return $this->teste->executar($mensagem, $master, $para, $campanha['publico']);
     }
 }

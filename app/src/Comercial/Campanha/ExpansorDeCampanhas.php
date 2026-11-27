@@ -53,6 +53,13 @@ final class ExpansorDeCampanhas
      */
     private array $rastrearLeitura = [];
 
+    /**
+     * O público de cada campanha (C1), lido com a mensagem: decide a frase de origem do rodapé ({@see MotivoDoEnvioDaCampanha}).
+     *
+     * @var array<int, string>
+     */
+    private array $publicoDaCampanha = [];
+
     public function __construct(
         private readonly CampanhaDeEmailRepository $campanhas,
         private readonly DestinoDaCampanhaRepository $destinos,
@@ -65,6 +72,7 @@ final class ExpansorDeCampanhas
         private readonly LoggerInterface $logger,
         private readonly CotaDeEnvio $cota,
         private readonly ImagensDaCampanha $imagens,
+        private readonly MotivoDoEnvioDaCampanha $motivos,
     ) {
     }
 
@@ -101,8 +109,11 @@ final class ExpansorDeCampanhas
         return $this->destinos->emTransacao(function () use ($tamanho): int {
             $mensagens = [];
             $liberados = 0;
-            foreach ($this->destinos->reservarPendentes($tamanho) as $destino) {
-                $email = $this->mensagem($destino, $mensagens);
+            $lote = $this->destinos->reservarPendentes($tamanho);
+            // C1: a origem de quem está nos Contatos salvos, numa consulta para o lote (só vale nas campanhas desse público).
+            $origens = $this->motivos->origensDosContatos(array_map(static fn (array $d): string => $d['email'], $lote));
+            foreach ($lote as $destino) {
+                $email = $this->mensagem($destino, $mensagens, $origens);
                 if ($email === null) {
                     $this->destinos->descartar($destino['id']);
                     continue;
@@ -248,24 +259,31 @@ final class ExpansorDeCampanhas
     /**
      * O e-mail do destinatário, com a campanha descongelada uma vez por lote. Null se não vira e-mail (o conteúdo ou o
      * endereço deixou de valer): o destinatário sai da execução em vez de travar o lote. A lista é a do destino (§11).
+     * O rodapé diz por que ele recebeu conforme o público da campanha, a lista e, nos Contatos salvos, a origem (C1).
      *
      * @param array{id: int, campanha_id: int, email: string, nome: ?string, lista: string} $destino
      * @param array<int, \App\Comercial\DTO\MensagemDaCampanha|null>          $mensagens
+     * @param array<string, string>                                              $origens   e-mail => origem nos Contatos salvos
      */
-    private function mensagem(array $destino, array &$mensagens): ?MensagemDeEmail
+    private function mensagem(array $destino, array &$mensagens, array $origens): ?MensagemDeEmail
     {
         $id = $destino['campanha_id'];
         if (!\array_key_exists($id, $mensagens)) {
             $campanha = $this->campanhas->porId($id);
             $this->rastrearLeitura[$id] = $campanha['rastrear_leitura'] ?? false;
+            $this->publicoDaCampanha[$id] = $campanha['publico'] ?? '';
             try {
                 $mensagens[$id] = $campanha === null ? null : $this->composicao->descongelar($campanha);
             } catch (CampanhaRecusada) {
                 $mensagens[$id] = null;
             }
         }
+        if ($mensagens[$id] === null) {
+            return null;
+        }
+        $motivo = $this->motivos->frase($this->publicoDaCampanha[$id] ?? '', $destino['lista'], $origens[mb_strtolower($destino['email'])] ?? null);
         try {
-            return $mensagens[$id] === null ? null : $this->composicao->mensagemPara($mensagens[$id], $destino['email'], $destino['nome'], 'campanha:' . $id, $this->rastrearLeitura[$id] ?? false, $this->politica->replyToDaCampanha(), $destino['lista']);
+            return $this->composicao->mensagemPara($mensagens[$id], $destino['email'], $destino['nome'], 'campanha:' . $id, $this->rastrearLeitura[$id] ?? false, $this->politica->replyToDaCampanha(), $destino['lista'], $motivo);
         } catch (CampanhaRecusada | \InvalidArgumentException) {
             $this->logger->error('Comercial: destinatário de campanha descartado (não vira e-mail).', ['campanhaId' => $id, 'destinoId' => $destino['id']]);
 

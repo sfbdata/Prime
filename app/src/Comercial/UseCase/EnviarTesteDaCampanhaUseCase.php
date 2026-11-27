@@ -6,6 +6,7 @@ namespace App\Comercial\UseCase;
 
 use App\Comercial\Campanha\ComposicaoDaCampanha;
 use App\Comercial\Campanha\ImagensDaCampanha;
+use App\Comercial\Campanha\MotivoDoEnvioDaCampanha;
 use App\Comercial\DTO\DestinatarioDaCampanha;
 use App\Comercial\DTO\MensagemDaCampanha;
 use App\Comercial\DTO\TesteEnviado;
@@ -37,6 +38,8 @@ use Psr\Clock\ClockInterface;
  * A trilha manual leva `camp_teste` com só `{total}`. O nome do Master vai no `{nome}` quando o endereço é o dele; os
  * outros seguem sem nome (o montador usa "colega", como numa campanha sem nome).
  * F3i (§12): a imagem do modo simples tem de existir e não ter vencido; o teste não renova a validade.
+ * C1: com o público escolhido na tela, o rodapé leva a frase da origem desse público, como a campanha sairia (nos
+ * Contatos salvos, a frase geral da base: o endereço do teste não é um contato). Sem público, a frase de lista de antes.
  */
 final class EnviarTesteDaCampanhaUseCase
 {
@@ -56,20 +59,25 @@ final class EnviarTesteDaCampanhaUseCase
         private readonly CampanhaDeEmailRepository $campanhas,
         private readonly DestinoDaCampanhaRepository $destinos,
         private readonly ImagensDaCampanha $imagens,
+        private readonly MotivoDoEnvioDaCampanha $motivos,
     ) {
     }
 
-    /** @param list<string> $para endereços já validados (DestinosDoTeste); vazio = só o Master */
-    public function executar(MensagemDaCampanha $mensagem, User $master, array $para = []): TesteEnviado
+    /**
+     * @param list<string> $para    endereços já validados (DestinosDoTeste); vazio = só o Master
+     * @param string       $publico o público escolhido na tela ('' = nenhum: a frase de lista de antes)
+     */
+    public function executar(MensagemDaCampanha $mensagem, User $master, array $para = [], string $publico = ''): TesteEnviado
     {
         $para = $para === [] ? [mb_strtolower(trim((string) $master->getEmail()))] : $para;
+        $motivo = $publico === '' ? null : $this->motivos->frase($publico);
 
         // Um teste por vez para cada Master: o teto, os envios e o registro (que é o contador) sob a mesma trava.
-        return $this->campanhas->comTravaDoTesteDoMaster((int) $master->getId(), fn (): TesteEnviado => $this->enviar($mensagem, $master, $para));
+        return $this->campanhas->comTravaDoTesteDoMaster((int) $master->getId(), fn (): TesteEnviado => $this->enviar($mensagem, $master, $para, $motivo));
     }
 
     /** @param non-empty-list<string> $para */
-    private function enviar(MensagemDaCampanha $mensagem, User $master, array $para): TesteEnviado
+    private function enviar(MensagemDaCampanha $mensagem, User $master, array $para, ?string $motivo): TesteEnviado
     {
         $this->exigirTeto(\count($para), (int) $master->getId());
         ComposicaoDaCampanha::exigirAncoraDeVagas($mensagem);
@@ -80,7 +88,7 @@ final class EnviarTesteDaCampanhaUseCase
         try {
             foreach ($para as $endereco) {
                 $nome = $endereco === mb_strtolower(trim((string) $master->getEmail())) ? $master->getFullName() : '';
-                $email = $this->composicao->mensagemPara($teste, $endereco, $nome, self::ORIGEM);
+                $email = $this->composicao->mensagemPara($teste, $endereco, $nome, self::ORIGEM, motivoDoEnvio: $motivo);
                 $envio = $this->carteiro->enviar($email);
                 if ($envio->foiEnfileirado()) {
                     $enviados[] = ['email' => $email->para, 'nome' => (string) $nome, 'envio' => $envio->envioId];

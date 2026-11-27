@@ -35,6 +35,7 @@ final class ContarPublicosUseCase
             $resolvido->repetidos,
             $resolvido->invalidos,
             $resolvido->puladosPeloIntervalo,
+            $pedido->publico,
         );
     }
 }

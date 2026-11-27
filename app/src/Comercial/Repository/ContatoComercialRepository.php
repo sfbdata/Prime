@@ -112,6 +112,32 @@ class ContatoComercialRepository extends ServiceEntityRepository
         ], $linhas);
     }
 
+    /**
+     * A origem (`importacao` ou `manual`) de cada endereço que está na base, para o rodapé do convite dizer de onde o
+     * contato veio (C1). Quem não está na base não aparece. Uma consulta por chamada, em fatias de 1.000.
+     *
+     * @param list<string> $emails
+     *
+     * @return array<string, string> e-mail (minúsculo) => origem
+     */
+    public function origensPorEmail(array $emails): array
+    {
+        $origens = [];
+        foreach (array_chunk(array_values(array_unique(array_map(static fn (string $e): string => mb_strtolower(trim($e)), $emails))), 1000) as $parte) {
+            /** @var list<array{email: string, origem: string}> $linhas */
+            $linhas = $this->getEntityManager()->getConnection()->fetchAllAssociative(
+                'SELECT c.email, c.origem FROM comercial_contato c WHERE c.email IN (:emails)',
+                ['emails' => $parte],
+                ['emails' => ArrayParameterType::STRING],
+            );
+            foreach ($linhas as $l) {
+                $origens[$l['email']] = $l['origem'];
+            }
+        }
+
+        return $origens;
+    }
+
     /** Classe da trava advisory dos convites (primeiro argumento de `pg_advisory_xact_lock`; o segundo é sempre 0). */
     public const TRAVA_DOS_CONVITES = 4741;
 
