@@ -92,7 +92,7 @@ final class PainelMenuDaContaJsTest extends TestCase
         self::assertStringContainsString('.mp-conta-st { display: flex; align-items: center; justify-content: center; }', $css, 'bloco centrado na célula e na altura da linha');
         self::assertStringNotContainsString('apagada em', $js);
         self::assertStringContainsString("const AI = a => (/Limite/.test(a) ? ['bi-hdd', '#0a6fa0'] : /reativada|reativado|Exclusão de conta cancelada/i.test(a) ? ['bi-play-circle', '#1e7b45'] : /suspensa|excluída", $js, 'recuperar da quarentena tem o ícone verde da reativação, testado antes do vermelho');
-        self::assertStringContainsString('D.contas.contas.filter(c => c.situacao !== QUARENTENA && (!b || casaNaBusca(c, b)))', $js, 'o ranking de armazenamento continua sem a quarentena');
+        self::assertStringContainsString('D.contas.contas.filter(c => c.situacao !== QUARENTENA && (!S.rPlano', $js, 'o ranking de armazenamento continua sem a quarentena');
     }
 
     #[TestDox('excluir: modal com o texto aprovado, botão "Excluir conta" e a palavra EXCLUIR, que vai no corpo para o servidor conferir')]

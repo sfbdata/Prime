@@ -47,7 +47,9 @@ final class PainelAncoraJsTest extends TestCase
         $js = self::js();
 
         self::assertStringContainsString("S.aba = aba && raiz.querySelector('[data-aba=\"' + aba + '\"]') ? aba : 'painel';", $js);
-        self::assertStringContainsString("const sec = doHash('sec') || (location.hash.length > 1 ? null : 'visao');", $js);
+        self::assertStringContainsString("const lida = doHash('sec') || (location.hash.length > 1 ? null : 'visao'), sec = SEC_ANTIGA[lida] || lida;", $js);
+        // Armazenamento entrou em "Planos e armazenamento" (27/11): o endereço antigo abre a seção unificada.
+        self::assertStringContainsString("const SEC_ANTIGA = { arm: 'planos' };", $js);
     }
 
     #[TestDox('M5.16: trocar a aba ou a seção escreve a âncora canônica no endereço, com entrada no histórico')]
