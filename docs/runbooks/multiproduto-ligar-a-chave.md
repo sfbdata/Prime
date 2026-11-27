@@ -15,7 +15,7 @@ Todos os comandos rodam na VPS, na pasta do projeto (`/opt/jusprime`).
 - Em `observacao`, o menu já obedece à escolha da conta e as telas seguem abertas. Quando alguém abriria uma tela de
   ferramenta que a conta não tem, o sistema só anota no log.
 - Em `bloqueio`, essa tela passa a dar "página não encontrada".
-- Escritório sem linha na tabela `contratacao` (os 33 de hoje) continua com tudo, em qualquer valor. Em produção a
+- Escritório sem linha na tabela `contratacao` (os 36 de hoje) continua com tudo, em qualquer valor. Em produção a
   tabela está vazia. Quem nasce pelo site do Voto (`/cadastro?produto=voto`) tem só o Voto.
 
 Só o serviço `php` precisa da chave (a guarda e o menu rodam nele). O `worker` e o `scheduler` leem o mesmo
@@ -32,7 +32,7 @@ Só o serviço `php` precisa da chave (a guarda e o menu rodam nele). O `worker`
    docker exec jusprime_php_prod grep -c multiproduto /var/www/app/config/packages/monolog.yaml
    ```
 
-   **Esperado:** um número maior que 0 (confirmar na VPS: o caminho `/var/www/app` vem do `WORKDIR` do Dockerfile).
+   **Esperado:** um número maior que 0.
    Se vier `0` ou erro de arquivo, a versão com a guarda ainda não foi publicada: pare aqui.
 
 2. Veja o valor atual da chave (só o valor dela, nada mais):
@@ -68,7 +68,7 @@ Só o serviço `php` precisa da chave (a guarda e o menu rodam nele). O `worker`
 
    **Esperado:** `1`.
 
-2. Recrie o php e recarregue o nginx logo depois (sem o reload, o site dá 502):
+2. Recrie o php e recarregue o nginx logo depois (sem o reload, o site dá 502). O site fica fora do ar (erro 502) até o php ficar healthy, cerca de 1 a 2 minutos. Faça em horário calmo.
 
    ```bash
    # Execute manualmente no terminal externo (na VPS)
@@ -99,25 +99,27 @@ Em produção a guarda escreve no `stderr` do php, uma linha JSON por ocorrênci
 
 ```bash
 # Execute manualmente no terminal externo (na VPS)
-docker logs --since 24h jusprime_php_prod 2>&1 | grep '"channel":"multiproduto"' | tail -50
+docker logs --since 72h jusprime_php_prod 2>&1 | grep '"channel":"multiproduto"' | tail -50
 ```
 
-(Confirmar na VPS: o formato exato do JSON. A linha traz a mensagem "Rota de produto que o escritório não tem", a
-`rota`, o `tenant` (id do escritório) e os `produtos` que a rota exige.)
+Cada linha é JSON com `"message":"Rota de produto que o escritório não tem"` e, dentro de `"context"`, a `rota`, o
+`tenant` (id do escritório) e os `produtos` que a rota exige.
 
-Para contar por escritório (a coluna da esquerda é a quantidade, a da direita o id):
+Para contar por escritório (a coluna da esquerda é a quantidade, a da direita aparece como `"tenant":ID`):
 
 ```bash
 # Execute manualmente no terminal externo (na VPS)
-docker logs --since 24h jusprime_php_prod 2>&1 | grep '"channel":"multiproduto"' | grep -o '"tenant":[0-9]*' | sort | uniq -c | sort -rn
+docker logs --since 72h jusprime_php_prod 2>&1 | grep '"channel":"multiproduto"' | grep -o '"tenant":[0-9]*' | sort | uniq -c | sort -rn
 ```
+
+Se o php for recriado (deploy) durante a observação, o log anterior se perde: consulte antes de cada deploy e anote o resultado.
 
 Sem nenhuma linha: normal. Hoje ninguém tem linha em `contratacao`, então nada deve ser anotado.
 
 O que é **normal** ver: só escritórios que nasceram pelo Voto (ou que alguém mexeu em Meu Perfil > Ferramentas), com a
 rota de uma ferramenta que eles não escolheram. Isso é o que o `bloqueio` vai travar.
 
-O que é **surpresa**: qualquer escritório antigo (dos 33 de hoje) aparecendo. Ele não tem linha e deveria ter tudo.
+O que é **surpresa**: qualquer escritório antigo (dos 36 de hoje) aparecendo. Ele não tem linha e deveria ter tudo.
 Nesse caso **não siga para o passo 2 (bloqueio)**: anote o `tenant` e a `rota` e avise o Coordenador.
 
 Também é surpresa: escritório novo anotado em rota que ele deveria ter (por exemplo, conta só Voto na rota do
@@ -135,6 +137,8 @@ cd /opt/jusprime && sed -i 's/^MULTIPRODUTO_MODO=.*/MULTIPRODUTO_MODO=bloqueio/'
 grep '^MULTIPRODUTO_MODO=' .env.prod
 ```
 
+Se o grep não mostrar linha nenhuma, a linha não existe: use o bloco do printf do passo 1.
+
 **Esperado:** uma linha só, `MULTIPRODUTO_MODO=bloqueio`. Se aparecer mais de uma, apague as repetidas:
 
 ```bash
@@ -143,7 +147,7 @@ cd /opt/jusprime && sed -i '/^MULTIPRODUTO_MODO=/d' .env.prod && printf '\nMULTI
 grep -c '^MULTIPRODUTO_MODO=' .env.prod
 ```
 
-Recrie, recarregue o nginx e confira:
+Recrie, recarregue o nginx e confira. O site fica fora do ar (erro 502) até o php ficar healthy, cerca de 1 a 2 minutos. Faça em horário calmo.
 
 ```bash
 # Execute manualmente no terminal externo (na VPS)
@@ -165,9 +169,11 @@ docker exec jusprime_php_prod sh -c 'echo "$MULTIPRODUTO_MODO"'
    "página não encontrada".
 2. **Ferramentas:** com uma conta que não é só Voto, abra Meu Perfil > Ferramentas, desligue uma ferramenta e
    salve. Ela some do menu. Ligue de novo e salve: ela volta.
-3. **Escritório antigo:** entre com uma conta de um dos 33 escritórios de hoje que não mexeu em Ferramentas. O menu
+3. **Escritório antigo:** entre com uma conta de um dos 36 escritórios de hoje que não mexeu em Ferramentas. O menu
    e as telas continuam iguais a antes.
-4. **Master:** entra em tudo como sempre, inclusive em ferramenta que um escritório não tem.
+4. **Conector de IA e botão Judicializar da Cobrança:** o bloqueio vale para os dois. Só aparecem se a conta tem a
+   ferramenta ligada.
+5. **Master:** entra em tudo como sempre, inclusive em ferramenta que um escritório não tem.
 
 Se algo destoar, volte atrás (passo 7) e avise o Coordenador.
 
@@ -175,7 +181,7 @@ Se algo destoar, volte atrás (passo 7) e avise o Coordenador.
 
 ## 7. Voltar atrás
 
-Troque o valor para `desligado`, recrie o php e recarregue o nginx. Volta a ser exatamente como era antes da chave.
+Troque o valor para `desligado`, recrie o php e recarregue o nginx. Volta a ser exatamente como era antes da chave. O site fica fora do ar (erro 502) até o php ficar healthy, cerca de 1 a 2 minutos. Faça em horário calmo.
 
 ```bash
 # Execute manualmente no terminal externo (na VPS)
@@ -186,6 +192,8 @@ docker exec jusprime_nginx_prod nginx -t && docker exec jusprime_nginx_prod ngin
 docker inspect -f '{{.State.Health.Status}}' jusprime_php_prod
 docker exec jusprime_php_prod sh -c 'echo "$MULTIPRODUTO_MODO"'
 ```
+
+Se o grep não mostrar linha nenhuma, a linha não existe: use o bloco do printf do passo 1 (com `desligado`).
 
 **Esperado:** uma linha `MULTIPRODUTO_MODO=desligado` (se vier mais de uma, apague as repetidas como no passo 5),
 `healthy` e `desligado`. Para voltar do `bloqueio` para o `observacao`, o mesmo roteiro, trocando a palavra.
