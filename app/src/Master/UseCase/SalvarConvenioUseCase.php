@@ -16,6 +16,7 @@ use App\Master\Service\CodigoDeConvenio;
 use App\Master\Service\FimDoConvenio;
 use App\Master\Service\SorteioDeCodigoDeConvite;
 use App\Shared\Audit\EscopoDeAuditoriaDePlataforma;
+use Doctrine\DBAL\Exception\UniqueConstraintViolationException;
 use Psr\Clock\ClockInterface;
 use Symfony\Component\String\Slugger\SluggerInterface;
 
@@ -61,7 +62,12 @@ final class SalvarConvenioUseCase
                 $convenio->trocarCodigo($this->codigoNovo(), $input->ator, $agora);
             }
         }
-        $this->escopoDePlataforma->executar(fn () => $this->convenios->salvar($convenio, flush: true));
+        try {
+            $this->escopoDePlataforma->executar(fn () => $this->convenios->salvar($convenio, flush: true));
+        } catch (UniqueConstraintViolationException) {
+            // Dois saves do mesmo código ao mesmo tempo: a conferência acima passou nos dois e o índice único recusou o segundo.
+            throw new ConvenioRecusado('Este código já é de outro convênio. Escolha outro.');
+        }
 
         return ['convenio' => $convenio, 'criado' => $input->id === null];
     }
