@@ -105,22 +105,67 @@ final class ComercialDoMasterControllerTest extends JusPrimeWebTestCase
         self::assertResponseStatusCodeSame(403);
     }
 
-    #[TestDox('"Simular novo cadastro" grava 2 disparos simulados, mostra a mensagem do desenho, não envia nada; o destinatário vem mascarado')]
+    #[TestDox('B3: "Simular novo cadastro" envia a confirmação na hora e põe as boas-vindas na fila, as duas com "[TESTE]", sem criar conta; aparecem mascaradas em Últimos disparos')]
     public function testSimular(): void
     {
         $client = $this->clienteMaster();
-        $this->postar($client, '/master/comercial/simular-cadastro', []);
+        $usuarios = (int) $this->conexao()->fetchOne('SELECT COUNT(*) FROM "user"');
+        $this->postar($client, '/master/comercial/simular-cadastro', ['email' => ' Novo.Cliente@Exemplo.com ']);
 
         self::assertResponseIsSuccessful();
-        self::assertSame(SimularNovoCadastroUseCase::MENSAGEM, $this->json($client)['mensagem']);
-        self::assertEmailCount(0);
-        self::assertSame(2, (int) $this->conexao()->fetchOne("SELECT COUNT(*) FROM comercial_envio WHERE situacao = 'simulado'"));
-        self::assertSame(0, (int) $this->conexao()->fetchOne('SELECT COUNT(*) FROM comercial_envio_conteudo'), 'simulação não tem conteúdo nem mensagem na fila');
+        self::assertSame(sprintf(SimularNovoCadastroUseCase::MENSAGEM, 'novo.cliente@exemplo.com'), $this->json($client)['mensagem']);
+        self::assertEmailCount(1);
+        $confirmacao = self::getMailerMessage();
+        self::assertNotNull($confirmacao);
+        self::assertEmailAddressContains($confirmacao, 'To', 'novo.cliente@exemplo.com');
+        self::assertEmailHeaderSame($confirmacao, 'Subject', '[BlueJus] [TESTE] Confirme seu e-mail no BlueJus');
+        self::assertEmailHtmlBodyContains($confirmacao, 'Colega');
+        $linhas = $this->conexao()->fetchAllKeyValue("SELECT origem, situacao FROM comercial_envio WHERE destinatario = 'novo.cliente@exemplo.com' ORDER BY origem");
+        self::assertSame(['simulacao:cad' => 'enviado', 'simulacao:val' => 'enfileirado'], $linhas);
+        self::assertStringStartsWith('[TESTE] ', (string) $this->conexao()->fetchOne("SELECT assunto FROM comercial_envio WHERE origem = 'simulacao:val'"));
+        self::assertSame($usuarios, (int) $this->conexao()->fetchOne('SELECT COUNT(*) FROM "user"'), 'nenhuma conta criada');
+        self::assertSame(0, (int) $this->conexao()->fetchOne("SELECT COUNT(*) FROM comercial_envio WHERE origem LIKE 'automacao:%'"), 'fora dos números das automações');
 
         $client->request('GET', '/master/comercial/automacoes');
         $ultimos = $this->json($client)['ultimos'];
-        self::assertSame(['E-mail confirmado', 'Conta aberta'], array_column($ultimos, 'gatilho'));
+        self::assertSame(['E-mail confirmado', 'Conta aberta'], array_column(\array_slice($ultimos, 0, 2), 'gatilho'));
         self::assertSame('n***@exemplo.com', $ultimos[0]['destinatario']);
+
+        // Para o endereço do próprio Master, o "Olá" leva o nome dele.
+        $doMaster = (string) $this->conexao()->fetchOne("SELECT email FROM \"user\" WHERE email LIKE 'comercial_%' ORDER BY id DESC LIMIT 1");
+        $this->postar($client, '/master/comercial/simular-cadastro', ['email' => $doMaster]);
+        self::assertResponseIsSuccessful();
+        $paraOMaster = self::getMailerMessage();
+        self::assertNotNull($paraOMaster);
+        self::assertEmailHtmlBodyContains($paraOMaster, 'Pessoa Comercial');
+    }
+
+    #[TestDox('B3: com as boas-vindas desligadas, sai só a confirmação; endereço inválido e o teto de 30 por hora respondem 422 sem enviar')]
+    public function testSimularRecusasEBoasVindasDesligadas(): void
+    {
+        $client = $this->clienteMaster();
+        $this->postar($client, '/master/comercial/automacoes/val', ['ligada' => false]);
+        self::assertResponseIsSuccessful();
+        $this->postar($client, '/master/comercial/simular-cadastro', ['email' => 'pessoa@exemplo.com']);
+        self::assertResponseIsSuccessful();
+        self::assertSame(sprintf(SimularNovoCadastroUseCase::MENSAGEM_SEM_BOAS_VINDAS, 'pessoa@exemplo.com'), $this->json($client)['mensagem']);
+        self::assertSame(0, (int) $this->conexao()->fetchOne("SELECT COUNT(*) FROM comercial_envio WHERE origem = 'simulacao:val'"));
+
+        $this->postar($client, '/master/comercial/simular-cadastro', ['email' => 'nao-e-email']);
+        self::assertResponseStatusCodeSame(422);
+        self::assertSame(SimularNovoCadastroUseCase::ENDERECO_INVALIDO, $this->json($client)['erro']);
+
+        for ($i = 1; $i < SimularNovoCadastroUseCase::TETO_POR_HORA; ++$i) {
+            $this->conexao()->insert('comercial_envio', [
+                'token' => bin2hex(random_bytes(16)), 'destinatario' => 'p' . $i . '@exemplo.com', 'assunto' => 'x', 'tipo' => 'transacional',
+                'origem' => SimularNovoCadastroUseCase::ORIGEM_CONFIRMACAO, 'situacao' => 'enviado', 'criado_em' => (new \DateTimeImmutable())->format('Y-m-d H:i:s'),
+                'aberturas' => 0, 'cliques' => 0,
+            ]);
+        }
+        $this->postar($client, '/master/comercial/simular-cadastro', ['email' => 'pessoa@exemplo.com']);
+        self::assertResponseStatusCodeSame(422);
+        self::assertSame(SimularNovoCadastroUseCase::TETO_ATINGIDO, $this->json($client)['erro']);
+        self::assertEmailCount(0);
     }
 
     #[TestDox('Prévia do modelo: boas-vindas com o título do desenho e o rodapé legal; avisos de espaço com o limite escolhido; nada é enviado')]

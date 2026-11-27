@@ -377,6 +377,11 @@ comercial:
         auto_ok_ligada: 'Automation "{titulo}" turned on.'
         auto_ok_desligada: 'Automation "{titulo}" turned off.'
         auto_ok_atraso: 'Automation "{titulo}" updated: {atraso}.'
+        simular_titulo: Simulate new signup
+        simular_texto: 'We will send to the address below the two emails a new account receives: the email confirmation and the welcome email, with "[TESTE]" in the subject. No account is created.'
+        simular_rotulo: Email that receives the simulation
+        simular_botao: Send simulation
+        simular_enviando: Sending the simulation…
         datas_ant_de: '{nome}: {ant}'
         datas_para_quem_de: '{nome}: audience'
         datas_ver_de: 'View message for {nome}'

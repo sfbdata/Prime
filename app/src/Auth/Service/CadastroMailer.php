@@ -89,6 +89,32 @@ final class CadastroMailer
     }
 
     /**
+     * "Simular novo cadastro" do Master (B3 do teste do Farlei, 27/11/2026): o mesmo e-mail de confirmação que a conta
+     * nova recebe ({@see self::enviarConfirmacaoDeEmail()}, mesmo modelo e mesma identidade), com o assunto marcado como
+     * teste. Não há conta a confirmar: o botão leva à tela de entrar. Não dispara evento nem cria nada; quem chama grava a
+     * linha de "Últimos disparos" (por isso o cabeçalho que tira o e-mail da contagem do ouvinte da cota). Devolve o assunto.
+     */
+    public function enviarConfirmacaoDeTeste(string $para, string $nome, string $prefixoDoAssunto): string
+    {
+        $email = (new Email())
+            ->to($para)
+            ->html($this->twig->render('auth/cadastro/email_confirmacao.html.twig', [
+                'nome' => $nome,
+                'link' => $this->urlGenerator->generate('app_login', [], UrlGeneratorInterface::ABSOLUTE_URL),
+            ]));
+        $this->identidadeDeEmail->aplicar($email, $prefixoDoAssunto . 'Confirme seu e-mail no BlueJus');
+        $email->getHeaders()->addTextHeader(RegistroDeEmailSincronoListener::CABECALHO, '1');
+
+        try {
+            $this->mailer->send($email);
+        } catch (TransportExceptionInterface $e) {
+            throw new \RuntimeException('Falha ao enviar o e-mail de confirmação de teste: ' . $e->getMessage(), previous: $e);
+        }
+
+        return (string) $email->getSubject();
+    }
+
+    /**
      * Cadastro com um e-mail que já tem conta (spec `seguranca-a-convites.md`, raiz E): a tela não diz nada, e a
      * dona da conta fica sabendo por aqui, com o caminho do "Esqueci a senha". Não leva link de confirmação.
      */

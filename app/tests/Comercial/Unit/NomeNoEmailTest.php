@@ -65,11 +65,17 @@ final class NomeNoEmailTest extends TestCase
         self::assertSame('Ana, veja', MontadorDeEmail::trocarNome('{nome}, veja', 'Ana'));
     }
 
-    #[TestDox('A simulação do novo cadastro diz que é só simulação e que nenhum e-mail foi enviado')]
+    #[TestDox('B3: a simulação do novo cadastro diz para onde foi, que leva "[TESTE]" e que nenhuma conta foi criada; teto de 30 por hora')]
     public function testMensagemDaSimulacao(): void
     {
-        self::assertStringContainsString('só uma simulação', SimularNovoCadastroUseCase::MENSAGEM);
-        self::assertStringContainsString('nenhum e-mail foi enviado', SimularNovoCadastroUseCase::MENSAGEM);
+        foreach ([SimularNovoCadastroUseCase::MENSAGEM, SimularNovoCadastroUseCase::MENSAGEM_SEM_BOAS_VINDAS] as $mensagem) {
+            self::assertStringContainsString('Simulação enviada para %s', $mensagem);
+            self::assertStringContainsString('"[TESTE]"', $mensagem);
+            self::assertStringContainsString('Nenhuma conta foi criada', $mensagem);
+        }
+        self::assertSame('[TESTE] ', SimularNovoCadastroUseCase::PREFIXO);
+        self::assertSame(30, SimularNovoCadastroUseCase::TETO_POR_HORA);
+        self::assertStringContainsString('30', SimularNovoCadastroUseCase::TETO_ATINGIDO);
     }
 
     #[TestDox('O teto de envios de teste é de 30 por hora')]

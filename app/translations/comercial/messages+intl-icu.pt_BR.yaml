@@ -384,6 +384,11 @@ comercial:
         auto_ok_ligada: 'Automação "{titulo}" ligada.'
         auto_ok_desligada: 'Automação "{titulo}" desligada.'
         auto_ok_atraso: 'Automação "{titulo}" atualizada: {atraso}.'
+        simular_titulo: Simular novo cadastro
+        simular_texto: 'Enviamos para o endereço abaixo os dois e-mails que uma conta nova recebe: a confirmação do e-mail e as boas-vindas, com "[TESTE]" no assunto. Nenhuma conta é criada.'
+        simular_rotulo: E-mail que recebe a simulação
+        simular_botao: Enviar simulação
+        simular_enviando: Enviando a simulação…
         datas_ant_de: '{nome}: {ant}'
         datas_para_quem_de: '{nome}: para quem'
         datas_ver_de: 'Ver mensagem de {nome}'
